@@ -9,7 +9,7 @@ x-app: &app
   volumes:
     - spire-agent-socket:/run/spire/sockets:ro
     - ../pingfederate/generated/local-runtime-ca.pem:/run/pingfederate/ca.pem:ro
-    - ../../config/authorization.json:/run/wai/authorization.json:ro
+    - ../../config/authorization.rego:/run/wai/authorization.rego:ro
   networks: [wai-app]
 
 services:

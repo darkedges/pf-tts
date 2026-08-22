@@ -124,7 +124,10 @@ tokens appearing in captured output.
 
 ## Trusted MCP authorization policy
 
-The gateway loads `config/authorization.json` from a read-only container mount.
-Rules match only verified AgentID, transaction workload SPIFFE ID, purpose,
-scope, target, and tool values. Unknown or ambiguous policy entries fail
-closed, and structured allow/deny events contain no bearer material.
+The gateway compiles `config/authorization.rego` with OPA in-process from a
+read-only container mount. Policy input contains only the typed, verified
+AgentID, agent instance ID, transaction workload SPIFFE ID, purpose, scopes,
+target, and tool. Undefined, non-boolean, timed-out, or failed decisions deny.
+OPA network built-ins are disabled and structured decisions contain no bearer
+material. The small authorization interface remains available for a future
+PingAuthorize adapter.

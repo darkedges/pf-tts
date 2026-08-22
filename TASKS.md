@@ -523,6 +523,23 @@ Acceptance criteria:
 - An allowed request must fail closed if its audit event cannot be written.
 - Add unit failure cases and exercise the allow path in the live lab.
 
+## Task 25 — OPA authorization policy adapter
+
+Goal: evaluate the trusted MCP authorization policy with OPA while preserving
+an adapter boundary for a later PingAuthorize implementation.
+
+Acceptance criteria:
+
+- Compile a repository-owned Rego policy at gateway startup.
+- Evaluate OPA in-process using only typed, verified identity and route input.
+- Keep the Rego file on a read-only container mount with a 1 MiB load limit.
+- Disable OPA network-capable built-ins.
+- Require exactly one boolean `data.wai.authz.allow` decision.
+- Deny undefined, false, non-boolean, cancelled, timed-out, and failed results.
+- Preserve the request context through the authorizer boundary.
+- Add failure tests for identity conflict, ambiguous result, invalid policy,
+  cancellation, and attempted outbound policy access.
+
 ## Post-MVP backlog
 
 Only after Tasks 00–23:

@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,7 +87,7 @@ func (p *Policy) add(rule Rule) error {
 	return nil
 }
 
-func (p *Policy) Authorize(value identity.RequestIdentityContext, target, tool string) error {
+func (p *Policy) Authorize(_ context.Context, value identity.RequestIdentityContext, target, tool string) error {
 	if p == nil {
 		return ErrDenied
 	}

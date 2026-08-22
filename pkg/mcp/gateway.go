@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -29,7 +30,7 @@ type Gateway struct {
 }
 
 type Authorizer interface {
-	Authorize(identity.RequestIdentityContext, string, string) error
+	Authorize(context.Context, identity.RequestIdentityContext, string, string) error
 }
 
 func NewGateway(client *http.Client, targets []Target) (*Gateway, error) {
@@ -108,7 +109,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			TransactionWorkloadID: value.OriginalWorkload.SPIFFEID, ImmediateCallerSPIFFEID: value.ImmediateCaller.SPIFFEID,
 			Target: target.Name + ":" + name,
 		}
-		if g.authz.Authorize(value, target.Name, name) != nil {
+		if g.authz.Authorize(r.Context(), value, target.Name, name) != nil {
 			event.Type, event.Decision, event.ReasonCode = audit.MCPToolDenied, "deny", "policy_denied"
 			_ = g.audit.Write(event)
 			http.Error(w, "authorization denied", http.StatusForbidden)

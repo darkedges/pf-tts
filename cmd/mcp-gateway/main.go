@@ -33,12 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	policyFile, err := os.Open("/run/wai/authorization.json")
-	if err != nil {
-		log.Fatal(err)
-	}
-	policy, err := authorization.LoadJSON(policyFile)
-	_ = policyFile.Close()
+	policy, err := authorization.NewOPA(ctx, "/run/wai/authorization.rego", 100*time.Millisecond)
 	if err != nil {
 		log.Fatal(err)
 	}

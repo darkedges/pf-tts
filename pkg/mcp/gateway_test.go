@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +40,7 @@ func TestGatewayRoutesAllowedToolAndPreservesToken(t *testing.T) {
 
 type testAuthorizer struct{ allow bool }
 
-func (a testAuthorizer) Authorize(identity.RequestIdentityContext, string, string) error {
+func (a testAuthorizer) Authorize(context.Context, identity.RequestIdentityContext, string, string) error {
 	if !a.allow {
 		return ErrRouteDenied
 	}

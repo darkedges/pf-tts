@@ -1,6 +1,7 @@
 package authorization
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -26,7 +27,7 @@ func TestPolicyAllowsExactVerifiedTuple(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := policy.Authorize(requestIdentity(t), "demo", "system.whoami"); err != nil {
+	if err := policy.Authorize(context.Background(), requestIdentity(t), "demo", "system.whoami"); err != nil {
 		t.Fatalf("exact trusted tuple denied: %v", err)
 	}
 }
@@ -52,7 +53,7 @@ func TestPolicyDeniesEveryConflictingIdentityDimension(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			value := requestIdentity(t)
 			tt.mutate(&value)
-			if err := policy.Authorize(value, tt.target, tt.tool); err == nil {
+			if err := policy.Authorize(context.Background(), value, tt.target, tt.tool); err == nil {
 				t.Fatal("conflicting authorization tuple accepted")
 			}
 		})
