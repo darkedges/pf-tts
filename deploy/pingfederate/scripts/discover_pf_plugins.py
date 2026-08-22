@@ -7,6 +7,7 @@ Uses the PingFederate Admin API:
   GET /idp/tokenProcessors/descriptors
   GET /oauth/accessTokenManagers/descriptors
   GET /passwordCredentialValidators/descriptors
+  GET /idp/adapters/descriptors
 
 Authentication:
   PF_ADMIN_URL      e.g. https://localhost:9999/pf-admin-api/v1
@@ -132,11 +133,13 @@ version = get("/version")
 token_processors = get("/idp/tokenProcessors/descriptors")
 atms = get("/oauth/accessTokenManagers/descriptors")
 pcvs = get("/passwordCredentialValidators/descriptors")
+idp_adapters = get("/idp/adapters/descriptors")
 
 (out_dir/"version.json").write_text(json.dumps(version, indent=2))
 (out_dir/"token-processor-descriptors.json").write_text(json.dumps(token_processors, indent=2))
 (out_dir/"access-token-manager-descriptors.json").write_text(json.dumps(atms, indent=2))
 (out_dir/"password-credential-validator-descriptors.json").write_text(json.dumps(pcvs, indent=2))
+(out_dir/"idp-adapter-descriptors.json").write_text(json.dumps(idp_adapters, indent=2))
 
 tp_items = token_processors.get("items", [])
 atm_items = atms.get("items", [])

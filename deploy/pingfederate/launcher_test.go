@@ -34,6 +34,9 @@ func TestPluginDiscoveryDoesNotEchoAdminAPIErrorBodies(t *testing.T) {
 	if !strings.Contains(script, "/passwordCredentialValidators/descriptors") {
 		t.Fatal("plugin discovery must capture the reviewed lab credential-validator descriptor")
 	}
+	if !strings.Contains(script, "/idp/adapters/descriptors") {
+		t.Fatal("plugin discovery must capture hosted-login adapter descriptors before browser client configuration")
+	}
 }
 
 func TestSpireJWKSExportRejectsAmbiguousOrNonSigningKeys(t *testing.T) {
@@ -140,6 +143,96 @@ func TestOAuthClientIgnoresOnlyWriteOnlySecretRepresentations(t *testing.T) {
 	for _, forbidden := range []string{"ignore_changes = all", "ignore_changes = [client_auth]"} {
 		if strings.Contains(config, forbidden) {
 			t.Fatalf("OAuth client must not hide authentication-type or unrelated drift: %q", forbidden)
+		}
+	}
+}
+
+func TestBrowserClientUsesOnlyHostedAuthorizationCodeWithPKCE(t *testing.T) {
+	b, err := os.ReadFile("terraform/browser_login.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(b)
+	for _, required := range []string{
+		`grant_types                         = ["AUTHORIZATION_CODE"]`,
+		`restricted_response_types           = ["CODE"]`,
+		`require_proof_key_for_code_exchange = true`,
+		`redirect_uris                       = [var.browser_redirect_uri]`,
+		`restrict_scopes   = true`,
+		`restrict_to_default_access_token_manager = true`,
+		`bypass_approval_page                = false`,
+	} {
+		if !strings.Contains(config, required) {
+			t.Fatalf("browser OAuth client missing fail-closed control %q", required)
+		}
+	}
+	for _, forbidden := range []string{`"REFRESH_TOKEN"`, `"IMPLICIT"`, `"RESOURCE_OWNER_CREDENTIALS"`, `redirect_uris = ["*`, `require_proof_key_for_code_exchange = false`} {
+		if strings.Contains(config, forbidden) {
+			t.Fatalf("browser OAuth client enables unsafe capability %q", forbidden)
+		}
+	}
+}
+
+func TestBrowserLoginIdentityComesFromHostedValidatedAdapter(t *testing.T) {
+	b, err := os.ReadFile("terraform/browser_login.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(b)
+	for _, required := range []string{
+		`com.pingidentity.adapters.htmlform.idp.HtmlFormIdpAuthnAdapter`,
+		`value = pingfederate_password_credential_validator.lab_user.validator_id`,
+		`mapping_id = pingfederate_idp_adapter.browser_login.adapter_id`,
+		`type = "IDP_ADAPTER"`,
+		`source = { type = "ADAPTER" }`,
+		`value  = "username"`,
+		`source = { type = "TOKEN" }`,
+		`value  = "user_id"`,
+	} {
+		if !strings.Contains(config, required) {
+			t.Fatalf("browser hosted-login binding missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{`source = { type = "REQUEST" }`, `source = { type = "TEXT" }`, `value  = var.lab_user_name`} {
+		if strings.Contains(config, forbidden) {
+			t.Fatalf("browser identity must not come from caller or static assertion %q", forbidden)
+		}
+	}
+}
+
+func TestBrowserClientSecretDriftDoesNotHideOtherSettings(t *testing.T) {
+	b, err := os.ReadFile("terraform/browser_login.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(b)
+	for _, required := range []string{"client_auth.secret", "client_auth.encrypted_secret"} {
+		if !strings.Contains(config, required) {
+			t.Fatalf("browser client must suppress write-only secret drift for %q", required)
+		}
+	}
+	for _, forbidden := range []string{"ignore_changes = all", "ignore_changes = [client_auth]"} {
+		if strings.Contains(config, forbidden) {
+			t.Fatalf("browser client must not hide unrelated drift: %q", forbidden)
+		}
+	}
+}
+
+func TestBrowserVariablesRejectWeakSecretAndAmbiguousRedirect(t *testing.T) {
+	b, err := os.ReadFile("terraform/variables.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(b)
+	for _, required := range []string{
+		`length(var.browser_client_secret) >= 32`,
+		`^https://[A-Za-z0-9.-]+(:[0-9]+)?/[^?#*]+$`,
+		`!strcontains(var.browser_redirect_uri, "*")`,
+		`!strcontains(var.browser_redirect_uri, "?")`,
+		`!strcontains(var.browser_redirect_uri, "#")`,
+	} {
+		if !strings.Contains(config, required) {
+			t.Fatalf("browser variable validation missing %q", required)
 		}
 	}
 }

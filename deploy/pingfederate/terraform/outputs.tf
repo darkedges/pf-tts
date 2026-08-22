@@ -10,6 +10,14 @@ output "lab_user_client_id" {
   value = pingfederate_oauth_client.lab_user.client_id
 }
 
+output "browser_client_id" {
+  value = pingfederate_oauth_client.browser.client_id
+}
+
+output "browser_redirect_uri" {
+  value = var.browser_redirect_uri
+}
+
 output "transaction_access_token_manager_id" {
   value = pingfederate_oauth_access_token_manager.transaction.manager_id
 }

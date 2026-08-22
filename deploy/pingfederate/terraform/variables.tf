@@ -107,6 +107,53 @@ variable "lab_user_client_secret" {
   }
 }
 
+variable "browser_client_id" {
+  description = "Dedicated confidential OAuth/OIDC client used only by the browser BFF."
+  type        = string
+  default     = "wai-web-app"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$", var.browser_client_id))
+    error_message = "The browser OAuth client ID must be a simple 3-64 character identifier."
+  }
+}
+
+variable "browser_client_secret" {
+  description = "Browser BFF OAuth client secret. Inject with TF_VAR_browser_client_secret; never commit it."
+  type        = string
+  sensitive   = true
+
+  validation {
+    condition     = length(var.browser_client_secret) >= 32
+    error_message = "The browser OAuth client secret must contain at least 32 characters."
+  }
+}
+
+variable "browser_redirect_uri" {
+  description = "Exact HTTPS callback URI registered for the local browser BFF. Wildcards, query strings, and fragments are forbidden."
+  type        = string
+  default     = "https://localhost:8446/oauth/callback"
+
+  validation {
+    condition = (can(regex("^https://[A-Za-z0-9.-]+(:[0-9]+)?/[^?#*]+$", var.browser_redirect_uri)) &&
+      !strcontains(var.browser_redirect_uri, "*") &&
+      !strcontains(var.browser_redirect_uri, "?") &&
+    !strcontains(var.browser_redirect_uri, "#"))
+    error_message = "The browser redirect URI must be one exact HTTPS URI without credentials, wildcards, query, or fragment."
+  }
+}
+
+variable "browser_scopes" {
+  description = "Exact scopes available to the browser Authorization Code client."
+  type        = set(string)
+  default     = ["openid", "mcp:invoke"]
+
+  validation {
+    condition     = length(var.browser_scopes) == 2 && contains(var.browser_scopes, "openid") && alltrue([for scope in var.browser_scopes : length(trimspace(scope)) > 0])
+    error_message = "The browser client must have exactly two non-empty scopes including openid."
+  }
+}
+
 variable "subject_token_processor_id" {
   description = "PingFederate token processor instance used to validate subject/user access tokens."
   type        = string

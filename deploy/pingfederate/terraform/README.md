@@ -24,6 +24,8 @@ The baseline declares:
 - transaction JWT Access Token Manager,
 - access-token mapping,
 - confidential OAuth token-exchange client,
+- PingFederate-hosted HTML form login bound to the reviewed lab credential validator,
+- dedicated Authorization Code + PKCE browser client and signed OIDC policy,
 - restricted token-exchange scope,
 - explicit SPIFFE-to-logical-agent bindings as Terraform input.
 
@@ -75,6 +77,8 @@ Inject the OAuth client secret separately:
 
 ```bash
 export TF_VAR_token_exchange_client_secret='...'
+export TF_VAR_browser_client_secret='a-distinct-random-secret-of-at-least-32-characters'
+```
 
 PingFederate returns only an encrypted representation of an existing client
 secret. Terraform therefore ignores drift only for `client_auth.secret` and
@@ -88,9 +92,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-pf-terraform.ps1
 
 This briefly recreates the lab client, so coordinate consumers of the old
 secret before running it.
-```
 
 Do not place it in a committed tfvars file.
+
+The browser client is deliberately separate from the password, token-exchange,
+and MCP resource-server clients. It permits only `AUTHORIZATION_CODE`, requires
+PKCE, accepts only the `CODE` response type, has one exact HTTPS redirect URI,
+does not issue refresh tokens, and restricts scopes to `openid` plus
+`mcp:invoke`. User credentials are entered only into PingFederate's hosted HTML
+form adapter.
 
 ## Usage
 

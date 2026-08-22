@@ -4,6 +4,10 @@
 
 pf_base_url = "https://pf.example.test"
 
+# The browser callback must be one exact HTTPS URI. Supply the distinct client
+# secret through TF_VAR_browser_client_secret, never in this file.
+browser_redirect_uri = "https://localhost:8446/oauth/callback"
+
 # Discover these plugin descriptor IDs in the target PingFederate 13.1 server.
 subject_token_processor_plugin_id = "REPLACE_WITH_OAUTH_TOKEN_PROCESSOR_PLUGIN_DESCRIPTOR"
 actor_token_processor_plugin_id   = "REPLACE_WITH_JWT_TOKEN_PROCESSOR_2_0_PLUGIN_DESCRIPTOR"

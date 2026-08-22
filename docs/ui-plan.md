@@ -130,7 +130,7 @@ cache policy to authentication/session responses.
 
 ### UI-01 — Typed configuration and boundaries
 
-Status: complete.
+Status: implemented; local apply awaits a distinct browser client secret.
 
 - Add web, OIDC, session, and audit-collector configuration.
 - Add exact redirect URI and issuer validation.
@@ -140,6 +140,8 @@ Status: complete.
   settings.
 
 ### UI-02 — PingFederate browser client
+
+Status: complete.
 
 - Add a dedicated Authorization Code + PKCE/OIDC lab client and authentication
   policy mapping through Terraform.
