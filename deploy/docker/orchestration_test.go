@@ -72,6 +72,11 @@ func TestLiveLabCoversFailureBoundariesWithoutTokenOutput(t *testing.T) {
 			t.Fatalf("live lab missing cross-hop transaction audit assertion %q", required)
 		}
 	}
+	for _, required := range []string{`deadline = time.monotonic() + 10`, `time.sleep(0.25)`, `if logs.returncode != 0`} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("live lab missing bounded audit-log readiness handling %q", required)
+		}
+	}
 	for _, forbidden := range []string{"print(subject_token)", "write_text", "CERT_NONE", "check_hostname = False"} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("live lab weakens validation or persists a token using %q", forbidden)

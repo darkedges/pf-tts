@@ -81,7 +81,7 @@ app-up:
 	docker compose --env-file .env.local --profile app-only -f deploy/docker/compose.yaml up -d --build
 
 lab-up:
-	docker compose --env-file .env.local --profile local-lab -f deploy/docker/compose.yaml up -d --build
+	docker compose --env-file .env.local --profile local-lab -f deploy/docker/compose.yaml up -d --build mcp-gateway demo-mcp-server demo-api
 
 lab-verify:
 	$(PYTHON_RUN) -EnvFile .env.local -ScriptPath deploy/docker/run_live_lab.py
