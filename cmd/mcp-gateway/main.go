@@ -4,9 +4,12 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"example.com/workload-agent-identity/internal/demoenv"
+	"example.com/workload-agent-identity/pkg/audit"
+	"example.com/workload-agent-identity/pkg/authorization"
 	"example.com/workload-agent-identity/pkg/mcp"
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
 )
@@ -30,7 +33,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	gateway, err := mcp.NewGateway(client, []mcp.Target{{Name: "demo", URL: targetURL, Tools: map[string]struct{}{"customer.get": {}, "system.whoami": {}}}})
+	policyFile, err := os.Open("/run/wai/authorization.json")
+	if err != nil {
+		log.Fatal(err)
+	}
+	policy, err := authorization.LoadJSON(policyFile)
+	_ = policyFile.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	gateway, err := mcp.NewGatewayWithAuthorizer(client, []mcp.Target{{Name: "demo", URL: targetURL, Tools: map[string]struct{}{"customer.get": {}, "system.whoami": {}}}}, policy, audit.NewJSONSink(os.Stdout))
 	if err != nil {
 		log.Fatal(err)
 	}

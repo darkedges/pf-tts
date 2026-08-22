@@ -1,11 +1,15 @@
 package mcp
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"example.com/workload-agent-identity/pkg/audit"
+	"example.com/workload-agent-identity/pkg/identity"
 )
 
 func TestGatewayRoutesAllowedToolAndPreservesToken(t *testing.T) {
@@ -31,6 +35,80 @@ func TestGatewayRoutesAllowedToolAndPreservesToken(t *testing.T) {
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("status=%d", rr.Code)
 	}
+}
+
+type testAuthorizer struct{ allow bool }
+
+func (a testAuthorizer) Authorize(identity.RequestIdentityContext, string, string) error {
+	if !a.allow {
+		return ErrRouteDenied
+	}
+	return nil
+}
+
+func TestGatewayAuthorizationRequiresVerifiedContextAndPolicyDecision(t *testing.T) {
+	u, _ := url.Parse("https://mcp.example/mcp")
+	sink := &gatewayAuditSink{}
+	g, err := NewGatewayWithAuthorizer(&http.Client{Timeout: time.Second}, []Target{{Name: "demo", URL: u, Tools: map[string]struct{}{"system.whoami": {}}}}, testAuthorizer{allow: true}, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "https://gateway/mcp", nil)
+	req.Header.Set("Mcp-Method", "tools/call")
+	req.Header.Set("Mcp-Name", "system.whoami")
+	rr := httptest.NewRecorder()
+	g.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("missing verified identity status=%d", rr.Code)
+	}
+
+	g.authz = testAuthorizer{allow: false}
+	req = req.WithContext(identity.WithContext(req.Context(), requestIdentityForGatewayTest(t)))
+	rr = httptest.NewRecorder()
+	g.ServeHTTP(rr, req)
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("policy denial status=%d", rr.Code)
+	}
+	if sink.event.Type != audit.MCPToolDenied || sink.event.ReasonCode != "policy_denied" {
+		t.Fatalf("policy denial was not audited safely: %+v", sink.event)
+	}
+}
+
+type gatewayAuditSink struct {
+	event audit.Event
+	err   error
+}
+
+func (s *gatewayAuditSink) Write(event audit.Event) error { s.event = event; return s.err }
+
+func TestGatewayAllowedDecisionFailsClosedWhenAuditUnavailable(t *testing.T) {
+	u, _ := url.Parse("https://mcp.example/mcp")
+	sink := &gatewayAuditSink{err: errors.New("unavailable")}
+	g, err := NewGatewayWithAuthorizer(&http.Client{Timeout: time.Second}, []Target{{Name: "demo", URL: u, Tools: map[string]struct{}{"system.whoami": {}}}}, testAuthorizer{allow: true}, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "https://gateway/mcp", nil)
+	req.Header.Set("Mcp-Method", "tools/call")
+	req.Header.Set("Mcp-Name", "system.whoami")
+	req = req.WithContext(identity.WithContext(req.Context(), requestIdentityForGatewayTest(t)))
+	rr := httptest.NewRecorder()
+	g.ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("audit failure status=%d", rr.Code)
+	}
+}
+
+func requestIdentityForGatewayTest(t *testing.T) identity.RequestIdentityContext {
+	t.Helper()
+	user, _ := identity.NewUserIdentity("user")
+	agent, _ := identity.NewAgentIdentity("urn:agent:demo", "instance")
+	workload, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/demo")
+	caller, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/demo")
+	txn, _ := identity.NewTransactionIdentity("tx", "system.whoami")
+	auth, _ := identity.NewAuthorizationContext([]string{"mcp:invoke"})
+	value, _ := identity.NewRequestIdentityContext(user, agent, workload, caller, txn, auth)
+	return value
 }
 func TestGatewayRejectsUnapprovedToolAndAmbiguousRoute(t *testing.T) {
 	u, _ := url.Parse("https://mcp.example/mcp")

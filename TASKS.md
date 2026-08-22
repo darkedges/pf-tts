@@ -506,6 +506,23 @@ Add ADRs for:
 - SPIRE as workload identity provider,
 - logical AgentID separate from SPIFFEID.
 
+## Task 24 — Trusted MCP authorization policy
+
+Goal: authorize verified delegated transactions at the MCP gateway using a
+repository-owned policy rather than caller assertions.
+
+Acceptance criteria:
+
+- Match verified AgentID, transaction workload SPIFFE ID, purpose, required
+  scopes, MCP target, and tool.
+- Load policy from a bounded, strict JSON document mounted read-only.
+- Reject unknown fields, empty policies, missing bindings, and ambiguous
+  duplicate rules.
+- Deny missing verified identity, unknown tuples, and missing scopes.
+- Emit structured allow/deny audit events without credentials.
+- An allowed request must fail closed if its audit event cannot be written.
+- Add unit failure cases and exercise the allow path in the live lab.
+
 ## Post-MVP backlog
 
 Only after Tasks 00–23:

@@ -121,3 +121,10 @@ gateway, MCP server, and API. It also verifies
 that forged logical identity, wrong audience, expired-token mode, an
 unapproved MCP target, and a direct agent-to-API call are rejected without raw
 tokens appearing in captured output.
+
+## Trusted MCP authorization policy
+
+The gateway loads `config/authorization.json` from a read-only container mount.
+Rules match only verified AgentID, transaction workload SPIFFE ID, purpose,
+scope, target, and tool values. Unknown or ambiguous policy entries fail
+closed, and structured allow/deny events contain no bearer material.

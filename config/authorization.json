@@ -1,0 +1,12 @@
+{
+  "rules": [
+    {
+      "agent_id": "urn:agent:demo",
+      "workload_id": "spiffe://example.org/agent/demo",
+      "purposes": ["system.whoami"],
+      "scopes": ["mcp:invoke"],
+      "target": "demo",
+      "tools": ["system.whoami"]
+    }
+  ]
+}

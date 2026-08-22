@@ -46,6 +46,9 @@ func TestComposeDoesNotContainCredentialValues(t *testing.T) {
 			t.Fatalf("PingFederate trust anchor must be explicitly mounted using %q", required)
 		}
 	}
+	if !strings.Contains(compose, "authorization.json:/run/wai/authorization.json:ro") {
+		t.Fatal("trusted authorization policy must be mounted read-only")
+	}
 	for _, forbidden := range []string{"InsecureSkipVerify", "PF_ADMIN_INSECURE"} {
 		if strings.Contains(compose, forbidden) {
 			t.Fatalf("application Compose must not disable TLS validation using %q", forbidden)

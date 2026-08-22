@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"example.com/workload-agent-identity/pkg/audit"
+	"example.com/workload-agent-identity/pkg/identity"
 )
 
 var ErrRouteDenied = errors.New("MCP route denied")
@@ -21,13 +24,34 @@ type Gateway struct {
 	targets map[string]Target
 	byTool  map[string]Target
 	sole    *Target
+	authz   Authorizer
+	audit   audit.Sink
+}
+
+type Authorizer interface {
+	Authorize(identity.RequestIdentityContext, string, string) error
 }
 
 func NewGateway(client *http.Client, targets []Target) (*Gateway, error) {
+	return newGateway(client, targets, nil)
+}
+
+func NewGatewayWithAuthorizer(client *http.Client, targets []Target, authorizer Authorizer, sink audit.Sink) (*Gateway, error) {
+	if authorizer == nil || sink == nil {
+		return nil, errors.New("MCP authorizer and audit sink are required")
+	}
+	gateway, err := newGateway(client, targets, authorizer)
+	if err == nil {
+		gateway.audit = sink
+	}
+	return gateway, err
+}
+
+func newGateway(client *http.Client, targets []Target, authorizer Authorizer) (*Gateway, error) {
 	if client == nil || client.Timeout <= 0 || len(targets) == 0 {
 		return nil, fmt.Errorf("invalid MCP gateway configuration")
 	}
-	g := &Gateway{client: client, targets: map[string]Target{}, byTool: map[string]Target{}}
+	g := &Gateway{client: client, targets: map[string]Target{}, byTool: map[string]Target{}, authz: authorizer}
 	for _, target := range targets {
 		if target.Name == "" || target.URL == nil || target.URL.Scheme != "https" || target.URL.Host == "" || target.URL.RawQuery != "" || len(target.Tools) == 0 {
 			return nil, fmt.Errorf("invalid MCP target")
@@ -71,6 +95,30 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		http.Error(w, "route denied", http.StatusForbidden)
 		return
+	}
+	if g.authz != nil {
+		value, verified := identity.FromContext(r.Context())
+		if !verified {
+			_ = g.audit.Write(audit.Event{Type: audit.MCPToolDenied, Target: target.Name, Decision: "deny", ReasonCode: "verified_identity_missing"})
+			http.Error(w, "authorization denied", http.StatusForbidden)
+			return
+		}
+		event := audit.Event{
+			TransactionID: value.Transaction.ID, UserID: value.User.ID, AgentID: value.Agent.ID,
+			TransactionWorkloadID: value.OriginalWorkload.SPIFFEID, ImmediateCallerSPIFFEID: value.ImmediateCaller.SPIFFEID,
+			Target: target.Name + ":" + name,
+		}
+		if g.authz.Authorize(value, target.Name, name) != nil {
+			event.Type, event.Decision, event.ReasonCode = audit.MCPToolDenied, "deny", "policy_denied"
+			_ = g.audit.Write(event)
+			http.Error(w, "authorization denied", http.StatusForbidden)
+			return
+		}
+		event.Type, event.Decision, event.ReasonCode = audit.MCPToolAllowed, "allow", "policy_allowed"
+		if g.audit.Write(event) != nil {
+			http.Error(w, "audit unavailable", http.StatusInternalServerError)
+			return
+		}
 	}
 	out, err := http.NewRequestWithContext(r.Context(), http.MethodPost, target.URL.String(), r.Body)
 	if err != nil {
