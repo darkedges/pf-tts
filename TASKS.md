@@ -544,6 +544,23 @@ Acceptance criteria:
 
 Only after Tasks 00–23:
 
+- **Priority 1 — Interactive PingFederate-authenticated application UI.**
+  Provide a browser application where a user signs in through PingFederate and
+  invokes the configured services through the existing agent/gateway flow.
+  Use OAuth 2.0 Authorization Code with PKCE and a PingFederate-hosted login;
+  the application must never collect, proxy, log, or persist PingFederate
+  credentials. The main interaction area occupies the left two-thirds of the
+  screen. A selectable audit trail occupies the right third and correlates
+  every interaction by TransactionID across agent, gateway, MCP server, and
+  API. Selecting an event shows safe request/response metadata for each hop,
+  with bearer tokens, cookies, authorization codes, client secrets, private
+  material, and sensitive tool arguments structurally excluded or redacted.
+  Require issuer, audience, state, nonce, PKCE, redirect-URI, CSRF, session,
+  logout, and authorization checks; do not treat browser-supplied identity or
+  audit fields as trusted. Add end-to-end tests for successful login and
+  interaction plus forged state, wrong issuer/audience, unauthenticated access,
+  unauthorized audit access, cross-user audit isolation, and credential
+  leakage.
 - richer authorization policies,
 - Ping Authorize integration,
 - OPA/Cedar adapter,
