@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/identity"
 	"example.com/workload-agent-identity/pkg/transaction"
 )
@@ -27,6 +28,16 @@ func (f *fakeVerifier) Verify(_ context.Context, raw, _ string) (transaction.Cla
 }
 
 type exactCaller string
+
+type recordingAudit struct {
+	event audit.Event
+	err   error
+}
+
+func (s *recordingAudit) Write(event audit.Event) error {
+	s.event = event
+	return s.err
+}
 
 func (p exactCaller) Authorize(_ transaction.Claims, caller string) error {
 	if caller != string(p) {
@@ -134,5 +145,25 @@ func TestImmediateCallerRejectsUnverifiedPeerUnlessSPIFFEMTLSAlreadyVerified(t *
 	}
 	if got, err := immediateCallerSPIFFEID(state, true); err != nil || got != u.String() {
 		t.Fatalf("SPIFFE-mTLS-authenticated peer was not accepted: got=%q err=%v", got, err)
+	}
+}
+
+func TestMiddlewareAuditsOnlyVerifiedIdentitiesAndFailsClosed(t *testing.T) {
+	sink := &recordingAudit{}
+	m := Middleware{Verifier: &fakeVerifier{claims: validMiddlewareClaims()}, Audience: "mcp", Callers: exactCaller("spiffe://example.org/agent/demo"), Audit: sink, Target: "gateway"}
+	req := httptest.NewRequest(http.MethodGet, "https://gateway/mcp", nil)
+	req.Header.Set("Authorization", "Bearer raw-secret")
+	req.TLS = tlsState(t, "spiffe://example.org/agent/demo")
+	rr := httptest.NewRecorder()
+	m.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(rr, req)
+	if rr.Code != http.StatusNoContent || sink.event.TransactionID != "tx" || sink.event.ImmediateCallerSPIFFEID != "spiffe://example.org/agent/demo" || sink.event.Target != "gateway" {
+		t.Fatalf("verified audit event mismatch: status=%d event=%+v", rr.Code, sink.event)
+	}
+
+	sink.err = errors.New("sink unavailable")
+	rr = httptest.NewRecorder()
+	m.Handler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { t.Fatal("handler ran after audit failure") })).ServeHTTP(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("audit failure status=%d", rr.Code)
 	}
 }

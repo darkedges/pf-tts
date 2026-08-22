@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	auth, err := demoenv.Middleware("urn:wai:mcp-gateway", verifier, "spiffe://example.org/mcp/demo")
+	auth, err := demoenv.Middleware("urn:wai:mcp-gateway", verifier, "spiffe://example.org/mcp/demo", "demo-api")
 	if err != nil {
 		log.Fatal(err)
 	}

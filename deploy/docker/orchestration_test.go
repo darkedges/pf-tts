@@ -64,6 +64,11 @@ func TestLiveLabCoversFailureBoundariesWithoutTokenOutput(t *testing.T) {
 			t.Fatalf("live lab missing security failure case %q", required)
 		}
 	}
+	for _, required := range []string{`required_targets = {"mcp-gateway", "demo-mcp-server", "demo-api"}`, `targets_by_transaction.setdefault(transaction_id, set()).add(target)`, `any(targets == required_targets`} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("live lab missing cross-hop transaction audit assertion %q", required)
+		}
+	}
 	for _, forbidden := range []string{"print(subject_token)", "write_text", "CERT_NONE", "check_hostname = False"} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("live lab weakens validation or persists a token using %q", forbidden)

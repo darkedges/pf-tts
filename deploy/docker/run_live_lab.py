@@ -114,4 +114,19 @@ logs = subprocess.run(
 if subject_token in logs.stdout or subject_token in logs.stderr or "Bearer eyJ" in logs.stdout or "Bearer eyJ" in logs.stderr:
     raise SystemExit("Raw credential appeared in captured service logs.")
 
-print("PASS: valid agent call succeeded; forged agent, wrong audience, expired-token, unapproved-target, and direct-to-API failure cases were rejected without token leakage.")
+targets_by_transaction: dict[str, set[str]] = {}
+for line in logs.stdout.splitlines():
+    candidate = line[line.find("{") :] if "{" in line else ""
+    try:
+        event = json.loads(candidate)
+    except json.JSONDecodeError:
+        continue
+    transaction_id = event.get("transaction_id")
+    target = event.get("target")
+    if event.get("type") == "transaction.verify.succeeded" and isinstance(transaction_id, str) and isinstance(target, str):
+        targets_by_transaction.setdefault(transaction_id, set()).add(target)
+required_targets = {"mcp-gateway", "demo-mcp-server", "demo-api"}
+if not any(targets == required_targets for targets in targets_by_transaction.values()):
+    raise SystemExit("No single verified transaction ID was present in structured audit logs across gateway, MCP server, and API.")
+
+print("PASS: valid agent call reached the API with one transaction ID in structured hop logs; all identity, audience, route, expiry, direct-call, and token-leak failure cases passed.")

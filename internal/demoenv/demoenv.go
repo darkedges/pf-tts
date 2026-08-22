@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/middleware"
 	"example.com/workload-agent-identity/pkg/pingfederate"
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
@@ -100,12 +101,18 @@ func PFHTTPClient() (*http.Client, error) {
 	}, nil
 }
 
-func Middleware(audience string, verifier *pingfederate.JWTVerifier, allowedCaller string) (middleware.Middleware, error) {
+func Middleware(audience string, verifier *pingfederate.JWTVerifier, allowedCaller, target string) (middleware.Middleware, error) {
 	policy, err := corespiffe.NewExactPeerPolicy(allowedCaller)
 	if err != nil {
 		return middleware.Middleware{}, err
 	}
-	return middleware.Middleware{Verifier: verifier, Audience: audience, Callers: exactCaller{policy}, SPIFFEMTLSAlreadyVerified: true}, nil
+	if strings.TrimSpace(target) == "" {
+		return middleware.Middleware{}, errors.New("audit target is required")
+	}
+	return middleware.Middleware{
+		Verifier: verifier, Audience: audience, Callers: exactCaller{policy}, SPIFFEMTLSAlreadyVerified: true,
+		Audit: audit.NewJSONSink(os.Stdout), Target: target,
+	}, nil
 }
 
 type exactCaller struct{ policy corespiffe.ExactPeerPolicy }

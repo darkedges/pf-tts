@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/identity"
 	"example.com/workload-agent-identity/pkg/transaction"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -29,6 +30,8 @@ type Middleware struct {
 	Audience                  string
 	Callers                   CallerPolicy
 	SPIFFEMTLSAlreadyVerified bool
+	Audit                     audit.Sink
+	Target                    string
 }
 
 func (m Middleware) Handler(next http.Handler) http.Handler {
@@ -66,6 +69,17 @@ func (m Middleware) Handler(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
+		}
+		if m.Audit != nil {
+			err = m.Audit.Write(audit.Event{
+				Type: audit.TransactionVerifySucceeded, TransactionID: claims.TransactionID,
+				UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
+				ImmediateCallerSPIFFEID: caller, Target: m.Target, Decision: "allow", ReasonCode: "verified",
+			})
+			if err != nil {
+				http.Error(w, "audit unavailable", http.StatusInternalServerError)
+				return
+			}
 		}
 		ctx := identity.WithContext(r.Context(), value)
 		ctx = context.WithValue(ctx, verifiedTokenContextKey{}, raw)
