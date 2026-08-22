@@ -151,6 +151,8 @@ Status: complete.
 
 ### UI-03 — BFF login and session
 
+Status: complete.
+
 - Implement start, callback, session, CSRF, and logout handlers.
 - Store pre-authentication and authenticated sessions server-side with bounded
   TTL and cryptographically random IDs.
