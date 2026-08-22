@@ -560,7 +560,7 @@ Only after Tasks 00–23:
   audit fields as trusted. Add end-to-end tests for successful login and
   interaction plus forged state, wrong issuer/audience, unauthenticated access,
   unauthorized audit access, cross-user audit isolation, and credential
-  leakage.
+  leakage. Follow the ordered design in `docs/ui-plan.md`.
 - richer authorization policies,
 - Ping Authorize integration,
 - OPA/Cedar adapter,
