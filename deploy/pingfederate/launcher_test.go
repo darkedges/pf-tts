@@ -330,7 +330,7 @@ func TestTerraformUsesOnlyDiscoveredProcessorContracts(t *testing.T) {
 			t.Fatalf("custom ATM core attribute must not be duplicated as an extension: %q", coreAttribute)
 		}
 	}
-	for _, trustedField := range []string{"Allowed Workload SPIFFE ID", "Logical Agent ID", "Transaction Purpose"} {
+	for _, trustedField := range []string{"Agent Bindings", "Transaction Purpose"} {
 		if !strings.Contains(managerConfig, trustedField) {
 			t.Fatalf("transaction ATM missing trusted configuration precondition %q", trustedField)
 		}

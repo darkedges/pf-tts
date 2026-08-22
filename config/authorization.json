@@ -7,6 +7,14 @@
       "scopes": ["mcp:invoke"],
       "target": "demo",
       "tools": ["system.whoami"]
+    },
+    {
+      "agent_id": "urn:agent:web-app",
+      "workload_id": "spiffe://example.org/agent/web-app",
+      "purposes": ["system.whoami"],
+      "scopes": ["mcp:invoke"],
+      "target": "demo",
+      "tools": ["system.whoami"]
     }
   ]
 }

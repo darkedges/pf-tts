@@ -19,3 +19,12 @@ instance. Supporting multiple agents or purposes requires separate instances
 or a reviewed trusted policy adapter, never relaxed request mappings. A wrong
 workload, malformed binding, unknown purpose, or missing verified subject fails
 before JWT issuance.
+
+## UI-04 amendment
+
+The reviewed ATM adapter now supports a bounded configuration allowlist of
+exact SPIFFE ID to logical AgentID bindings so the distinct web-app workload
+can use the same transaction-token manager. It still selects the AgentID only
+from the cryptographically verified workload ID, overwrites caller assertions,
+and rejects unknown or duplicate bindings. Purpose remains a single configured
+allowlisted value; it is not accepted from request parameters.

@@ -163,6 +163,10 @@ Status: complete.
 
 ### UI-04 — Interactive delegated invocation
 
+Status: complete; the exact web-app binding is applied to the local
+PingFederate lab. Live browser validation remains in UI-07 after the runnable
+web workload and interface are added.
+
 - Extract the reusable exchange-and-invoke logic from the CLI runner without
   weakening its verification.
 - Bind the web workload to `urn:agent:web-app` in PingFederate and OPA.

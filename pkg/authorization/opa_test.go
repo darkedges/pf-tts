@@ -86,6 +86,23 @@ allow if { http.send({"method": "get", "url": "https://example.com"}) }`,
 	}
 }
 
+func TestRepositoryPolicyBindsWebAgentToExactWorkload(t *testing.T) {
+	policy, err := NewOPA(context.Background(), "../../config/authorization.rego", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := requestIdentity(t)
+	value.Agent.ID = "urn:agent:web-app"
+	value.OriginalWorkload.SPIFFEID = "spiffe://example.org/agent/web-app"
+	if err := policy.Authorize(context.Background(), value, "demo", "system.whoami"); err != nil {
+		t.Fatalf("exact web workload binding denied: %v", err)
+	}
+	value.OriginalWorkload.SPIFFEID = "spiffe://example.org/agent/demo"
+	if err := policy.Authorize(context.Background(), value, "demo", "system.whoami"); err == nil {
+		t.Fatal("web AgentID accepted over the demo workload identity")
+	}
+}
+
 func newTestOPA(t *testing.T, module string) *OPA {
 	t.Helper()
 	policy, err := NewOPA(context.Background(), writePolicy(t, module), time.Second)

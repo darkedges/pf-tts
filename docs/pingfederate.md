@@ -257,10 +257,11 @@ TEPP maps `workload_id <- ACTOR_TOKEN.sub` and has
 
 ### Trusted workload-to-agent mapping
 
-The approved lab binding is:
+The approved lab bindings are:
 
 ```text
 spiffe://example.org/agent/demo -> urn:agent:demo
+spiffe://example.org/agent/web-app -> urn:agent:web-app
 ```
 
 This binding must be evaluated inside PingFederate or a trusted server-side
@@ -269,9 +270,9 @@ or multiple matches. Never expose `agent_id` as a client-controlled form
 parameter or map it directly from `REQUEST`.
 
 The TEPP leaves `agent_id` as `NO_MAPPING`; the custom transaction ATM derives
-it after exact comparison of the verified `workload_id` with its configured
-`Allowed Workload SPIFFE ID`. It overwrites any caller assertion with the
-configured `Logical Agent ID` and rejects a non-matching workload.
+it by exact lookup of the verified `workload_id` in its bounded configured
+`Agent Bindings` allowlist. It overwrites any caller assertion with the mapped
+logical AgentID and rejects an unknown workload.
 
 ### Transaction metadata
 

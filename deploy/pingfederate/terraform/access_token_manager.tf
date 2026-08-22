@@ -2,10 +2,10 @@ resource "pingfederate_oauth_access_token_manager" "transaction" {
   lifecycle {
     precondition {
       condition = alltrue([
-        for required in ["Allowed Workload SPIFFE ID", "Logical Agent ID", "Transaction Purpose"] :
+        for required in ["Agent Bindings", "Transaction Purpose"] :
         contains([for field in var.transaction_atm_configuration_fields : field.name], required)
       ])
-      error_message = "The transaction ATM requires trusted workload binding, logical AgentID, and allowlisted purpose fields."
+      error_message = "The transaction ATM requires exact trusted workload-to-AgentID bindings and an allowlisted purpose field."
     }
   }
 

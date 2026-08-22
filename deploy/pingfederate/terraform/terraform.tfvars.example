@@ -36,5 +36,6 @@ transaction_atm_configuration_fields = [
 ]
 
 agent_bindings = {
-  "spiffe://example.org/agent/demo" = "urn:agent:demo"
+  "spiffe://example.org/agent/demo"    = "urn:agent:demo"
+  "spiffe://example.org/agent/web-app" = "urn:agent:web-app"
 }

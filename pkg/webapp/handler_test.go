@@ -16,6 +16,19 @@ type fakeVerifier struct {
 	fail          bool
 }
 
+type fakeInvoker struct {
+	userToken, purpose, tool string
+	err                      error
+}
+
+func (i *fakeInvoker) Invoke(_ context.Context, userToken, purpose, tool string) (string, error) {
+	i.userToken, i.purpose, i.tool = userToken, purpose, tool
+	if i.err != nil {
+		return "", i.err
+	}
+	return "verified-transaction", nil
+}
+
 func (v *fakeVerifier) VerifyIDToken(_ context.Context, token, clientID, nonce string) (string, error) {
 	if v.fail || token != "signed-id-token" || clientID != "web-client" || nonce != v.expectedNonce {
 		return "", context.Canceled
@@ -32,6 +45,10 @@ type flowFixture struct {
 }
 
 func newFlow(t *testing.T) *flowFixture {
+	return newFlowWithInteractions(t, nil)
+}
+
+func newFlowWithInteractions(t *testing.T, invoker InteractionInvoker) *flowFixture {
 	t.Helper()
 	verifier := &fakeVerifier{}
 	tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -46,7 +63,11 @@ func newFlow(t *testing.T) *flowFixture {
 	}))
 	t.Cleanup(tokenServer.Close)
 	tokenServer.Client().Timeout = time.Second
-	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, HTTPClient: tokenServer.Client(), Verifier: verifier})
+	var allowed []AllowedInteraction
+	if invoker != nil {
+		allowed = []AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}
+	}
+	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, HTTPClient: tokenServer.Client(), Verifier: verifier, Interactions: invoker, AllowedInteractions: allowed})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,6 +79,28 @@ func newFlow(t *testing.T) *flowFixture {
 	}
 	verifier.expectedNonce = location.Query().Get("nonce")
 	return &flowFixture{handler: handler, verifier: verifier, tokenURL: tokenServer, state: location.Query().Get("state")}
+}
+
+func authenticatedInteractionRequest(t *testing.T, flow *flowFixture, body string) (*http.Cookie, string, *http.Request) {
+	t.Helper()
+	callback := flow.callback(t, flow.state, nil)
+	cookie := callback.Result().Cookies()[0]
+	sessionRequest := httptest.NewRequest(http.MethodGet, "https://app.example/api/session", nil)
+	sessionRequest.AddCookie(cookie)
+	sessionResponse := httptest.NewRecorder()
+	flow.handler.ServeHTTP(sessionResponse, sessionRequest)
+	var sessionBody struct {
+		CSRF string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(sessionResponse.Body.Bytes(), &sessionBody); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "https://app.example/api/interactions", strings.NewReader(body))
+	request.AddCookie(cookie)
+	request.Header.Set("Origin", "https://app.example")
+	request.Header.Set("X-CSRF-Token", sessionBody.CSRF)
+	request.Header.Set("Content-Type", "application/json")
+	return cookie, sessionBody.CSRF, request
 }
 
 func (f *flowFixture) callback(t *testing.T, state string, existing *http.Cookie) *httptest.ResponseRecorder {
@@ -162,5 +205,68 @@ func TestLogoutRequiresOriginAndCSRF(t *testing.T) {
 	flow.handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNoContent || response.Result().Cookies()[0].MaxAge != -1 {
 		t.Fatalf("valid logout failed: %d", response.Code)
+	}
+}
+
+func TestInteractionUsesOnlyServerSessionAndAllowlistedPair(t *testing.T) {
+	invoker := &fakeInvoker{}
+	flow := newFlowWithInteractions(t, invoker)
+	_, _, request := authenticatedInteractionRequest(t, flow, `{"tool":"system.whoami","purpose":"system.whoami"}`)
+	response := httptest.NewRecorder()
+	flow.handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated || invoker.userToken != "subject-access-token" || invoker.tool != "system.whoami" || invoker.purpose != "system.whoami" {
+		t.Fatalf("trusted invocation failed: status=%d token=%q pair=%s/%s", response.Code, invoker.userToken, invoker.tool, invoker.purpose)
+	}
+	if strings.Contains(response.Body.String(), "subject-access-token") {
+		t.Fatal("subject token leaked in interaction response")
+	}
+}
+
+func TestInteractionRejectsBrowserIdentityAndRoutingOverrides(t *testing.T) {
+	for _, body := range []string{
+		`{"tool":"system.whoami","purpose":"system.whoami","agent_id":"urn:agent:forged"}`,
+		`{"tool":"system.whoami","purpose":"system.whoami","workload_id":"spiffe://attacker/workload"}`,
+		`{"tool":"system.whoami","purpose":"system.whoami","target":"https://attacker.example"}`,
+		`{"tool":"admin.unapproved","purpose":"system.whoami"}`,
+		`{"tool":"system.whoami","purpose":"delete.everything"}`,
+		`{"tool":"system.whoami","purpose":"system.whoami"}` + strings.Repeat(" ", 4097),
+	} {
+		t.Run(body, func(t *testing.T) {
+			invoker := &fakeInvoker{}
+			flow := newFlowWithInteractions(t, invoker)
+			_, _, request := authenticatedInteractionRequest(t, flow, body)
+			response := httptest.NewRecorder()
+			flow.handler.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest || invoker.userToken != "" {
+				t.Fatalf("override reached credential use: status=%d token=%q", response.Code, invoker.userToken)
+			}
+		})
+	}
+}
+
+func TestInteractionRejectsMissingSessionWrongCSRFAndFailure(t *testing.T) {
+	invoker := &fakeInvoker{}
+	flow := newFlowWithInteractions(t, invoker)
+	missing := httptest.NewRequest(http.MethodPost, "https://app.example/api/interactions", strings.NewReader(`{"tool":"system.whoami","purpose":"system.whoami"}`))
+	missing.Header.Set("Content-Type", "application/json")
+	missingResponse := httptest.NewRecorder()
+	flow.handler.ServeHTTP(missingResponse, missing)
+	if missingResponse.Code != http.StatusUnauthorized {
+		t.Fatalf("missing session status = %d", missingResponse.Code)
+	}
+	_, _, request := authenticatedInteractionRequest(t, flow, `{"tool":"system.whoami","purpose":"system.whoami"}`)
+	request.Header.Set("X-CSRF-Token", "forged")
+	csrfResponse := httptest.NewRecorder()
+	flow.handler.ServeHTTP(csrfResponse, request)
+	if csrfResponse.Code != http.StatusUnauthorized || invoker.userToken != "" {
+		t.Fatalf("wrong CSRF reached invocation: %d", csrfResponse.Code)
+	}
+	invoker.err = context.DeadlineExceeded
+	failedResponse := httptest.NewRecorder()
+	flowForFailure := newFlowWithInteractions(t, invoker)
+	_, _, failedRequest := authenticatedInteractionRequest(t, flowForFailure, `{"tool":"system.whoami","purpose":"system.whoami"}`)
+	flowForFailure.handler.ServeHTTP(failedResponse, failedRequest)
+	if failedResponse.Code != http.StatusBadGateway || strings.Contains(failedResponse.Body.String(), "DeadlineExceeded") {
+		t.Fatalf("downstream failure not safely contained: %d %s", failedResponse.Code, failedResponse.Body.String())
 	}
 }

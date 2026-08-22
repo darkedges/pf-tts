@@ -28,6 +28,19 @@ func (fakeExchange) Exchange(context.Context, pingfederate.ExchangeRequest) (pin
 	return pingfederate.ExchangeResponse{AccessToken: "transaction-token", TokenType: "Bearer"}, nil
 }
 
+type recordingExchange struct {
+	request pingfederate.ExchangeRequest
+	err     error
+}
+
+func (e *recordingExchange) Exchange(_ context.Context, request pingfederate.ExchangeRequest) (pingfederate.ExchangeResponse, error) {
+	e.request = request
+	if e.err != nil {
+		return pingfederate.ExchangeResponse{}, e.err
+	}
+	return pingfederate.ExchangeResponse{AccessToken: "transaction-token", TokenType: "Bearer"}, nil
+}
+
 type fakeTransactionVerifier struct{ claims transaction.Claims }
 
 func (v fakeTransactionVerifier) Verify(context.Context, string, string) (transaction.Claims, error) {
@@ -80,5 +93,44 @@ func TestRunnerFailsClosedWhenVerifiedAuditCannotBeWritten(t *testing.T) {
 	err := validRunner(claims, fakeAuditSink{err: errors.New("unavailable")}).Run(context.Background(), "user-token", "system.whoami", Normal)
 	if err == nil || err.Error() != "audit unavailable" {
 		t.Fatalf("audit failure did not fail closed: %v", err)
+	}
+}
+
+func TestReusableInvokerUsesSubjectTokenAndServerBoundIdentity(t *testing.T) {
+	claims := transaction.Claims{Subject: "user", AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/demo", TransactionID: "tx", Purpose: "system.whoami"}
+	runner := validRunner(claims, fakeAuditSink{})
+	exchange := &recordingExchange{}
+	runner.Exchange = exchange
+	seenTool := ""
+	runner.HTTP.Transport = roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		seenTool = request.Header.Get("Mcp-Name")
+		return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody, Header: make(http.Header)}, nil
+	})
+	transactionID, err := runner.Invoke(context.Background(), "subject-token", "system.whoami", "system.whoami")
+	if err != nil || transactionID != "tx" || exchange.request.SubjectToken != "subject-token" || seenTool != "system.whoami" {
+		t.Fatalf("reusable invocation failed: tx=%q subject=%q tool=%q err=%v", transactionID, exchange.request.SubjectToken, seenTool, err)
+	}
+	if exchange.request.ActorToken != "actor-token" || exchange.request.Audience != "mcp-gateway" {
+		t.Fatal("actor identity or exchange audience was not taken from trusted runner configuration")
+	}
+}
+
+func TestReusableInvokerFailsOnWrongWorkloadExchangeAndDownstream(t *testing.T) {
+	claims := transaction.Claims{Subject: "user", AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/web-app", TransactionID: "tx", Purpose: "system.whoami"}
+	if _, err := validRunner(claims, fakeAuditSink{}).Invoke(context.Background(), "subject", "system.whoami", "system.whoami"); err == nil {
+		t.Fatal("verified transaction with wrong workload binding accepted")
+	}
+	claims.WorkloadID = "spiffe://example.org/agent/demo"
+	runner := validRunner(claims, fakeAuditSink{})
+	runner.Exchange = &recordingExchange{err: errors.New("exchange rejected")}
+	if _, err := runner.Invoke(context.Background(), "subject", "system.whoami", "system.whoami"); err == nil {
+		t.Fatal("failed token exchange accepted")
+	}
+	runner = validRunner(claims, fakeAuditSink{})
+	runner.HTTP.Transport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusForbidden, Body: http.NoBody, Header: make(http.Header)}, nil
+	})
+	if _, err := runner.Invoke(context.Background(), "subject", "system.whoami", "system.whoami"); err == nil {
+		t.Fatal("downstream rejection treated as successful invocation")
 	}
 }

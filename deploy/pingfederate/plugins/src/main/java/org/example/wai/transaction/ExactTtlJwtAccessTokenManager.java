@@ -32,8 +32,7 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
   static final String ISSUER = "Issuer";
   static final String AUDIENCE = "Audience";
   static final String LIFETIME = "Token Lifetime Seconds";
-  static final String WORKLOAD_ID = "Allowed Workload SPIFFE ID";
-  static final String AGENT_ID = "Logical Agent ID";
+  static final String AGENT_BINDINGS = "Agent Bindings";
   static final String PURPOSE = "Transaction Purpose";
   private static final Set<String> CONTRACT = Set.of("sub", "agent_id", "agent_instance_id",
       "workload_id", "transaction_id", "transaction_purpose", "scope", "aud");
@@ -52,8 +51,9 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
     int lifetime = configuration.getIntFieldValue(LIFETIME);
     issuer = new TransactionJwtIssuer(cert.getPrivateKey(), configuration.getFieldValue(KEY_ID),
         issuerName, audience, lifetime, Clock.systemUTC());
-    metadata = new TrustedTransactionMetadata(configuration.getFieldValue(WORKLOAD_ID),
-        configuration.getFieldValue(AGENT_ID), configuration.getFieldValue(PURPOSE),
+    metadata = new TrustedTransactionMetadata(TrustedTransactionMetadata.parseBindings(
+        configuration.getFieldValue(AGENT_BINDINGS)),
+        configuration.getFieldValue(PURPOSE),
         () -> UUID.randomUUID().toString());
     validator = new JwtConsumerBuilder().setRequireExpirationTime().setRequireIssuedAt().setRequireSubject()
         .setExpectedIssuer(issuerName).setExpectedAudience(audience).setVerificationKey(cert.getX509Certificate().getPublicKey())
@@ -99,8 +99,7 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
     gui.addField(requiredField(ISSUER, "Required transaction JWT issuer."));
     gui.addField(requiredField(AUDIENCE, "Required transaction JWT audience."));
     gui.addField(requiredField(LIFETIME, "Exact lifetime in seconds; allowed range 1 through 60."));
-    gui.addField(requiredField(WORKLOAD_ID, "Exact verified SPIFFE workload allowed to use this transaction manager."));
-    gui.addField(requiredField(AGENT_ID, "Trusted logical agent identity bound to the allowed workload."));
+    gui.addField(requiredField(AGENT_BINDINGS, "Newline-separated exact SPIFFEID=AgentID trusted bindings."));
     gui.addField(requiredField(PURPOSE, "Allowlisted purpose minted into transaction tokens."));
     PluginDescriptor descriptor = new PluginDescriptor("WAI Exact-TTL JWT Access Token Manager", this, gui, "1.0.0");
     descriptor.setAttributeContractSet(CONTRACT); descriptor.setSupportsExtendedContract(true);

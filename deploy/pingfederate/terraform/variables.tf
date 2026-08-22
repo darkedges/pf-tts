@@ -223,12 +223,16 @@ variable "agent_bindings" {
   type        = map(string)
 
   default = {
-    "spiffe://example.org/agent/demo" = "urn:agent:demo"
+    "spiffe://example.org/agent/demo"    = "urn:agent:demo"
+    "spiffe://example.org/agent/web-app" = "urn:agent:web-app"
   }
 
   validation {
-    condition     = length(var.agent_bindings) > 0
-    error_message = "At least one SPIFFE-to-AgentID binding is required."
+    condition = length(var.agent_bindings) > 0 && length(var.agent_bindings) <= 100 && alltrue([
+      for workload, agent in var.agent_bindings :
+      can(regex("^spiffe://[a-z0-9.-]+/.+$", workload)) && can(regex("^urn:agent:[A-Za-z0-9._:-]+$", agent))
+    ])
+    error_message = "Agent bindings must contain 1-100 exact SPIFFE IDs mapped to bounded urn:agent identifiers."
   }
 }
 

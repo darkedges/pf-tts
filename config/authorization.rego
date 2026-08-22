@@ -12,3 +12,12 @@ allow if {
 	input.tool == "system.whoami"
 	"mcp:invoke" in input.scopes
 }
+
+allow if {
+	input.agent_id == "urn:agent:web-app"
+	input.workload_id == "spiffe://example.org/agent/web-app"
+	input.purpose == "system.whoami"
+	input.target == "demo"
+	input.tool == "system.whoami"
+	"mcp:invoke" in input.scopes
+}

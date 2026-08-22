@@ -27,7 +27,7 @@ atm_field_names = {
     for field in ((atm.get("configDescriptor") or {}).get("fields") or [])
 }
 required_trusted_fields = {
-    "Allowed Workload SPIFFE ID", "Logical Agent ID", "Transaction Purpose"
+    "Agent Bindings", "Transaction Purpose"
 }
 missing_trusted_fields = sorted(required_trusted_fields - atm_field_names)
 if missing_trusted_fields:
@@ -77,6 +77,11 @@ if not transaction_issuer.startswith("https://"):
     raise SystemExit("PF_TRANSACTION_ISSUER must be an HTTPS issuer URL.")
 
 out = root / "terraform" / "pf13_1.auto.tfvars.json"
+agent_bindings = {
+    "spiffe://example.org/agent/demo": "urn:agent:demo",
+    "spiffe://example.org/agent/web-app": "urn:agent:web-app",
+}
+
 payload = {
     **required,
     "actor_token_processor_configuration_fields": [
@@ -90,10 +95,10 @@ payload = {
         {"name": "Issuer", "value": transaction_issuer},
         {"name": "Audience", "value": "urn:wai:mcp-gateway"},
         {"name": "Token Lifetime Seconds", "value": "20"},
-        {"name": "Allowed Workload SPIFFE ID", "value": "spiffe://example.org/agent/demo"},
-        {"name": "Logical Agent ID", "value": "urn:agent:demo"},
+        {"name": "Agent Bindings", "value": "\n".join(f"{workload}={agent}" for workload, agent in agent_bindings.items())},
         {"name": "Transaction Purpose", "value": "system.whoami"},
     ],
+    "agent_bindings": agent_bindings,
     "discovery_confirmed": True
 }
 out.write_text(json.dumps(payload, indent=2))

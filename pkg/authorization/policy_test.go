@@ -2,11 +2,34 @@ package authorization
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
 	"example.com/workload-agent-identity/pkg/identity"
 )
+
+func TestRepositoryJSONPolicyBindsWebAgentToExactWorkload(t *testing.T) {
+	file, err := os.Open("../../config/authorization.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	policy, err := LoadJSON(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := requestIdentity(t)
+	value.Agent.ID = "urn:agent:web-app"
+	value.OriginalWorkload.SPIFFEID = "spiffe://example.org/agent/web-app"
+	if err := policy.Authorize(context.Background(), value, "demo", "system.whoami"); err != nil {
+		t.Fatalf("exact web workload binding denied: %v", err)
+	}
+	value.Agent.ID = "urn:agent:demo"
+	if err := policy.Authorize(context.Background(), value, "demo", "system.whoami"); err == nil {
+		t.Fatal("demo AgentID accepted over the web workload identity")
+	}
+}
 
 const validPolicy = `{"rules":[{"agent_id":"urn:agent:demo","workload_id":"spiffe://example.org/agent/demo","purposes":["system.whoami"],"scopes":["mcp:invoke"],"target":"demo","tools":["system.whoami"]}]}`
 

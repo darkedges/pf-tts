@@ -8,18 +8,18 @@ import java.util.function.Supplier;
 
 final class TrustedTransactionMetadata {
   private static final Set<String> ALLOWED_PURPOSES = Set.of("customer.read", "system.whoami");
-  private final String workloadId;
-  private final String agentId;
+  private final Map<String,String> agentBindings;
   private final String purpose;
   private final Supplier<String> idSupplier;
 
-  TrustedTransactionMetadata(String workloadId, String agentId, String purpose,
+  TrustedTransactionMetadata(Map<String,String> agentBindings, String purpose,
       Supplier<String> idSupplier) {
-    this.workloadId = validateWorkload(workloadId);
-    this.agentId = required(agentId, "Logical Agent ID");
-    if (!this.agentId.startsWith("urn:agent:") || this.agentId.length() > 200) {
-      throw new IllegalArgumentException("Logical Agent ID must be a bounded urn:agent identifier");
+    if (agentBindings == null || agentBindings.isEmpty() || agentBindings.size() > 100) {
+      throw new IllegalArgumentException("Agent Bindings must contain 1 through 100 entries");
     }
+    Map<String,String> validated = new HashMap<>();
+    agentBindings.forEach((workload, agent) -> validated.put(validateWorkload(workload), validateAgent(agent)));
+    this.agentBindings = Map.copyOf(validated);
     this.purpose = required(purpose, "Transaction Purpose");
     if (!ALLOWED_PURPOSES.contains(this.purpose)) {
       throw new IllegalArgumentException("Transaction Purpose is not allowlisted");
@@ -29,7 +29,8 @@ final class TrustedTransactionMetadata {
 
   Map<String,String> derive(Map<String,String> verifiedAttributes) {
     String actual = required(verifiedAttributes.get("workload_id"), "workload_id");
-    if (!workloadId.equals(actual)) {
+    String agentId = agentBindings.get(actual);
+    if (agentId == null) {
       throw new IllegalArgumentException("verified workload is not bound to the configured logical agent");
     }
     Map<String,String> result = new HashMap<>(verifiedAttributes);
@@ -38,6 +39,14 @@ final class TrustedTransactionMetadata {
     result.put("transaction_id", nextId("transaction_id"));
     result.put("transaction_purpose", purpose);
     return result;
+  }
+
+  private static String validateAgent(String value) {
+    value = required(value, "Logical Agent ID");
+    if (!value.startsWith("urn:agent:") || value.length() > 200) {
+      throw new IllegalArgumentException("Logical Agent ID must be a bounded urn:agent identifier");
+    }
+    return value;
   }
 
   private String nextId(String name) {
@@ -62,5 +71,17 @@ final class TrustedTransactionMetadata {
   private static String required(String value, String name) {
     if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
     return value;
+  }
+
+  static Map<String,String> parseBindings(String value) {
+    Map<String,String> result = new HashMap<>();
+    for (String line : required(value, "Agent Bindings").split("\\R")) {
+      String[] parts = line.trim().split("=", -1);
+      if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()
+          || result.putIfAbsent(parts[0], parts[1]) != null) {
+        throw new IllegalArgumentException("Agent Bindings contains an invalid or duplicate entry");
+      }
+    }
+    return result;
   }
 }

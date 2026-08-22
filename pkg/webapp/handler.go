@@ -23,6 +23,15 @@ type IDTokenVerifier interface {
 	VerifyIDToken(context.Context, string, string, string) (string, error)
 }
 
+type InteractionInvoker interface {
+	Invoke(context.Context, string, string, string) (string, error)
+}
+
+type AllowedInteraction struct {
+	Tool    string
+	Purpose string
+}
+
 type Config struct {
 	AuthorizationEndpoint string
 	TokenEndpoint         string
@@ -37,6 +46,8 @@ type Config struct {
 	MaximumSessions       int
 	HTTPClient            *http.Client
 	Verifier              IDTokenVerifier
+	Interactions          InteractionInvoker
+	AllowedInteractions   []AllowedInteraction
 	Now                   func() time.Time
 	Random                io.Reader
 }
@@ -56,6 +67,7 @@ type Handler struct {
 	mu       sync.Mutex
 	preAuth  map[string]preAuth
 	sessions map[string]session
+	allowed  map[AllowedInteraction]struct{}
 	mux      *http.ServeMux
 }
 
@@ -80,11 +92,27 @@ func New(config Config) (*Handler, error) {
 	if config.Random == nil {
 		config.Random = rand.Reader
 	}
-	h := &Handler{config: config, preAuth: make(map[string]preAuth), sessions: make(map[string]session), mux: http.NewServeMux()}
+	allowed := make(map[AllowedInteraction]struct{}, len(config.AllowedInteractions))
+	for _, interaction := range config.AllowedInteractions {
+		if strings.TrimSpace(interaction.Tool) != interaction.Tool || strings.TrimSpace(interaction.Purpose) != interaction.Purpose || interaction.Tool == "" || interaction.Purpose == "" {
+			return nil, ErrInvalidConfiguration
+		}
+		if _, exists := allowed[interaction]; exists {
+			return nil, ErrInvalidConfiguration
+		}
+		allowed[interaction] = struct{}{}
+	}
+	if (config.Interactions == nil) != (len(allowed) == 0) {
+		return nil, ErrInvalidConfiguration
+	}
+	h := &Handler{config: config, preAuth: make(map[string]preAuth), sessions: make(map[string]session), allowed: allowed, mux: http.NewServeMux()}
 	h.mux.HandleFunc("GET /login", h.login)
 	h.mux.HandleFunc("GET /oauth/callback", h.callback)
 	h.mux.HandleFunc("GET /api/session", h.getSession)
 	h.mux.HandleFunc("POST /logout", h.logout)
+	if config.Interactions != nil {
+		h.mux.HandleFunc("POST /api/interactions", h.invokeInteraction)
+	}
 	return h, nil
 }
 
@@ -239,7 +267,7 @@ func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	id, current, ok := h.authenticate(r)
-	if !ok || r.Header.Get("Origin") != strings.TrimSuffix(h.config.PublicOrigin, "/") || subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(current.csrf)) != 1 {
+	if !ok || !h.validCSRF(r, current) {
 		h.unauthorized(w)
 		return
 	}
@@ -248,6 +276,54 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 	http.SetCookie(w, &http.Cookie{Name: h.config.CookieName, Value: "", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) invokeInteraction(w http.ResponseWriter, r *http.Request) {
+	_, current, ok := h.authenticate(r)
+	if !ok || !h.validCSRF(r, current) {
+		h.unauthorized(w)
+		return
+	}
+	if r.Header.Get("Content-Type") != "application/json" {
+		h.badRequest(w)
+		return
+	}
+	var request struct {
+		Tool    string `json:"tool"`
+		Purpose string `json:"purpose"`
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, (4<<10)+1))
+	if err != nil || len(body) > 4<<10 {
+		h.badRequest(w)
+		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&request) != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		h.badRequest(w)
+		return
+	}
+	interaction := AllowedInteraction{Tool: request.Tool, Purpose: request.Purpose}
+	if _, allowed := h.allowed[interaction]; !allowed {
+		h.badRequest(w)
+		return
+	}
+	transactionID, err := h.config.Interactions.Invoke(r.Context(), current.accessToken, interaction.Purpose, interaction.Tool)
+	if err != nil || strings.TrimSpace(transactionID) == "" {
+		h.unavailable(w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(struct {
+		TransactionID string `json:"transaction_id"`
+		Status        string `json:"status"`
+	}{TransactionID: transactionID, Status: "completed"})
+}
+
+func (h *Handler) validCSRF(r *http.Request, current session) bool {
+	return r.Header.Get("Origin") == strings.TrimSuffix(h.config.PublicOrigin, "/") &&
+		subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(current.csrf)) == 1
 }
 
 func (h *Handler) authenticate(r *http.Request) (string, session, bool) {
@@ -315,4 +391,10 @@ func (h *Handler) unauthorized(w http.ResponseWriter) {
 }
 func (h *Handler) serverError(w http.ResponseWriter) {
 	http.Error(w, "request failed", http.StatusInternalServerError)
+}
+func (h *Handler) badRequest(w http.ResponseWriter) {
+	http.Error(w, "invalid request", http.StatusBadRequest)
+}
+func (h *Handler) unavailable(w http.ResponseWriter) {
+	http.Error(w, "interaction unavailable", http.StatusBadGateway)
 }
