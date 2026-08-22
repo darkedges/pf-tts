@@ -129,6 +129,24 @@ func TestGatewaySecretGeneratorUsesCSPRNGAndNeverPrintsSecret(t *testing.T) {
 	}
 }
 
+func TestBrowserSecretGeneratorUsesCSPRNGAndNeverPrintsSecret(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/set-browser-local-secret.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{"TF_VAR_browser_client_secret", "RandomNumberGenerator]::Create", "$rng.GetBytes($bytes)", "$rng.Dispose()", "Refusing duplicate", "[Array]::Clear"} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("browser secret generator missing security control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"Write-Output $secret", "Write-Host $secret", "Get-Random"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("browser secret generator contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
 func TestOAuthClientIgnoresOnlyWriteOnlySecretRepresentations(t *testing.T) {
 	b, err := os.ReadFile("terraform/oauth_client.tf")
 	if err != nil {
@@ -155,7 +173,7 @@ func TestBrowserClientUsesOnlyHostedAuthorizationCodeWithPKCE(t *testing.T) {
 	config := string(b)
 	for _, required := range []string{
 		`grant_types                         = ["AUTHORIZATION_CODE"]`,
-		`restricted_response_types           = ["CODE"]`,
+		`restricted_response_types           = ["code"]`,
 		`require_proof_key_for_code_exchange = true`,
 		`redirect_uris                       = [var.browser_redirect_uri]`,
 		`restrict_scopes   = true`,

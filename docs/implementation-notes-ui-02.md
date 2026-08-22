@@ -15,7 +15,8 @@ identity source is used.
 
 The confidential BFF client is distinct from the resource-owner-password,
 token-exchange, and MCP resource-server clients. It allows only
-`AUTHORIZATION_CODE`, requires PKCE, restricts response type to `CODE`, has one
+`AUTHORIZATION_CODE`, requires PKCE, restricts response type to PingFederate's
+exact lowercase `code` API literal, has one
 exact HTTPS callback, has no refresh grant, and receives only `openid` and the
 transaction invocation scope. It uses the dedicated user reference-token
 manager, not the transaction-token manager.
@@ -31,6 +32,9 @@ identity sources, a minimum 32-character externally injected secret, rejection
 of wildcard/query/fragment redirect URIs, and drift suppression limited to the
 provider's two write-only secret representations.
 
-Applying this task requires a new, distinct `TF_VAR_browser_client_secret` in
-the ignored local environment. Validation and planning may use a non-deployment
-placeholder, but it must never be applied.
+The local apply uses a new CSPRNG-generated `TF_VAR_browser_client_secret` held
+only in the ignored environment file. The first apply established the hosted
+adapter, mappings, and OIDC policy but PingFederate rejected the uppercase
+response-type literal. The restriction was retained and corrected to the
+product's exact lowercase `code` literal; the follow-up apply created only the
+remaining client. A post-apply plan reports no drift.

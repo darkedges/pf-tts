@@ -142,7 +142,7 @@ resource "pingfederate_oauth_client" "browser" {
 
   grant_types                         = ["AUTHORIZATION_CODE"]
   redirect_uris                       = [var.browser_redirect_uri]
-  restricted_response_types           = ["CODE"]
+  restricted_response_types           = ["code"]
   require_proof_key_for_code_exchange = true
   bypass_approval_page                = false
 
