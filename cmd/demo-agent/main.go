@@ -8,6 +8,7 @@ import (
 
 	"example.com/workload-agent-identity/internal/demoenv"
 	"example.com/workload-agent-identity/pkg/agent"
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/pingfederate"
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
 )
@@ -45,7 +46,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	runner := agent.Runner{SPIFFE: provider, Exchange: exchange, HTTP: httpClient, ActorAudience: "urn:pingfederate:wai:token-exchange", ExchangeAudience: "mcp-gateway", TransactionAudience: "urn:wai:mcp-gateway", GatewayURL: "https://mcp-gateway:8443", DirectAPIURL: "https://demo-api:8445"}
+	verifier, err := demoenv.Verifier()
+	if err != nil {
+		log.Fatal(err)
+	}
+	runner := agent.Runner{
+		SPIFFE: provider, Exchange: exchange, Verifier: verifier, Audit: audit.NewJSONSink(os.Stdout), HTTP: httpClient,
+		ActorAudience: "urn:pingfederate:wai:token-exchange", ExchangeAudience: "mcp-gateway", TransactionAudience: "urn:wai:mcp-gateway",
+		GatewayURL: "https://mcp-gateway:8443", DirectAPIURL: "https://demo-api:8445",
+		AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/demo", AuditTarget: "demo-agent",
+	}
 	if err := runner.Run(ctx, os.Getenv("USER_ACCESS_TOKEN"), os.Getenv("TRANSACTION_PURPOSE"), agent.Mode(os.Getenv("AGENT_MODE"))); err != nil {
 		log.Fatal(err)
 	}

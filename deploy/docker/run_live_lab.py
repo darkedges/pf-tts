@@ -71,6 +71,7 @@ compose = [
     "-e",
     "USER_ACCESS_TOKEN",
 ]
+agent_audit_events: list[dict] = []
 
 
 def agent(mode: str, expect_success: bool) -> None:
@@ -89,6 +90,15 @@ def agent(mode: str, expect_success: bool) -> None:
     output = result.stdout + result.stderr
     if subject_token in output or "Bearer eyJ" in output:
         raise SystemExit(f"Raw credential appeared in captured {mode} output.")
+    if mode == "normal":
+        for line in output.splitlines():
+            candidate = line[line.find("{") :] if "{" in line else ""
+            try:
+                event = json.loads(candidate)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(event, dict):
+                agent_audit_events.append(event)
     if (result.returncode == 0) != expect_success:
         diagnostic = " ".join(output.split())[-600:]
         for secret in (client_secret, required("TF_VAR_token_exchange_client_secret")):
@@ -115,18 +125,21 @@ if subject_token in logs.stdout or subject_token in logs.stderr or "Bearer eyJ" 
     raise SystemExit("Raw credential appeared in captured service logs.")
 
 targets_by_transaction: dict[str, set[str]] = {}
+service_events: list[dict] = []
 for line in logs.stdout.splitlines():
     candidate = line[line.find("{") :] if "{" in line else ""
     try:
         event = json.loads(candidate)
     except json.JSONDecodeError:
         continue
+    service_events.append(event)
+for event in [*agent_audit_events, *service_events]:
     transaction_id = event.get("transaction_id")
     target = event.get("target")
-    if event.get("type") == "transaction.verify.succeeded" and isinstance(transaction_id, str) and isinstance(target, str):
+    if event.get("type") in {"transaction.exchange.succeeded", "transaction.verify.succeeded"} and isinstance(transaction_id, str) and isinstance(target, str):
         targets_by_transaction.setdefault(transaction_id, set()).add(target)
-required_targets = {"mcp-gateway", "demo-mcp-server", "demo-api"}
+required_targets = {"demo-agent", "mcp-gateway", "demo-mcp-server", "demo-api"}
 if not any(targets == required_targets for targets in targets_by_transaction.values()):
-    raise SystemExit("No single verified transaction ID was present in structured audit logs across gateway, MCP server, and API.")
+    raise SystemExit("No single verified transaction ID was present in structured audit logs across agent, gateway, MCP server, and API.")
 
 print("PASS: valid agent call reached the API with one transaction ID in structured hop logs; all identity, audience, route, expiry, direct-call, and token-leak failure cases passed.")

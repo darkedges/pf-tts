@@ -115,7 +115,9 @@ they never disable TLS verification.
 
 The live verification obtains the user token in memory and exercises the full
 agent → gateway → MCP server → API path. Success requires the protected API to
-observe the same immutable transaction ID as the MCP server. It also verifies
+observe the same immutable transaction ID as the MCP server. The same verified
+transaction ID must also appear in structured audit events from the agent,
+gateway, MCP server, and API. It also verifies
 that forged logical identity, wrong audience, expired-token mode, an
 unapproved MCP target, and a direct agent-to-API call are rejected without raw
 tokens appearing in captured output.

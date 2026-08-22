@@ -5,13 +5,16 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"example.com/workload-agent-identity/pkg/pingfederate"
-	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
+
+	"example.com/workload-agent-identity/pkg/audit"
+	"example.com/workload-agent-identity/pkg/pingfederate"
+	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
+	"example.com/workload-agent-identity/pkg/transaction"
 )
 
 type Mode string
@@ -28,8 +31,11 @@ const (
 type Runner struct {
 	SPIFFE                                                                         corespiffe.Provider
 	Exchange                                                                       pingfederate.TokenExchanger
+	Verifier                                                                       transaction.Verifier
+	Audit                                                                          audit.Sink
 	HTTP                                                                           *http.Client
 	ActorAudience, ExchangeAudience, TransactionAudience, GatewayURL, DirectAPIURL string
+	AgentID, WorkloadID, AuditTarget                                               string
 }
 
 func (r Runner) Run(ctx context.Context, userToken, purpose string, mode Mode) error {
@@ -55,6 +61,25 @@ func (r Runner) Run(ctx context.Context, userToken, purpose string, mode Mode) e
 	response, err := r.Exchange.Exchange(ctx, pingfederate.ExchangeRequest{SubjectToken: userToken, ActorToken: svid.Token, SubjectTokenType: pingfederate.AccessTokenType, ActorTokenType: pingfederate.JWTTokenType, Audience: aud, Scope: []string{"mcp:invoke"}, TransactionID: tx, TransactionPurpose: purpose, AgentInstanceID: instance})
 	if err != nil {
 		return err
+	}
+	if r.Verifier == nil || r.AgentID == "" || r.WorkloadID == "" {
+		return errors.New("transaction verifier and trusted agent/workload bindings required")
+	}
+	claims, err := r.Verifier.Verify(ctx, response.AccessToken, r.TransactionAudience)
+	if err != nil {
+		return errors.New("issued transaction token verification failed")
+	}
+	if claims.AgentID != r.AgentID || claims.WorkloadID != r.WorkloadID || claims.Purpose != purpose {
+		return errors.New("issued transaction identity binding mismatch")
+	}
+	if r.Audit != nil {
+		if err := r.Audit.Write(audit.Event{
+			Type: audit.TransactionExchangeSucceeded, TransactionID: claims.TransactionID,
+			UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
+			Target: r.AuditTarget, Decision: "allow", ReasonCode: "verified",
+		}); err != nil {
+			return errors.New("audit unavailable")
+		}
 	}
 	target := r.GatewayURL
 	if mode == DirectToAPI {
