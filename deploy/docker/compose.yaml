@@ -1,0 +1,65 @@
+x-app: &app
+  profiles: ["app-only", "local-lab"]
+  restart: on-failure
+  environment: &common-env
+    SPIFFE_ENDPOINT: unix:///run/spire/sockets/agent.sock
+    PF_TRANSACTION_ISSUER: ${PF_TRANSACTION_ISSUER:?Set PF_TRANSACTION_ISSUER outside Compose}
+    PF_JWKS_URL: ${PF_JWKS_URL:?Set PF_JWKS_URL outside Compose}
+    PF_CA_FILE: /run/pingfederate/ca.pem
+  volumes:
+    - spire-agent-socket:/run/spire/sockets:ro
+    - ../pingfederate/generated/local-runtime-ca.pem:/run/pingfederate/ca.pem:ro
+  networks: [wai-app]
+
+services:
+  mcp-gateway:
+    <<: *app
+    build:
+      context: ../..
+      args: {COMMAND: mcp-gateway}
+    labels: {wai.workload: mcp-gateway}
+    environment:
+      <<: *common-env
+      MCP_SERVER_URL: https://demo-mcp-server:8444
+    ports: ["127.0.0.1:8443:8443"]
+
+  demo-mcp-server:
+    <<: *app
+    build:
+      context: ../..
+      args: {COMMAND: demo-mcp-server}
+    labels: {wai.workload: demo-mcp-server}
+    environment:
+      <<: *common-env
+      DEMO_API_URL: https://demo-api:8445
+
+  demo-api:
+    <<: *app
+    build:
+      context: ../..
+      args: {COMMAND: demo-api}
+    labels: {wai.workload: demo-api}
+
+  demo-agent:
+    <<: *app
+    profiles: ["local-lab"]
+    build:
+      context: ../..
+      args: {COMMAND: demo-agent}
+    labels: {wai.workload: demo-agent}
+    environment:
+      <<: *common-env
+      PF_TOKEN_ENDPOINT: ${PF_TOKEN_ENDPOINT:?Set PF_TOKEN_ENDPOINT outside Compose}
+      PF_CLIENT_ID: ${PF_CLIENT_ID:-wai-agent-token-exchange}
+      PF_CLIENT_SECRET: ${PF_CLIENT_SECRET:?Set PF_CLIENT_SECRET outside Compose}
+      USER_ACCESS_TOKEN: ${USER_ACCESS_TOKEN:-}
+      TRANSACTION_PURPOSE: ${TRANSACTION_PURPOSE:-system.whoami}
+      AGENT_MODE: ${AGENT_MODE:-normal}
+
+volumes:
+  spire-agent-socket:
+    external: true
+    name: ${SPIRE_SOCKET_VOLUME:-spire_spire-agent-socket}
+
+networks:
+  wai-app:

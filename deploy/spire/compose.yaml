@@ -1,0 +1,63 @@
+services:
+  spire-server:
+    image: ghcr.io/spiffe/spire-server:${SPIRE_VERSION:-1.15.2}
+    user: "0:0"
+    hostname: spire-server
+    command:
+      - -config
+      - /run/spire/config/server.conf
+    volumes:
+      - ./server.conf:/run/spire/config/server.conf:ro
+      - spire-server-data:/opt/spire/data/server
+    networks:
+      - wai-spire
+
+  spire-agent:
+    image: ghcr.io/spiffe/spire-agent:${SPIRE_VERSION:-1.15.2}
+    user: "0:0"
+    pid: host
+    hostname: spire-agent
+    command:
+      - -config
+      - /run/spire/config/agent.conf
+      - -joinToken
+      - ${SPIRE_JOIN_TOKEN:-}
+    depends_on:
+      - spire-server
+    volumes:
+      - ./agent.conf:/run/spire/config/agent.conf:ro
+      - ./generated:/run/spire/bootstrap:ro
+      - spire-agent-data:/opt/spire/data/agent
+      - spire-agent-socket:/run/spire/sockets
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - wai-spire
+
+  jwt-probe:
+    image: ghcr.io/spiffe/spire-agent:${SPIRE_VERSION:-1.15.2}
+    profiles: ["tools"]
+    labels:
+      wai.workload: demo-agent
+    entrypoint:
+      - /opt/spire/bin/spire-agent
+    command:
+      - api
+      - fetch
+      - jwt
+      - -socketPath
+      - /run/spire/sockets/agent.sock
+      - -audience
+      - urn:pingfederate:wai:token-exchange
+    volumes:
+      - spire-agent-socket:/run/spire/sockets
+    networks:
+      - wai-spire
+
+volumes:
+  spire-server-data:
+  spire-agent-data:
+  spire-agent-socket:
+
+networks:
+  wai-spire:
+    name: wai-spire

@@ -1,0 +1,44 @@
+server:
+  listen: "127.0.0.1:8443"
+
+spiffe:
+  endpoint: "unix:///run/spire/sockets/agent.sock"
+  trust_domain: "example.org"
+
+pingfederate:
+  issuer: "https://pf.example.invalid"
+  token_endpoint: "https://pf.example.invalid/as/token.oauth2"
+  jwks_uri: "https://pf.example.invalid/pf/JWKS"
+  client_id: "agent-token-exchange"
+  client_secret_env: "PF_CLIENT_SECRET"
+  actor_audience: "urn:pingfederate:token-exchange"
+  transaction_audience: "mcp-gateway"
+  allowed_algorithms:
+    - "RS256"
+
+transaction:
+  default_ttl_seconds: 20
+  maximum_ttl_seconds: 30
+  clock_skew_seconds: 5
+  allowed_purposes:
+    - "customer.read"
+    - "system.whoami"
+
+agents:
+  - id: "urn:agent:customer-support"
+    allowed_spiffe_ids:
+      - "spiffe://example.org/agent/customer-support"
+
+mcp:
+  servers:
+    - name: "customer"
+      url: "https://127.0.0.1:9443/mcp"
+      allowed_spiffe_ids:
+        - "spiffe://example.org/mcp/customer"
+      tools:
+        - "customer.get"
+        - "system.whoami"
+
+audit:
+  format: "json"
+  include_user_id: true

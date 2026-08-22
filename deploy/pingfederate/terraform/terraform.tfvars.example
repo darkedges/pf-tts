@@ -1,0 +1,36 @@
+# This file is intentionally incomplete. Copy it to a local ignored
+# terraform.tfvars and fill values that are specific to your PingFederate
+# release/environment.
+
+pf_base_url = "https://pf.example.test"
+
+# Discover these plugin descriptor IDs in the target PingFederate 13.1 server.
+subject_token_processor_plugin_id = "REPLACE_WITH_OAUTH_TOKEN_PROCESSOR_PLUGIN_DESCRIPTOR"
+actor_token_processor_plugin_id   = "REPLACE_WITH_JWT_TOKEN_PROCESSOR_2_0_PLUGIN_DESCRIPTOR"
+transaction_atm_plugin_id         = "REPLACE_WITH_JWT_BEARER_ACCESS_TOKEN_MANAGER_PLUGIN_DESCRIPTOR"
+
+# Plugin configuration field names are defined by the selected PF plugins.
+# Populate these from the target PF 13.1 plugin descriptors.
+subject_token_processor_configuration_fields = [
+  # {
+  #   name  = "Access Token Manager"
+  #   value = "userAccessTokenManager"
+  # }
+]
+
+actor_token_processor_configuration_fields = [
+  # Example intent only; use exact field names returned by your PF server:
+  # { name = "Issuer",          value = "https://spire-jwks.example.test" },
+  # { name = "Audience",        value = "urn:pingfederate:wai:token-exchange" },
+  # { name = "JWKS URL",        value = "https://spire-jwks.example.test/.well-known/jwks.json" },
+  # { name = "Require Exp",     value = "true" },
+]
+
+transaction_atm_configuration_fields = [
+  # Populate exact JWT ATM plugin fields from PF 13.1.
+  # Keep the token lifetime as short as the selected plugin supports.
+]
+
+agent_bindings = {
+  "spiffe://example.org/agent/demo" = "urn:agent:demo"
+}

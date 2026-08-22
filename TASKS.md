@@ -1,0 +1,524 @@
+# Staged Codex Tasks
+
+Complete these tasks in order. Do not skip ahead.
+
+## Task 00 — Repository baseline
+
+Create a Go module and the initial directory structure.
+
+Acceptance criteria:
+
+- `go test ./...` passes.
+- Add a minimal CI workflow later only after the module compiles locally.
+- No application code depends on Kubernetes.
+- Add `README.md`, `AGENTS.md`, and architecture docs.
+
+## Task 01 — Core identity model
+
+Implement strongly typed domain structures:
+
+- `UserIdentity`
+- `AgentIdentity`
+- `WorkloadIdentity`
+- `TransactionIdentity`
+- `AuthorizationContext`
+- `RequestIdentityContext`
+
+Requirements:
+
+- `AgentIdentity.ID` and `WorkloadIdentity.SPIFFEID` are distinct.
+- Constructors validate required fields.
+- Do not store raw tokens in domain structs except in transport-specific request types.
+- Add unit tests for invalid/empty identifiers.
+
+## Task 02 — Configuration model
+
+Implement YAML/JSON-friendly configuration under `internal/config`.
+
+Required sections:
+
+- server
+- spiffe
+- pingfederate
+- transaction
+- agents
+- mcp
+- audit
+
+Validate:
+
+- PingFederate issuer/token endpoint configured.
+- Transaction audience configured.
+- transaction TTL max <= configured safety maximum.
+- every logical agent has at least one allowed SPIFFE ID.
+- duplicate Agent IDs are rejected.
+- duplicate SPIFFE-to-agent bindings are rejected unless explicitly modeled later.
+
+Do not add environment-variable parsing until the config model is tested.
+
+## Task 03 — SPIFFE provider interface
+
+Create a core workload identity boundary.
+
+Required operations:
+
+- fetch JWT-SVID for one or more audiences,
+- create/obtain an X.509 source suitable for mTLS,
+- expose the selected SPIFFE ID,
+- close underlying resources cleanly.
+
+The interface belongs in a core package.
+The SPIRE/go-spiffe implementation belongs in an adapter package.
+
+Test with fakes before talking to a real SPIRE agent.
+
+## Task 04 — Self-contained SPIRE lab
+
+Add a repository-owned local SPIRE environment under `deploy/spire/`.
+
+Use the official SPIRE Server and SPIRE Agent container images pinned to a known release.
+
+The initial lab must provide:
+
+- one SPIRE Server,
+- one SPIRE Agent,
+- a dedicated local trust domain,
+- join-token node attestation for development bootstrap,
+- Docker workload attestation,
+- a shared Workload API Unix socket,
+- registration entries for:
+  - demo-agent,
+  - mcp-gateway,
+  - demo-mcp-server,
+  - demo-api,
+- one probe command that obtains a JWT-SVID through the Workload API.
+
+Use Docker labels as the workload selector in the lab.
+
+Example:
+
+```text
+docker:label:wai.workload:demo-agent
+```
+
+Acceptance criteria:
+
+- server configuration validates,
+- agent configuration validates,
+- bootstrap script generates a fresh join token and trust bundle,
+- agent attests to server,
+- workload entries can be registered idempotently,
+- a labeled probe container can fetch a JWT-SVID for:
+  `spiffe://example.org/agent/demo`,
+- the JWT-SVID has the requested PingFederate actor audience,
+- no private key or join token is committed to the repository,
+- generated bootstrap material is gitignored,
+- documentation explicitly says join-token attestation is lab-only.
+
+Do not require Kubernetes.
+
+## Task 05 — SPIRE/go-spiffe adapter
+
+Use `github.com/spiffe/go-spiffe/v2`.
+
+Implement:
+
+- configurable Workload API endpoint,
+- JWT-SVID fetch,
+- X509 source,
+- exact expected SPIFFE ID selection,
+- explicit failure on zero or multiple unexpected SVIDs.
+
+Support endpoint configuration rather than hard-coded paths.
+
+Document examples for:
+
+- Linux Unix socket,
+- Windows SPIRE agent named pipe.
+
+Integration tests may be build-tagged if they require a running SPIRE agent.
+
+## Task 06 — Agent binding registry
+
+Implement trusted binding:
+
+`SPIFFEID -> allowed logical AgentID(s)`
+
+MVP recommendation: one SPIFFE ID maps to one logical AgentID.
+
+The client must not be able to choose an arbitrary AgentID during exchange.
+
+Expose:
+
+```go
+ResolveAgent(spiffeID string) (AgentIdentity, error)
+```
+
+Add tests:
+
+- known mapping succeeds,
+- unknown workload fails,
+- conflicting mapping fails at configuration load,
+- caller-supplied AgentID cannot override resolved identity.
+
+
+## Task 07 — PingFederate Terraform baseline
+
+Add PingFederate 13.1 Admin API discovery before applying plugin-backed resources.
+
+Discovery must query `/version`, `/idp/tokenProcessors/descriptors`, and `/oauth/accessTokenManagers/descriptors`, persist raw descriptor reports outside Git, and generate a local version-specific tfvars file. A Terraform precondition must block creation until discovery has been reviewed.
+
+
+Use the official `pingidentity/pingfederate` Terraform provider as the authoritative PingFederate configuration mechanism.
+
+Create `deploy/pingfederate/terraform`.
+
+Terraform must manage:
+
+- subject/user token processor,
+- SPIRE JWT-SVID actor token processor,
+- Token Exchange Processor Policy,
+- actor-token-required behavior,
+- dedicated transaction-token Access Token Manager,
+- access-token mapping,
+- token-exchange OAuth client.
+
+Do not hard-code or commit secrets.
+
+Do not guess plugin-specific configuration field names. Capture the exact PingFederate 13.1 plugin descriptors and pin them in a version-specific lab configuration.
+
+Initially map only identities proven by token processors:
+
+- verified subject -> `user_id`,
+- verified actor subject -> `workload_id`.
+
+Acceptance criteria:
+
+- `terraform fmt -check` passes,
+- `terraform validate` passes after the version-specific plugin descriptor inputs are populated,
+- OAuth client references the TEPP,
+- TEPP requires actor token,
+- output ATM is dedicated to transaction tokens,
+- token-exchange client is restricted to the intended scope and ATM,
+- Terraform state is excluded from Git,
+- secrets are supplied outside committed files.
+
+## Task 08 — PingFederate RFC 8693 client
+
+Implement a token exchange client.
+
+Input:
+
+- subject token,
+- actor token,
+- subject token type,
+- actor token type,
+- audience,
+- optional scope.
+
+Required HTTP behavior:
+
+- POST form body.
+- never place tokens in URL/query.
+- explicit timeout.
+- injectable `http.Client`.
+- redact tokens from errors/logs.
+- parse OAuth error responses safely.
+- do not retry 4xx authentication/authorization errors automatically.
+
+Output:
+
+- access token,
+- issued token type when supplied,
+- token type,
+- expires_in,
+- scope.
+
+Add an `httptest.Server` suite validating exact form parameters.
+
+## Task 09 — Transaction claim model
+
+Implement typed verified claims separate from raw JWT parsing.
+
+Required claims for MVP:
+
+- issuer,
+- subject,
+- audience,
+- expiry,
+- issued-at,
+- `jti`,
+- logical agent ID,
+- agent instance ID where required,
+- SPIFFE workload ID,
+- transaction ID,
+- purpose.
+
+Reject missing required claims.
+
+Do not support arbitrary map-based authorization in core code.
+
+## Task 10 — PingFederate transaction JWT verifier
+
+Implement a verifier that:
+
+- obtains keys from the configured PingFederate JWKS source,
+- enforces configured issuer,
+- enforces required audience,
+- enforces an explicit algorithm allowlist,
+- validates `exp`, `nbf` when present, and `iat`,
+- requires transaction/agent/workload claims,
+- applies small configurable clock skew,
+- supports signing-key rotation by `kid`.
+
+The verifier returns verified typed claims.
+
+Tests:
+
+- good token,
+- bad signature,
+- unknown `kid`,
+- wrong issuer,
+- wrong audience,
+- expired token,
+- not-yet-valid token,
+- missing agent,
+- missing workload,
+- missing transaction ID.
+
+## Task 11 — Transaction context middleware
+
+Implement net/http middleware that:
+
+1. extracts a bearer transaction token,
+2. verifies it,
+3. obtains the authenticated immediate SPIFFE caller identity from the TLS connection/context,
+4. evaluates caller binding policy,
+5. places a typed `RequestIdentityContext` into `context.Context`.
+
+Downstream handlers must never parse JWTs themselves.
+
+Add:
+
+```go
+identity.FromContext(ctx)
+```
+
+with a safe return shape.
+
+## Task 12 — SPIFFE mTLS HTTP client/server helpers
+
+Implement helpers using go-spiffe TLS facilities.
+
+Requirements:
+
+- X.509-SVID rotation must not require process restart.
+- authorize explicit SPIFFE IDs or trust-domain policy; never default production helpers to `AuthorizeAny`.
+- keep demo-only permissive helpers clearly named and impossible to enable accidentally in production configuration.
+- capture peer SPIFFE ID for request middleware.
+
+Unit-test authorization policy separately.
+
+## Task 13 — Minimal MCP gateway
+
+Implement a remote MCP gateway over Streamable HTTP.
+
+Target the current MCP protocol revision used by the selected Go MCP library, but keep MCP transport parsing isolated from the identity middleware.
+
+Responsibilities:
+
+- require verified transaction context,
+- expose only configured MCP servers/tools,
+- route tool calls,
+- propagate immutable transaction token downstream,
+- use SPIFFE mTLS downstream,
+- add transaction/user/agent/workload IDs to structured logs,
+- never log tool arguments marked sensitive.
+
+For the 2026-07-28 MCP protocol, preserve/validate the standard routing headers as required by the selected SDK and spec.
+
+## Task 14 — Demo MCP server
+
+Create a tiny server with two tools:
+
+- `customer.get`
+- `system.whoami`
+
+`system.whoami` returns only safe verified metadata:
+
+- user ID,
+- logical agent ID,
+- workload SPIFFE ID from the transaction,
+- immediate caller SPIFFE ID,
+- transaction ID,
+- purpose.
+
+It must not return raw tokens.
+
+## Task 15 — Protected demo API
+
+Implement a normal HTTP API called by the MCP server over SPIFFE mTLS.
+
+Require the same immutable transaction JWT and validate the immediate MCP server workload.
+
+Return sample data only when both transaction authorization and immediate-caller policy pass.
+
+## Task 16 — Demo agent
+
+Implement a CLI agent that can:
+
+1. accept or obtain a demo user access token,
+2. get its JWT-SVID from SPIRE,
+3. create a cryptographically random/time-sortable agent instance ID,
+4. perform PingFederate token exchange,
+5. call the MCP gateway.
+
+Modes:
+
+- `normal`
+- `spoof-agent`
+- `wrong-audience`
+- `expired-token` where test infrastructure permits
+- `direct-to-api`
+
+Attack modes must demonstrate expected rejection.
+
+## Task 17 — Structured audit
+
+Add structured audit events:
+
+- transaction.exchange.requested
+- transaction.exchange.succeeded
+- transaction.exchange.failed
+- transaction.verify.succeeded
+- transaction.verify.failed
+- mcp.tool.requested
+- mcp.tool.allowed
+- mcp.tool.denied
+- downstream.request
+
+Every event should carry, when known:
+
+- transaction ID,
+- user ID,
+- agent ID,
+- transaction workload SPIFFE ID,
+- immediate caller SPIFFE ID,
+- target,
+- decision,
+- reason code.
+
+Never include raw credentials.
+
+## Task 18 — PingFederate lab configuration guide
+
+Document the exact manual configuration required for a lab:
+
+- OAuth client,
+- token exchange grant enabled,
+- Token Exchange Processor Policy,
+- subject-token processor,
+- actor-token JWT validation using SPIRE trust material,
+- attribute contract,
+- SPIFFE ID → Agent ID mapping,
+- access token manager / JWT generator,
+- output claim mapping,
+- short TTL,
+- audience restrictions.
+
+Where PingFederate product UI/API details vary by version, document the expected logical configuration and mark version-specific names.
+
+## Task 19 — SPIRE lab configuration
+
+Provide SPIRE Server/Agent examples for:
+
+- demo-agent,
+- mcp-gateway,
+- demo-mcp-server,
+- demo-api.
+
+Use different SPIFFE IDs for each workload.
+
+Do not use one shared SVID for the whole demo.
+
+## Task 20 — Docker Compose/lab orchestration
+
+Goal: minimize setup while keeping PingFederate and SPIRE externalizable.
+
+Provide profiles:
+
+- app-only: connects to existing PingFederate + SPIRE.
+- local-lab: starts local demo workloads and any permitted local SPIRE components.
+
+Do not embed secrets in Compose files.
+
+## Task 21 — End-to-end tests
+
+Automate where practical:
+
+PASS:
+- valid user + valid agent.
+- transaction ID consistent end-to-end.
+
+FAIL:
+- forged AgentID.
+- wrong SPIFFE workload.
+- wrong audience.
+- expired token.
+- unapproved MCP target.
+- direct call to protected API from agent when API only allows MCP-server caller.
+- missing transaction token.
+
+Assert no raw bearer token appears in captured logs.
+
+## Task 22 — Windows validation
+
+Build/test supported commands for Windows.
+
+Validate the SPIRE Workload API endpoint model with Windows named-pipe configuration.
+
+Do not claim Windows parity until an end-to-end run has been completed on Windows.
+
+## Task 23 — Threat model and ADRs
+
+Write threat scenarios for:
+
+- compromised AI agent,
+- compromised MCP gateway,
+- compromised MCP server,
+- compromised downstream API,
+- stolen subject token,
+- stolen JWT-SVID,
+- stolen transaction token,
+- token replay,
+- SPIRE compromise,
+- PingFederate compromise,
+- signing-key compromise,
+- confused deputy,
+- SSRF/routing abuse in MCP gateway,
+- malicious tool input.
+
+Add ADRs for:
+
+- immutable transaction token,
+- separate immediate-caller mTLS identity,
+- PingFederate as issuer,
+- SPIRE as workload identity provider,
+- logical AgentID separate from SPIFFEID.
+
+## Post-MVP backlog
+
+Only after Tasks 00–23:
+
+- richer authorization policies,
+- Ping Authorize integration,
+- OPA/Cedar adapter,
+- transparent proxy/interception mode,
+- Kubernetes deployment/sidecar/operator,
+- transaction proof-of-possession,
+- token replay cache where justified,
+- cloud workload attestation,
+- admin API/UI,
+- multi-trust-domain federation,
+- per-tool derived/downscoped tokens,
+- WIT-SVID investigation.
