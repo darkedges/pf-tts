@@ -25,22 +25,33 @@ func TestLabUsesDistinctExternallyAttestedWorkloadSelectors(t *testing.T) {
 		`"spiffe://example.org/gateway/mcp"`, `"docker:label:wai.workload:mcp-gateway"`,
 		`"spiffe://example.org/mcp/demo"`, `"docker:label:wai.workload:demo-mcp-server"`,
 		`"spiffe://example.org/api/demo"`, `"docker:label:wai.workload:demo-api"`,
+		`"spiffe://example.org/agent/web-app"`, `"docker:label:wai.workload:web-app"`,
+		`"spiffe://example.org/audit/collector"`, `"docker:label:wai.workload:audit-collector"`,
 	}
 	for _, value := range want {
 		if !strings.Contains(script, value) {
 			t.Errorf("registration is missing %s", value)
 		}
 	}
-	if strings.Count(script, "docker:label:wai.workload:") != 4 {
+	if strings.Count(script, "docker:label:wai.workload:") != 6 {
 		t.Fatal("each lab workload must have one distinct Docker-attested selector")
+	}
+}
+
+func TestMakeTargetsInvokeBashPortably(t *testing.T) {
+	makefile := readRepoFile(t, "Makefile")
+	for _, script := range []string{"spire-lab-up.sh", "spire-register.sh", "spire-test-jwt.sh", "spire-lab-down.sh"} {
+		if !strings.Contains(makefile, "bash scripts/"+script) {
+			t.Fatalf("Make target does not invoke %s through the available Bash runtime", script)
+		}
 	}
 }
 
 func TestRegistrationRejectsSharedWorkloadIdentityConfiguration(t *testing.T) {
 	script := readRepoFile(t, "scripts", "spire-register.sh")
 	matches := regexp.MustCompile(`create_entry "([^"]+)"\s+\\?\s*\n?\s*"([^"]+)"`).FindAllStringSubmatch(script, -1)
-	if len(matches) != 4 {
-		t.Fatalf("expected exactly four workload registrations, got %d", len(matches))
+	if len(matches) != 6 {
+		t.Fatalf("expected exactly six workload registrations, got %d", len(matches))
 	}
 	spiffeIDs := make(map[string]struct{}, len(matches))
 	selectors := make(map[string]struct{}, len(matches))

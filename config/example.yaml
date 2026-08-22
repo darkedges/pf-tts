@@ -28,6 +28,9 @@ agents:
   - id: "urn:agent:customer-support"
     allowed_spiffe_ids:
       - "spiffe://example.org/agent/customer-support"
+  - id: "urn:agent:web-app"
+    allowed_spiffe_ids:
+      - "spiffe://example.org/agent/web-app"
 
 mcp:
   servers:
@@ -42,3 +45,37 @@ mcp:
 audit:
   format: "json"
   include_user_id: true
+
+web:
+  listen: ":8446"
+  public_url: "https://localhost:8446"
+  agent_id: "urn:agent:web-app"
+  spiffe_id: "spiffe://example.org/agent/web-app"
+  allow_insecure_localhost: false
+
+oidc:
+  issuer: "https://pf.example.invalid"
+  authorization_endpoint: "https://pf.example.invalid/as/authorization.oauth2"
+  token_endpoint: "https://pf.example.invalid/as/token.oauth2"
+  client_id: "wai-web-app"
+  client_secret_env: "PF_WEB_CLIENT_SECRET"
+  redirect_uri: "https://localhost:8446/oauth/callback"
+  scopes:
+    - "openid"
+    - "mcp:invoke"
+
+session:
+  cookie_name: "__Host-wai_session"
+  cookie_secure: true
+  cookie_same_site: "Lax"
+  ttl_seconds: 3600
+  pre_auth_ttl_seconds: 300
+  maximum_sessions: 1000
+
+audit_store:
+  listen: ":8447"
+  url: "https://audit-collector:8447"
+  spiffe_id: "spiffe://example.org/audit/collector"
+  maximum_events: 10000
+  maximum_field_bytes: 4096
+  retention_seconds: 3600

@@ -40,6 +40,8 @@ Workloads:
 | MCP gateway | `docker:label:wai.workload:mcp-gateway` | `spiffe://example.org/gateway/mcp` |
 | MCP server | `docker:label:wai.workload:demo-mcp-server` | `spiffe://example.org/mcp/demo` |
 | Demo API | `docker:label:wai.workload:demo-api` | `spiffe://example.org/api/demo` |
+| Web application BFF | `docker:label:wai.workload:web-app` | `spiffe://example.org/agent/web-app` |
+| Audit collector | `docker:label:wai.workload:audit-collector` | `spiffe://example.org/audit/collector` |
 
 These registrations are created by `scripts/spire-register.sh` beneath the
 single attested lab agent. Re-running the script is idempotent: an existing

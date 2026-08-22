@@ -238,4 +238,6 @@ spiffe://example.org/agent/demo
 spiffe://example.org/gateway/mcp
 spiffe://example.org/mcp/demo
 spiffe://example.org/api/demo
+spiffe://example.org/agent/web-app
+spiffe://example.org/audit/collector
 ```

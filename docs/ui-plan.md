@@ -130,6 +130,8 @@ cache policy to authentication/session responses.
 
 ### UI-01 — Typed configuration and boundaries
 
+Status: complete.
+
 - Add web, OIDC, session, and audit-collector configuration.
 - Add exact redirect URI and issuer validation.
 - Register distinct SPIFFE IDs for web-app and audit collector.

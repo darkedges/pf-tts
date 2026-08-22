@@ -10,19 +10,19 @@ test:
 	go test ./...
 
 spire-up:
-	./scripts/spire-lab-up.sh
+	bash scripts/spire-lab-up.sh
 
 spire-register:
-	./scripts/spire-register.sh
+	bash scripts/spire-register.sh
 
 spire-jwt:
-	./scripts/spire-test-jwt.sh
+	bash scripts/spire-test-jwt.sh
 
 spire-jwks:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/spire-export-jwks.ps1
 
 spire-down:
-	./scripts/spire-lab-down.sh
+	bash scripts/spire-lab-down.sh
 
 
 pf-init:

@@ -59,4 +59,10 @@ create_entry "spiffe://example.org/mcp/demo" \
 create_entry "spiffe://example.org/api/demo" \
   "docker:label:wai.workload:demo-api"
 
+create_entry "spiffe://example.org/agent/web-app" \
+  "docker:label:wai.workload:web-app"
+
+create_entry "spiffe://example.org/audit/collector" \
+  "docker:label:wai.workload:audit-collector"
+
 echo "SPIRE workload entries registered."
