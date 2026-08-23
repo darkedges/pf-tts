@@ -7,6 +7,14 @@ $sdk = Join-Path $root 'deploy/pingfederate/sdk/runtime-lib'
 $source = Join-Path $root 'deploy/pingfederate/plugins/target/pingfederate-spiffe-plugins-0.1.0-SNAPSHOT.jar'
 $destinationDirectory = Join-Path $root 'deploy/pingfederate/profile/instance/server/default/deploy'
 $destination = Join-Path $destinationDirectory 'wai-pingfederate-spiffe-plugins.jar'
+$bootstrapEnvironment = Join-Path $root 'deploy/pingfederate/profile/env_vars'
+
+if (-not (Test-Path -LiteralPath $bootstrapEnvironment -PathType Leaf)) {
+    & (Join-Path $PSScriptRoot 'generate-pingfederate-bootstrap-material.ps1')
+}
+if (-not (Test-Path -LiteralPath $bootstrapEnvironment -PathType Leaf)) {
+    throw 'Missing generated PingFederate bootstrap environment material.'
+}
 
 $requiredSDK = @('jose4j.jar', 'slf4j-api.jar', 'pingfederate-sdk.jar', 'pf-protocolengine.jar')
 if ($requiredSDK | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sdk $_) -PathType Leaf) }) {

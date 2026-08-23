@@ -233,8 +233,14 @@ func TestCleanBootstrapOwnsOnlyRandomIsolatedResources(t *testing.T) {
 		"PINGFEDERATE_PROVIDER_CA_CERTIFICATE_PEM_FILES",
 		"PF_ADMIN_INSECURE = 'false'",
 		"SSL_CERT_FILE",
+		"PF_CA_FILE",
 		"pf13_1.auto.tfvars.json",
+		"Isolated Terraform TLS phase",
+		"-target=pingfederate_keypairs_ssl_server_key.local_runtime",
+		"-target=pingfederate_keypairs_ssl_server_settings.local_runtime",
+		"The Terraform-managed PingFederate certificate did not become valid within 90 seconds.",
 		"verify_live_token_exchange.py",
+		"Isolated live token-exchange verification did not pass within 60 seconds.",
 		"^wai-pf-clean-[0-9a-f]{16}$",
 		"^wai-pf-clean-output-[0-9a-f]{16}$",
 		"deploy/pingfederate/generated/clean-bootstrap/",
@@ -256,6 +262,67 @@ func TestCleanBootstrapOwnsOnlyRandomIsolatedResources(t *testing.T) {
 	} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("clean bootstrap contains unsafe shared or insecure behavior %q", forbidden)
+		}
+	}
+}
+
+func TestBootstrapMaterialIsStrongGeneratedAndIgnored(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/generate-pingfederate-bootstrap-material.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"RandomNumberGenerator]::Fill",
+		"RSA]::Create(2048)",
+		"HashAlgorithmName]::SHA256",
+		"AddDnsName('localhost')",
+		"AddDnsName('host.docker.internal')",
+		"UtcNow.AddMinutes(-5)",
+		"ValidDays -gt 30",
+		"X509ContentType]::Pkcs12",
+		"Refusing to overwrite existing PingFederate bootstrap material.",
+		"[Array]::Clear($pfx",
+		"PING_IDENTITY_PASSWORD is required",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("bootstrap material generator missing security control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"2FederateM0re", "Get-Random", "AddDays(365)", "BEGIN PRIVATE KEY"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("bootstrap material generator contains unsafe material or behavior %q", forbidden)
+		}
+	}
+
+	ignoreBytes, err := os.ReadFile("../../.gitignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(ignoreBytes), "deploy/pingfederate/profile/env_vars") {
+		t.Fatal("generated PingFederate bootstrap material must be ignored")
+	}
+	composeBytes, err := os.ReadFile("compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	compose := string(composeBytes)
+	if !strings.Contains(compose, "PING_IDENTITY_PASSWORD: ${PF_ADMIN_PASSWORD:?") || !strings.Contains(compose, "./profile:/opt/in:ro") {
+		t.Fatal("PingFederate must receive the administrator password externally and mount its profile read-only")
+	}
+	hookBytes, err := os.ReadFile("profile/hooks/02-get-remote-server-profile.sh.post")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := string(hookBytes)
+	for _, required := range []string{"/opt/in/env_vars", "test -L", "CONTAINER_ENV", "contains CRLF"} {
+		if !strings.Contains(hook, required) {
+			t.Fatalf("bootstrap override hook missing fail-closed control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"cat \"${local_env}\" >&2", "set -x"} {
+		if strings.Contains(hook, forbidden) {
+			t.Fatalf("bootstrap override hook could expose secret material %q", forbidden)
 		}
 	}
 }
@@ -676,6 +743,22 @@ func TestLocalPingFederateTLSRemainsVerified(t *testing.T) {
 		if strings.Contains(config, forbidden) {
 			t.Fatalf("local runtime TLS must fail closed on invalid certificates: %q", forbidden)
 		}
+	}
+}
+
+func TestLocalCertificateExportAcceptsBoundedAbsoluteOutput(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/export-pf-local-ca.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{"[IO.Path]::IsPathRooted($OutputPath)", "$outputFullPath.tmp", "CreateDirectory($directory)", "addstore Root $outputFullPath"} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("local certificate export missing safe absolute-path handling %q", required)
+		}
+	}
+	if strings.Contains(script, "Join-Path (Get-Location) $temporary") {
+		t.Fatal("local certificate export must not prepend the working directory to an absolute temporary path")
 	}
 }
 

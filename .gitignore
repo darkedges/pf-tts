@@ -24,6 +24,7 @@ deploy/pingfederate/generated/*
 !deploy/pingfederate/generated/.gitkeep
 deploy/pingfederate/profile/instance/server/default/deploy/*.jar
 !deploy/pingfederate/profile/instance/server/default/deploy/.gitkeep
+deploy/pingfederate/profile/env_vars
 deploy/web/generated/*
 !deploy/web/generated/.gitkeep
 deploy/pingauthorize/generated/*

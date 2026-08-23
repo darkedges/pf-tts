@@ -130,7 +130,7 @@ func TestPingFederateLocalTrustRejectsBroadCertificates(t *testing.T) {
 	for _, required := range []string{
 		"$basicConstraints.CertificateAuthority",
 		"$cert.Subject -ne $cert.Issuer",
-		"certutil.exe -f -user -addstore Root $OutputPath",
+		"certutil.exe -f -user -addstore Root $outputFullPath",
 		"DNS Name=$([regex]::Escape($name))",
 	} {
 		if !strings.Contains(script, required) {

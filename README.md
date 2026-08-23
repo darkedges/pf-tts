@@ -113,7 +113,9 @@ make pa-export-runtime-ca
 ```
 
 `pf-local-up` first builds and tests the repository's custom PingFederate
-plugin and places the ignored JAR in the mounted profile. On a clean named
+plugin and creates ignored short-lived bootstrap TLS/system material when it
+is absent. Both are placed in the read-only mounted profile. The administrator
+password remains in `.env.local`; it is not written into the profile. On a clean named
 volume, create the required scope and then apply the Terraform-managed product
 configuration; keeping that second phase explicit prevents a startup command
 from silently changing OAuth clients or secrets. `pa-local-up`
@@ -126,6 +128,11 @@ On a clean checkout, the profile builder extracts only its four required
 build-time JARs from the same digest-pinned PingFederate image. The ignored SDK
 directory is populated automatically; no license, key, credential,
 configuration, or state file is copied from the image.
+
+Run `make pf-clean-bootstrap` to prove recreation in random test-owned ports,
+volume, and Terraform state. The test validates both bootstrap and managed TLS,
+performs the live token exchange and tampered-actor failure case, and removes
+only its exact generated resources.
 
 To capture an existing local PingFederate configuration for review, refresh
 the runtime certificate and run the isolated bulk exporter:

@@ -40,14 +40,19 @@ try {
     $cert.Dispose()
 }
 
-$directory = Split-Path -Parent $OutputPath
-[IO.Directory]::CreateDirectory((Join-Path (Get-Location) $directory)) | Out-Null
-$temporary = "$OutputPath.tmp"
-[IO.File]::WriteAllText((Join-Path (Get-Location) $temporary), $pem, [Text.UTF8Encoding]::new($false))
-Move-Item -LiteralPath $temporary -Destination $OutputPath -Force
+$outputFullPath = if ([IO.Path]::IsPathRooted($OutputPath)) {
+    [IO.Path]::GetFullPath($OutputPath)
+} else {
+    [IO.Path]::GetFullPath((Join-Path (Get-Location) $OutputPath))
+}
+$directory = Split-Path -Parent $outputFullPath
+[IO.Directory]::CreateDirectory($directory) | Out-Null
+$temporary = "$outputFullPath.tmp"
+[IO.File]::WriteAllText($temporary, $pem, [Text.UTF8Encoding]::new($false))
+Move-Item -LiteralPath $temporary -Destination $outputFullPath -Force
 Write-Output "Exported the validated public PingFederate local trust anchor to $OutputPath."
 if ($Trust) {
-    & certutil.exe -f -user -addstore Root $OutputPath
+    & certutil.exe -f -user -addstore Root $outputFullPath
     if ($LASTEXITCODE -ne 0) { throw 'Could not trust the PingFederate local runtime certificate.' }
     Write-Output 'Trusted only the validated public PingFederate runtime leaf for the current user.'
 }

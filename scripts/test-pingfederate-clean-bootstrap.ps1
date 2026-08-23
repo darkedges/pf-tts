@@ -53,8 +53,10 @@ try {
         '--env', 'SERVER_PROFILE_URL=https://github.com/pingidentity/pingidentity-server-profiles.git',
         '--env', 'SERVER_PROFILE_PATH=getting-started/pingfederate', '--env', 'SERVER_PROFILE_URL_REDACT=true',
         '--env', 'SERVER_PROFILE_UPDATE=true', '--env', 'PING_IDENTITY_ACCEPT_EULA=YES',
-        '--env', 'PING_IDENTITY_DEVOPS_USER', '--env', 'PING_IDENTITY_DEVOPS_KEY', $image
+        '--env', 'PING_IDENTITY_DEVOPS_USER', '--env', 'PING_IDENTITY_DEVOPS_KEY',
+        '--env', 'PING_IDENTITY_PASSWORD', $image
     )
+    $env:PING_IDENTITY_PASSWORD = $env:PF_ADMIN_PASSWORD
     Invoke-Checked 'Starting isolated PingFederate' { docker @dockerArguments | Out-Null }
 
     $deadline = [DateTime]::UtcNow.AddSeconds($HealthTimeoutSeconds)
@@ -87,6 +89,7 @@ try {
     }
     if (-not $certificateReady) { throw 'The isolated PingFederate certificate did not become valid within 60 seconds.' }
     $env:SSL_CERT_FILE = $certificatePath
+    $env:PF_CA_FILE = $certificatePath
     $env:PF_ADMIN_INSECURE = 'false'
     $env:PF_ADMIN_URL = "https://localhost:$adminPort/pf-admin-api/v1"
     $env:PF_TOKEN_ENDPOINT = "https://localhost:$runtimePort/as/token.oauth2"
@@ -107,9 +110,31 @@ try {
     & (Join-Path $PSScriptRoot 'run-python.ps1') -ScriptPath (Join-Path $root 'deploy/pingfederate/scripts/ensure_pf_scope.py')
     if ($LASTEXITCODE -ne 0) { throw 'Isolated OAuth scope provisioning failed.' }
     Invoke-Checked 'Isolated Terraform initialization' { terraform "-chdir=$terraformWork" init -input=false }
+    Invoke-Checked 'Isolated Terraform TLS phase' {
+        terraform "-chdir=$terraformWork" apply -auto-approve -input=false `
+            '-target=pingfederate_keypairs_ssl_server_key.local_runtime' `
+            '-target=pingfederate_keypairs_ssl_server_settings.local_runtime'
+    }
+    $rotatedCertificateReady = $false
+    for ($attempt = 1; $attempt -le 18; $attempt++) {
+        try {
+            & (Join-Path $PSScriptRoot 'export-pf-local-ca.ps1') -Container $containerName -OutputPath $certificatePath
+            $rotatedCertificateReady = $true
+            break
+        } catch {
+            if ($attempt -eq 18) { throw }
+            Start-Sleep -Seconds 5
+        }
+    }
+    if (-not $rotatedCertificateReady) { throw 'The Terraform-managed PingFederate certificate did not become valid within 90 seconds.' }
     Invoke-Checked 'Isolated Terraform apply' { terraform "-chdir=$terraformWork" apply -auto-approve -input=false }
-    & (Join-Path $PSScriptRoot 'run-python.ps1') -ScriptPath (Join-Path $root 'deploy/pingfederate/scripts/verify_live_token_exchange.py')
-    if ($LASTEXITCODE -ne 0) { throw 'Isolated live token-exchange verification failed.' }
+    $exchangeVerified = $false
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+        & (Join-Path $PSScriptRoot 'run-python.ps1') -ScriptPath (Join-Path $root 'deploy/pingfederate/scripts/verify_live_token_exchange.py')
+        if ($LASTEXITCODE -eq 0) { $exchangeVerified = $true; break }
+        if ($attempt -lt 12) { Start-Sleep -Seconds 5 }
+    }
+    if (-not $exchangeVerified) { throw 'Isolated live token-exchange verification did not pass within 60 seconds.' }
     $succeeded = $true
     Write-Output "PASS: clean PingFederate bootstrap completed in isolated container $containerName."
 } finally {

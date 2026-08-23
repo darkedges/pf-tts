@@ -1,0 +1,18 @@
+#!/usr/bin/env sh
+set -eu
+
+local_env=/opt/in/env_vars
+if test ! -f "${local_env}" || test -L "${local_env}"; then
+    echo "Generated local PingFederate bootstrap material is missing or unsafe." >&2
+    exit 1
+fi
+if grep -q "$(printf '\r')" "${local_env}"; then
+    echo "Generated local PingFederate bootstrap material contains CRLF line endings." >&2
+    exit 1
+fi
+
+{
+    echo "# Repository-local generated bootstrap overrides"
+    cat "${local_env}"
+    echo ""
+} >> "${CONTAINER_ENV}"

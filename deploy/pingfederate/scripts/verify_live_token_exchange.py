@@ -57,7 +57,14 @@ def validated_https_url(name: str, default: str) -> str:
 token_endpoint = validated_https_url("PF_TOKEN_ENDPOINT", f"{issuer}/as/token.oauth2")
 jwks_url = validated_https_url("PF_JWKS_URL", f"{issuer}/pf/JWKS")
 
-context = ssl.create_default_context()
+ca_file = os.getenv("PF_CA_FILE")
+if ca_file:
+    ca_path = Path(ca_file).resolve(strict=True)
+    if not ca_path.is_file() or ca_path.is_symlink() or ca_path.stat().st_size > 65536:
+        raise SystemExit("PF_CA_FILE must be a regular, non-symlink PEM file no larger than 64 KiB.")
+    context = ssl.create_default_context(cafile=str(ca_path))
+else:
+    context = ssl.create_default_context()
 if os.getenv("PF_ADMIN_INSECURE", "false").lower() == "true":
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
@@ -86,7 +93,15 @@ def post_form(form: dict[str, str], client_id: str, client_secret: str) -> tuple
             payload = {}
         return error.code, payload if isinstance(payload, dict) else {}
     except urllib.error.URLError as error:
-        raise SystemExit("PingFederate token endpoint is unreachable.") from error
+        if isinstance(error.reason, ssl.SSLCertVerificationError):
+            detail = "TLS certificate validation failed"
+        elif isinstance(error.reason, ssl.SSLError):
+            detail = "TLS handshake failed"
+        elif isinstance(error.reason, ConnectionRefusedError):
+            detail = "connection was refused"
+        else:
+            detail = "endpoint was unreachable"
+        raise SystemExit(f"PingFederate token endpoint failed: {detail}.") from error
 
 
 subject_status, subject_payload = post_form(

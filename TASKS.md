@@ -696,3 +696,24 @@ Acceptance criteria:
 - Clean only exact test-owned resources and erase the isolated state by default.
 - Add failure tests for fixed ports, shared state, insecure TLS, broad cleanup,
   unbounded waits, and ambiguous resource names.
+
+## Task 32 — Generated PingFederate bootstrap trust material
+
+Goal: replace the expired public sample certificate and keys inherited from the
+upstream getting-started profile before PingFederate first accepts connections.
+
+Acceptance criteria:
+
+- Generate a 2048-bit RSA/SHA-256 self-signed local certificate with exact
+  localhost and host.docker.internal SANs, a five-minute backdate, and at most
+  30 days validity.
+- Generate the PKCS#12 password, datastore password, and current/pending system
+  keys with a CSPRNG; clear mutable random/key-export byte arrays.
+- Write the upstream bulk-template variable names only to an ignored profile
+  environment file using an atomic create and refuse overwrite.
+- Require the administrator password through container orchestration rather
+  than persisting it in the generated profile file.
+- Mount the generated profile read-only and reject missing bootstrap material.
+- Add failure tests for committed private material, weak keys, excessive
+  validity, missing SANs, overwrite, plaintext administrator password, and
+  mutable profile mounts.

@@ -23,17 +23,15 @@ SPIRE actor JWT-SVID, rejects a tampered actor token, and verifies the resulting
 transaction JWT signature and identity bindings. All waits and network calls
 are bounded.
 
-## Current clean-run result
+## Clean-run result
 
-The isolation and cleanup controls passed live testing. The test then stopped
-at the TLS boundary before Terraform: the current upstream
-`getting-started/pingfederate` profile presented a localhost certificate valid
-from 14 July 2023 through 13 July 2024. Retrying did not change that result.
-The harness did not enable insecure TLS and removed its exact random container,
-volume, and state directory.
+The first live run correctly rejected the upstream sample certificate, which
+was valid only from 14 July 2023 through 13 July 2024. Task 32 replaces those
+sample variables with ignored generated bootstrap material before template
+expansion.
 
-Completion requires a repository-generated, short-lived bootstrap certificate
-installed before the Admin API accepts connections, or an upstream profile
-with a currently valid certificate. Its private key must remain generated and
-ignored. Using the expired certificate, even when fingerprint-pinned, would
-weaken validation and is not an acceptable workaround.
+The completed live run validated the bootstrap leaf, provisioned the OAuth
+scope, rotated to the Terraform-managed leaf through a separately validated
+TLS phase, created all 21 Terraform resources, rejected a tampered SPIRE actor
+token, and verified the issued 20-second transaction JWT. Automatic cleanup
+removed the exact random container, volume, certificate, and Terraform state.
