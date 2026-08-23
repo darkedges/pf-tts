@@ -115,6 +115,7 @@ if ([IO.Directory]::Exists($outputRoot) -and ((Get-Item -LiteralPath $outputRoot
 [IO.Directory]::CreateDirectory($outputRoot) | Out-Null
 $rawExport = Join-Path $outputRoot 'data.json'
 $temporaryExport = Join-Path $outputRoot 'data.json.tmp'
+$applicationExport = Join-Path $outputRoot 'application-data.json'
 
 try {
     $response = $client.Send($request, [Net.Http.HttpCompletionOption]::ResponseHeadersRead)
@@ -147,8 +148,71 @@ try {
     $trustedCertificate.Dispose()
 }
 
+# Bulk import replaces the complete admin configuration. Select only objects
+# already owned by this repository; an unknown object must never become trusted
+# merely because it was present in the privileged export.
+$allowedItems = [ordered]@{
+    '/passwordCredentialValidators'              = @('waiLabUserPCV')
+    '/oauth/accessTokenManagers'                  = @('waiTransactionToken', 'waiUserAccessToken')
+    '/idp/adapters'                               = @('waiBrowserLogin')
+    '/idp/tokenProcessors'                        = @('waiSpireJwtSvid', 'waiUserAccessToken')
+    '/oauth/tokenExchange/processor/policies'     = @('wai-agent-transaction')
+    '/oauth/idpAdapterMappings'                   = @('waiBrowserLogin')
+    '/oauth/resourceOwnerCredentialsMappings'     = @('waiLabUserPCV')
+    '/oauth/openIdConnect/policies'                = @('waiBrowserOIDC')
+    '/oauth/openIdConnect/settings'                = @()
+    '/oauth/tokenExchange/generator/settings'      = @()
+    '/oauth/clients'                               = @('mcp-gateway', 'wai-agent-token-exchange', 'wai-lab-user', 'wai-web-app')
+    '/oauth/accessTokenMappings'                   = @(
+        'authz_req|waiBrowserLogin|waiUserAccessToken',
+        'password|waiLabUserPCV|waiUserAccessToken',
+        'urn:ietf:params:oauth:grant-type:token-exchange|wai-agent-transaction|waiTransactionToken'
+    )
+    '/authenticationPolicies/default'             = @()
+    '/authenticationPolicies/settings'            = @()
+}
+$identifierNames = @('id', 'clientId')
+$bulk = Get-Content -LiteralPath $rawExport -Raw | ConvertFrom-Json -Depth 100
+if ($null -eq $bulk.metadata -or @($bulk.operations).Count -lt 1) { throw 'Bulk export is missing metadata or operations.' }
+$selectedOperations = [Collections.Generic.List[object]]::new()
+foreach ($operation in @($bulk.operations)) {
+    if (-not $allowedItems.Contains($operation.resourceType)) { continue }
+    if ($operation.operationType -ne 'SAVE' -or -not [string]::IsNullOrEmpty($operation.subResource)) {
+        throw 'An allowlisted PingFederate resource has an unexpected operation shape.'
+    }
+    $expectedIDs = @($allowedItems[$operation.resourceType])
+    $items = @($operation.items)
+    if ($expectedIDs.Count -eq 0) {
+        if ($items.Count -ne 1) { throw 'An allowlisted singleton PingFederate resource is ambiguous.' }
+    } else {
+        $seen = @{}
+        foreach ($item in $items) {
+            $identifier = $null
+            foreach ($identifierName in $identifierNames) {
+                if ($item.PSObject.Properties.Name -contains $identifierName) { $identifier = [string]$item.$identifierName; break }
+            }
+            if ([string]::IsNullOrWhiteSpace($identifier) -or $identifier -notin $expectedIDs) {
+                throw 'An allowlisted PingFederate resource contains an unexpected application object.'
+            }
+            if ($seen.ContainsKey($identifier)) { throw 'An allowlisted PingFederate resource contains a duplicate application object.' }
+            $seen[$identifier] = $true
+        }
+        foreach ($expectedID in $expectedIDs) {
+            if (-not $seen.ContainsKey($expectedID)) { throw 'The bulk export is missing a required application object.' }
+        }
+    }
+    $selectedOperations.Add($operation)
+}
+foreach ($resourceType in $allowedItems.Keys) {
+    if (@($selectedOperations | Where-Object { $_.resourceType -eq $resourceType }).Count -ne 1) {
+        throw 'The bulk export is missing or duplicates an allowlisted application resource.'
+    }
+}
+$applicationDocument = [ordered]@{ metadata = $bulk.metadata; operations = $selectedOperations }
+[IO.File]::WriteAllText($applicationExport, ($applicationDocument | ConvertTo-Json -Depth 100), [Text.UTF8Encoding]::new($false))
+
 $containerConfig = '/config/pf-config.json'
-$containerExport = '/work/data.json'
+$containerExport = '/work/application-data.json'
 $containerEnvironment = '/work/env_vars'
 $containerOutput = '/work/data.json.subst'
 $converterLog = Join-Path $outputRoot 'convert.log'
@@ -168,6 +232,31 @@ $parameterizedOutput = Join-Path $outputRoot 'data.json.subst'
 Resolve-ExistingRegularFile $parameterizedOutput 'Parameterized output' | Out-Null
 Get-Content -LiteralPath $parameterizedOutput -Raw | ConvertFrom-Json -Depth 100 | Out-Null
 Resolve-ExistingRegularFile (Join-Path $outputRoot 'env_vars') 'Generated environment properties' | Out-Null
+$parameterizedText = [IO.File]::ReadAllText($parameterizedOutput)
+if ($parameterizedText -match '"encrypted[A-Za-z0-9_]*"\s*:') {
+    throw 'The application profile candidate contains a residual encrypted field.'
+}
+if ($parameterizedText -match '"(?:password|secret)"\s*:\s*"(?!\$\{[A-Z_a-z][A-Z_a-z0-9]*\}")') {
+    throw 'The application profile candidate contains a literal credential field.'
+}
+if ($parameterizedText -match '-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----') {
+    throw 'The application profile candidate contains private key material.'
+}
+$allowedPlaceholders = @(
+    'TF_VAR_browser_client_secret',
+    'TF_VAR_lab_user_client_secret',
+    'TF_VAR_lab_user_password',
+    'TF_VAR_mcp_gateway_client_secret',
+    'TF_VAR_token_exchange_client_secret'
+)
+$placeholderMatches = [regex]::Matches($parameterizedText, '\$\{([^}]+)\}')
+$actualPlaceholders = @($placeholderMatches | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+if ($actualPlaceholders.Count -ne $allowedPlaceholders.Count) {
+    throw 'The application profile candidate has a missing or unexpected external input.'
+}
+foreach ($placeholder in $actualPlaceholders) {
+    if ($placeholder -notin $allowedPlaceholders) { throw 'The application profile candidate has an unexpected external input.' }
+}
 
 Write-Output "Saved sensitive generated artifacts under $outputRoot."
 Write-Output 'Review pf-config.json, data.json.subst, and the required variable names before any manual profile promotion.'

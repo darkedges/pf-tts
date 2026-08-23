@@ -138,8 +138,10 @@ make pf-profile-export
 The raw export, converter log, extracted environment values, and substituted
 JSON are sensitive ignored files under
 `deploy/pingfederate/generated/bulk-export`. The converter is digest-pinned and
-has no network access. Nothing is copied into the trusted startup profile;
-review and extend `deploy/pingfederate/bulk-export/pf-config.json` first.
+has no network access. The generated candidate contains only exact allowlisted
+WAI application resources and externalizes its five credential inputs to the
+existing `TF_VAR_*` names. Nothing is copied into the trusted startup profile;
+Terraform remains the authoritative configuration writer.
 
 ## Live local verification
 

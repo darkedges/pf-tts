@@ -189,6 +189,11 @@ func TestBulkProfileExportKeepsPrivilegedMaterialOutsideTrustedProfile(t *testin
 		"'--cap-drop', 'ALL'",
 		"target=$containerConfig,readonly",
 		"deploy/pingfederate/generated/bulk-export",
+		"An allowlisted PingFederate resource contains an unexpected application object.",
+		"An allowlisted PingFederate resource contains a duplicate application object.",
+		"The application profile candidate contains a residual encrypted field.",
+		"The application profile candidate contains a literal credential field.",
+		"The application profile candidate has an unexpected external input.",
 	} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("bulk profile export missing fail-closed control %q", required)
@@ -201,6 +206,7 @@ func TestBulkProfileExportKeepsPrivilegedMaterialOutsideTrustedProfile(t *testin
 		"-k",
 		"SkipCertificateCheck",
 		"deploy/pingfederate/profile/instance/bulk-config",
+		"'/administrativeAccounts'",
 	} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("bulk profile export contains unsafe behavior %q", forbidden)

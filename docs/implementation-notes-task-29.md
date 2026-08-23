@@ -33,6 +33,9 @@ make pf-export-ca
 make pf-profile-export
 ```
 
-The committed `pf-config.json` intentionally starts with no exposed values.
-Add only reviewed, deployment-specific paths to that file. Review the generated
-substituted JSON and variable names locally; never commit the extracted values.
+The committed `pf-config.json` externalizes encrypted credential fields. Before
+conversion, the wrapper creates an application-only document from exact
+resource and object-ID allowlists. After conversion it rejects residual
+encrypted fields, literal password or secret fields, and private-key PEM data.
+Review the generated substituted JSON and variable names locally; never commit
+the extracted values.

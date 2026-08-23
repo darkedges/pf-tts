@@ -1,9 +1,63 @@
 {
-  "expose-parameters": [],
+  "expose-parameters": [
+    {
+      "parameter-name": "encryptedValue",
+      "replace-name": "value",
+      "unique-identifiers": [
+        "id",
+        "name"
+      ]
+    },
+    {
+      "parameter-name": "encryptedSecret",
+      "replace-name": "secret",
+      "unique-identifiers": [
+        "clientId",
+        "id"
+      ]
+    }
+  ],
   "remove-config": [],
   "add-config": [],
   "change-value": [],
-  "config-aliases": [],
+  "config-aliases": [
+    {
+      "config-names": [
+        "oauth_clients_items_clientAuth_mcp_gateway_secret"
+      ],
+      "replace-name": "TF_VAR_mcp_gateway_client_secret",
+      "is-apply-envfile": false
+    },
+    {
+      "config-names": [
+        "oauth_clients_items_clientAuth_wai_agent_token_exchange_secret"
+      ],
+      "replace-name": "TF_VAR_token_exchange_client_secret",
+      "is-apply-envfile": false
+    },
+    {
+      "config-names": [
+        "oauth_clients_items_clientAuth_wai_lab_user_secret"
+      ],
+      "replace-name": "TF_VAR_lab_user_client_secret",
+      "is-apply-envfile": false
+    },
+    {
+      "config-names": [
+        "oauth_clients_items_clientAuth_wai_web_app_secret"
+      ],
+      "replace-name": "TF_VAR_browser_client_secret",
+      "is-apply-envfile": false
+    },
+    {
+      "config-names": [
+        "passwordCredentialValidators_items_waiLabUserPCV_configuration_tables_rows_fields_Confirm_Password_value",
+        "passwordCredentialValidators_items_waiLabUserPCV_configuration_tables_rows_fields_Password_value"
+      ],
+      "replace-name": "TF_VAR_lab_user_password",
+      "is-apply-envfile": false
+    }
+  ],
   "sort-arrays": [],
   "search-replace": []
 }

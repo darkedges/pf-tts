@@ -657,3 +657,22 @@ Acceptance criteria:
 - Add failure tests for insecure TLS, embedded credentials, mutable images,
   unbounded export handling, writable converter inputs, and automatic profile
   promotion.
+
+## Task 30 — Reviewed PingFederate application profile candidate
+
+Goal: derive a reviewable application-only bulk profile candidate without
+making bulk import a second configuration authority alongside Terraform.
+
+Acceptance criteria:
+
+- Select resource types and application object IDs through explicit allowlists.
+- Reject unknown operations, resource types, application IDs, or duplicate
+  singleton resources.
+- Exclude administrator accounts, licenses, key pairs, certificates, system
+  keys, server settings, and unrelated global OAuth settings.
+- Convert encrypted password and OAuth client-secret fields to external
+  substitutions; reject residual encrypted fields or literal credential data.
+- Preserve Terraform as the authoritative writer and do not mount or import
+  the generated candidate automatically.
+- Add failure tests for an unexpected resource, unexpected client, residual
+  encrypted value, literal secret, and attempted automatic import.
