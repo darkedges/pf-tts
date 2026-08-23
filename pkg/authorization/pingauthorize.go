@@ -15,7 +15,12 @@ import (
 	"example.com/workload-agent-identity/pkg/identity"
 )
 
-const pingAuthorizeResponseLimit = 64 << 10
+const (
+	pingAuthorizeResponseLimit = 64 << 10
+	pingAuthorizeService       = "WAI MCP"
+	pingAuthorizeDomain        = "WAI"
+	pingAuthorizeAction        = "Invoke"
+)
 
 // PingAuthorize evaluates already-verified identity and route data with the
 // PingAuthorize JSON PDP API. It treats every incomplete or ambiguous result
@@ -84,7 +89,7 @@ func (p *PingAuthorize) Authorize(ctx context.Context, value identity.RequestIde
 		return ErrDenied
 	}
 	body, err := json.Marshal(pingAuthorizeRequest{
-		Service: "wai-mcp", Domain: "example.org", Action: "invoke",
+		Service: pingAuthorizeService, Domain: pingAuthorizeDomain, Action: pingAuthorizeAction,
 		Attributes: map[string]string{
 			"user_id": value.User.ID, "agent_id": value.Agent.ID,
 			"agent_instance_id": value.Agent.InstanceID, "workload_id": value.OriginalWorkload.SPIFFEID,

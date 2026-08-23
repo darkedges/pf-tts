@@ -21,6 +21,9 @@ func TestPingAuthorizeSendsOnlyTypedVerifiedDecisionInput(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 			t.Fatal(err)
 		}
+		if input.Domain != "WAI" || input.Service != "WAI MCP" || input.Action != "Invoke" {
+			t.Fatalf("unexpected PingAuthorize target: domain=%q service=%q action=%q", input.Domain, input.Service, input.Action)
+		}
 		if input.Attributes["agent_id"] != "urn:agent:demo" || input.Attributes["workload_id"] != "spiffe://example.org/agent/demo" || input.Attributes["immediate_caller_id"] != "spiffe://example.org/agent/demo" || input.Attributes["scope"] != "mcp:invoke read" || input.Attributes["target"] != "demo" || input.Attributes["tool"] != "system.whoami" {
 			t.Fatalf("unexpected trusted decision input: %#v", input.Attributes)
 		}

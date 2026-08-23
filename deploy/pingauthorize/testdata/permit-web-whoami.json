@@ -1,0 +1,17 @@
+{
+  "domain": "WAI",
+  "service": "WAI MCP",
+  "action": "Invoke",
+  "attributes": {
+    "user_id": "user-test",
+    "agent_id": "urn:agent:web-app",
+    "agent_instance_id": "instance-test",
+    "workload_id": "spiffe://example.org/agent/web-app",
+    "immediate_caller_id": "spiffe://example.org/agent/web-app",
+    "transaction_id": "txn-test",
+    "purpose": "system.whoami",
+    "scope": "mcp:invoke",
+    "target": "demo",
+    "tool": "system.whoami"
+  }
+}

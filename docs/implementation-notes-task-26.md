@@ -22,11 +22,20 @@ route. PingAuthorize is a remote decision point, not an identity verifier; it
 cannot replace JWT signature, issuer, audience, time, logical-agent/workload,
 or immediate-caller verification.
 
-The running `getting-started/pingauthorize` profile is intentionally not wired
-into the gateway. Its sample policy currently permits the test request and
-returns an unfulfilled obligation. Activating that profile would weaken the
-repository policy. OPA remains the default until a repository-owned deployment
-package passes the same allow and failure matrix.
+The repository owns `deploy/pingauthorize/policies/wai-mcp-authorization.deploymentpackage`.
+Its single permit is guarded by an `AND` over exact logical-agent, workload,
+immediate-caller, purpose, scope, target, and tool comparisons and is targeted
+to `WAI / WAI MCP / Invoke`. Package-graph tests reject changed or disconnected
+bindings before deployment. The live local server returned `PERMIT` for the
+exact tuple and `NOT_APPLICABLE` for a forged logical agent over
+certificate-validated HTTPS.
+
+OPA remains the default adapter until the Docker gateway can reach a
+PingAuthorize endpoint whose certificate contains the stable container DNS
+name. The current development container certificate is valid for `localhost`,
+its container ID, and loopback addresses, but not the `pingauthorize` service
+name. Overriding TLS `ServerName` or disabling hostname validation would weaken
+the trust boundary and is not permitted.
 
 The JSON contract follows the PingAuthorize 11.1 JSON PDP individual endpoint
 at `/governance-engine`. The running 11.1 image returns the response property
