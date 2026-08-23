@@ -1,4 +1,4 @@
-.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -40,7 +40,10 @@ pf-plan:
 pf-apply:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-pf-terraform.ps1 apply
 
-pf-local-up:
+pf-profile:
+	pwsh -NoProfile -File scripts/build-pingfederate-profile.ps1
+
+pf-local-up: pf-profile
 	docker compose --env-file .env.local -f deploy/pingfederate/compose.yaml up -d
 
 pf-local-down:
@@ -88,6 +91,16 @@ pa-trust-local:
 
 pa-export-runtime-ca:
 	pwsh -NoProfile -File scripts/export-pingauthorize-runtime-cert.ps1
+
+pa-local-up:
+	pwsh -NoProfile -File scripts/ensure-wai-app-network.ps1
+	docker compose --env-file .env.local -f deploy/pingauthorize/compose.yaml up -d
+
+pa-local-down:
+	docker compose --env-file .env.local -f deploy/pingauthorize/compose.yaml down
+
+pa-local-logs:
+	docker compose --env-file .env.local -f deploy/pingauthorize/compose.yaml logs -f pingauthorize
 
 app-up:
 	docker compose --env-file .env.local --profile app-only -f deploy/docker/compose.yaml up -d --build

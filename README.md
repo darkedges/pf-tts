@@ -97,6 +97,31 @@ This queries the target PingFederate 13.1 server for the exact token processor
 and Access Token Manager plugin descriptors before Terraform is allowed to
 create plugin instances.
 
+## Repository-owned Ping product profiles
+
+The local Ping products start from pinned images plus read-only profile
+overlays. Put only `PING_IDENTITY_DEVOPS_USER` and
+`PING_IDENTITY_DEVOPS_KEY` in ignored `.env.local`; licenses and secrets are
+retrieved or generated outside Git.
+
+```bash
+make pf-local-up
+make pf-ensure-scope
+make pf-apply
+make pa-local-up
+make pa-export-runtime-ca
+```
+
+`pf-local-up` first builds and tests the repository's custom PingFederate
+plugin and places the ignored JAR in the mounted profile. On a clean named
+volume, create the required scope and then apply the Terraform-managed product
+configuration; keeping that second phase explicit prevents a startup command
+from silently changing OAuth clients or secrets. `pa-local-up`
+validates or creates the dedicated bridge network and configures the exact
+repository-owned deployment package during first setup. The runtime
+certificate export rejects a certificate that is not valid for the stable
+`pingauthorize-wai` service identity.
+
 ## Live local verification
 
 After PingFederate Terraform has been applied and the SPIRE entries are

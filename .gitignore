@@ -22,6 +22,8 @@ deploy/pingfederate/terraform/pf13_1.auto.tfvars.json
 deploy/pingfederate/sdk/
 deploy/pingfederate/generated/*
 !deploy/pingfederate/generated/.gitkeep
+deploy/pingfederate/profile/instance/server/default/deploy/*.jar
+!deploy/pingfederate/profile/instance/server/default/deploy/.gitkeep
 deploy/web/generated/*
 !deploy/web/generated/.gitkeep
 deploy/pingauthorize/generated/*

@@ -1,11 +1,12 @@
 services:
   pingfederate:
-    image: pingidentity/pingfederate:2606-13.1.0
+    image: pingidentity/pingfederate:2606-13.1.0@sha256:3a74b4d40398202d7f32b029da4d59c73471bad952dec6225ca22f8857fa6be0
     container_name: wai-pingfederate-13-1
     environment:
       SERVER_PROFILE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
       SERVER_PROFILE_PATH: getting-started/pingfederate
       SERVER_PROFILE_URL_REDACT: "true"
+      SERVER_PROFILE_UPDATE: "true"
       PING_IDENTITY_ACCEPT_EULA: "YES"
       PING_IDENTITY_DEVOPS_USER: ${PING_IDENTITY_DEVOPS_USER:?Set PING_IDENTITY_DEVOPS_USER in .env.local}
       PING_IDENTITY_DEVOPS_KEY: ${PING_IDENTITY_DEVOPS_KEY:?Set PING_IDENTITY_DEVOPS_KEY in .env.local}
@@ -16,6 +17,7 @@ services:
       - /run/secrets
     volumes:
       - pingfederate-output:/opt/out
+      - ./profile:/opt/in:ro
     restart: unless-stopped
 
 volumes:

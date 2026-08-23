@@ -73,6 +73,78 @@ func TestGeneratedInputsRejectAmbiguousOrMalformedRotatedJWKS(t *testing.T) {
 	}
 }
 
+func TestLocalProfileBuildAndComposeKeepArtifactsBounded(t *testing.T) {
+	composeBytes, err := os.ReadFile("compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	compose := string(composeBytes)
+	for _, required := range []string{
+		"pingidentity/pingfederate:2606-13.1.0@sha256:",
+		"./profile:/opt/in:ro",
+		"SERVER_PROFILE_UPDATE: \"true\"",
+		"${PING_IDENTITY_DEVOPS_USER:?",
+		"${PING_IDENTITY_DEVOPS_KEY:?",
+	} {
+		if !strings.Contains(compose, required) {
+			t.Fatalf("PingFederate profile Compose missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"PING_IDENTITY_DEVOPS_USER: wai", "PING_IDENTITY_DEVOPS_KEY: wai", ":edge"} {
+		if strings.Contains(compose, forbidden) {
+			t.Fatalf("PingFederate profile Compose contains unpinned or embedded material %q", forbidden)
+		}
+	}
+
+	buildBytes, err := os.ReadFile("../../scripts/build-pingfederate-profile.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := string(buildBytes)
+	for _, required := range []string{
+		"clean test package",
+		"pingfederate-spiffe-plugins-0.1.0-SNAPSHOT.jar",
+		"wai-pingfederate-spiffe-plugins.jar",
+		"Get-FileHash",
+		"$artifact.Length -lt 1024",
+	} {
+		if !strings.Contains(build, required) {
+			t.Fatalf("PingFederate profile builder missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"client_secret", "PING_IDENTITY_DEVOPS_KEY", "terraform.tfstate"} {
+		if strings.Contains(build, forbidden) {
+			t.Fatalf("PingFederate profile builder handles forbidden material %q", forbidden)
+		}
+	}
+}
+
+func TestPluginBuildIsReproducible(t *testing.T) {
+	b, err := os.ReadFile("plugins/pom.xml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pom := string(b)
+	for _, required := range []string{
+		"<project.build.outputTimestamp>2026-01-01T00:00:00Z</project.build.outputTimestamp>",
+		"<artifactId>maven-jar-plugin</artifactId><version>3.4.2</version>",
+	} {
+		if !strings.Contains(pom, required) {
+			t.Fatalf("PingFederate plugin build missing reproducibility control %q", required)
+		}
+	}
+	checkBytes, err := os.ReadFile("../../scripts/test-pingfederate-profile-reproducibility.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := string(checkBytes)
+	for _, required := range []string{"Get-FileHash", "$first -ne $second", "throw 'PingFederate profile plugin build is not reproducible.'"} {
+		if !strings.Contains(check, required) {
+			t.Fatalf("PingFederate reproducibility check missing failure condition %q", required)
+		}
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

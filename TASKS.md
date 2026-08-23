@@ -595,3 +595,24 @@ Acceptance criteria:
 - Reject disabled TLS verification and ambiguous scope serialization.
 - Keep OPA as the default adapter until a repository-owned PingAuthorize
   deployment package implements and passes the full allow/deny policy matrix.
+
+## Task 27 — Repository-owned Ping product server profiles
+
+Goal: start the local PingFederate and PingAuthorize products reproducibly from
+repository-owned profile overlays instead of manual container mutation.
+
+Acceptance criteria:
+
+- Pin both product images by immutable digest.
+- Mount profile overlays read-only at the supported `/opt/in` boundary.
+- Build and test the PingFederate custom plugin before startup; do not commit
+  generated JARs or SDK libraries.
+- Install the PingAuthorize deployment package from a read-only mount through
+  dsconfig during first setup.
+- Keep credentials, licenses, private keys, generated certificates, discovery
+  output, Terraform inputs, and Terraform state outside both profiles.
+- Give PingAuthorize the stable DNS identity covered by its runtime
+  certificate and attach it only to the local application bridge network.
+- Add failure tests for unpinned images, embedded credentials, writable policy
+  mounts, sample-policy fallback, malformed plugin artifacts, and unexpected
+  network drivers.

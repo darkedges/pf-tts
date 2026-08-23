@@ -1,0 +1,31 @@
+services:
+  pingauthorize:
+    image: pingidentity/pingauthorize:edge@sha256:7360ae0b5a869173322e1ce2e03e641da7f8525b9be41ad9bc3129d7ac4158f4
+    container_name: pingauthorize-wai
+    hostname: pingauthorize-wai
+    environment:
+      SERVER_PROFILE_URL: https://github.com/pingidentity/pingidentity-server-profiles.git
+      SERVER_PROFILE_PATH: getting-started/pingauthorize
+      SERVER_PROFILE_URL_REDACT: "true"
+      PING_IDENTITY_ACCEPT_EULA: "YES"
+      PING_IDENTITY_DEVOPS_USER: ${PING_IDENTITY_DEVOPS_USER:?Set PING_IDENTITY_DEVOPS_USER in .env.local}
+      PING_IDENTITY_DEVOPS_KEY: ${PING_IDENTITY_DEVOPS_KEY:?Set PING_IDENTITY_DEVOPS_KEY in .env.local}
+    ports:
+      - "127.0.0.1:1489:1389"
+      - "127.0.0.1:9543:1443"
+    tmpfs:
+      - /run/secrets
+    volumes:
+      - pingauthorize-output:/opt/out
+      - ./profile:/opt/in:ro
+      - ./policies/wai-mcp-authorization.deploymentpackage:/run/wai/wai-mcp-authorization.deploymentpackage:ro
+    networks: [wai-app]
+    restart: unless-stopped
+
+volumes:
+  pingauthorize-output:
+
+networks:
+  wai-app:
+    external: true
+    name: docker_wai-app
