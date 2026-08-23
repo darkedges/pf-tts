@@ -170,3 +170,52 @@ func TestPingAuthorizeLocalTrustValidatesObservedCertificate(t *testing.T) {
 		}
 	}
 }
+
+func TestPingAuthorizeRuntimeTrustRequiresServiceIdentity(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/export-pingauthorize-runtime-cert.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"$ContainerName -ne 'pingauthorize-wai'",
+		"$ExpectedDnsName -ne 'pingauthorize-wai'",
+		"$cert.HasPrivateKey",
+		"$cert.Subject -ne $cert.Issuer",
+		"$cert.NotBefore.ToUniversalTime()",
+		`DNS Name=$([regex]::Escape($ExpectedDnsName))`,
+		"deploy/pingauthorize/generated",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("PingAuthorize runtime certificate bootstrap missing strict check %q", required)
+		}
+	}
+	for _, forbidden := range []string{"InsecureSkipVerify", "--ignore-certificate-errors", "ExportPkcs12", "ServerName"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("PingAuthorize runtime certificate bootstrap contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
+func TestGatewayPingAuthorizeWiringPreservesTLSAndFailClosedDefault(t *testing.T) {
+	b, err := os.ReadFile("compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	compose := string(b)
+	for _, required := range []string{
+		"AUTHORIZATION_PROVIDER: ${AUTHORIZATION_PROVIDER:-opa}",
+		"PINGAUTHORIZE_URL: ${PINGAUTHORIZE_URL:-https://pingauthorize-wai:1443/governance-engine}",
+		"PINGAUTHORIZE_CA_FILE: /run/pingauthorize/ca.pem",
+		"runtime-cert.pem:/run/pingauthorize/ca.pem:ro",
+	} {
+		if !strings.Contains(compose, required) {
+			t.Fatalf("gateway PingAuthorize wiring missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"http://pingauthorize", "PINGAUTHORIZE_INSECURE", "check_hostname"} {
+		if strings.Contains(compose, forbidden) {
+			t.Fatalf("gateway PingAuthorize wiring weakens TLS using %q", forbidden)
+		}
+	}
+}

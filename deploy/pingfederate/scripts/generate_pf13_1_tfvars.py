@@ -64,8 +64,23 @@ if not jwks_path.exists():
     raise SystemExit("Run make spire-jwks before generating confirmed PingFederate inputs.")
 jwks = json.loads(jwks_path.read_text(encoding="utf-8-sig"))
 jwks_keys = jwks.get("keys") or []
-if len(jwks_keys) != 1 or jwks_keys[0].get("use") != "sig" or jwks_keys[0].get("alg") != "ES256" or not jwks_keys[0].get("kid"):
-    raise SystemExit("SPIRE JWKS must contain exactly one reviewed ES256 signing key with a key ID.")
+key_ids = [key.get("kid") for key in jwks_keys if isinstance(key, dict)]
+if (
+    not jwks_keys
+    or len(key_ids) != len(jwks_keys)
+    or any(not key_id for key_id in key_ids)
+    or len(set(key_ids)) != len(key_ids)
+    or any(
+        key.get("use") != "sig"
+        or key.get("alg") != "ES256"
+        or key.get("kty") != "EC"
+        or key.get("crv") != "P-256"
+        or not key.get("x")
+        or not key.get("y")
+        for key in jwks_keys
+    )
+):
+    raise SystemExit("SPIRE JWKS must contain one or more unique reviewed EC P-256 ES256 signing keys.")
 
 transaction_issuer = os.getenv("PF_TRANSACTION_ISSUER", "").strip()
 missing_env = [name for name, value in {

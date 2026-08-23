@@ -45,9 +45,30 @@ func TestSpireJWKSExportRejectsAmbiguousOrNonSigningKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := string(b)
-	for _, required := range []string{"$jwtKeys.Count -ne 1", "$source.kty -ne 'EC'", "$source.crv -ne 'P-256'", "use='sig'", "alg='ES256'"} {
+	for _, required := range []string{"$jwtKeys.Count -lt 1", "$seenKeyIDs.ContainsKey($source.kid)", "$source.kty -ne 'EC'", "$source.crv -ne 'P-256'", "use='sig'", "alg='ES256'"} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("JWKS export missing fail-closed check %q", required)
+		}
+	}
+}
+
+func TestGeneratedInputsRejectAmbiguousOrMalformedRotatedJWKS(t *testing.T) {
+	b, err := os.ReadFile("scripts/generate_pf13_1_tfvars.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"not jwks_keys",
+		"len(set(key_ids)) != len(key_ids)",
+		`key.get("kty") != "EC"`,
+		`key.get("crv") != "P-256"`,
+		`key.get("alg") != "ES256"`,
+		`not key.get("x")`,
+		`not key.get("y")`,
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("generated PingFederate inputs missing rotated JWKS validation %q", required)
 		}
 	}
 }
