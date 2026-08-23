@@ -143,3 +143,30 @@ func TestPingFederateLocalTrustRejectsBroadCertificates(t *testing.T) {
 		}
 	}
 }
+
+func TestPingAuthorizeLocalTrustValidatesObservedCertificate(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/export-pingauthorize-local-cert.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"$HostName -ne 'localhost'",
+		"$cert.HasPrivateKey",
+		"$cert.Subject -ne $cert.Issuer",
+		"$cert.NotBefore.ToUniversalTime()",
+		"DNS Name=localhost",
+		"IP Address=127\\.0\\.0\\.1",
+		"FindByThumbprint",
+		"deploy/pingauthorize/generated",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("PingAuthorize certificate bootstrap missing strict check %q", required)
+		}
+	}
+	for _, forbidden := range []string{"InsecureSkipVerify", "--ignore-certificate-errors", "ExportPkcs12"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("PingAuthorize certificate bootstrap contains unsafe behavior %q", forbidden)
+		}
+	}
+}

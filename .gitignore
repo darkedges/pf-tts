@@ -24,3 +24,5 @@ deploy/pingfederate/generated/*
 !deploy/pingfederate/generated/.gitkeep
 deploy/web/generated/*
 !deploy/web/generated/.gitkeep
+deploy/pingauthorize/generated/*
+!deploy/pingauthorize/generated/.gitkeep
