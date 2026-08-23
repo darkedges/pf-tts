@@ -30,7 +30,10 @@ func main() {
 		"spiffe://example.org/mcp/demo",
 		"spiffe://example.org/api/demo",
 	}
-	handler, err := auditcollector.New(auditcollector.Config{Store: store, AllowedSubmitters: callers, QueryCaller: "spiffe://example.org/agent/web-app", MaximumBodyBytes: 64 << 10})
+	handler, err := auditcollector.New(auditcollector.Config{
+		Store: store, AllowedSubmitters: callers, QueryCaller: "spiffe://example.org/agent/web-app", MaximumBodyBytes: 64 << 10,
+		OnRejection: func(reason string) { log.Printf("audit submission rejected: %s", reason) },
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

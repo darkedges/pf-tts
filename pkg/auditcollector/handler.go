@@ -21,6 +21,7 @@ type Config struct {
 	QueryCaller       string
 	MaximumBodyBytes  int64
 	Random            io.Reader
+	OnRejection       func(string)
 }
 
 type Handler struct {
@@ -29,6 +30,7 @@ type Handler struct {
 	queryCaller string
 	maxBody     int64
 	random      io.Reader
+	onRejection func(string)
 	mux         *http.ServeMux
 }
 
@@ -55,7 +57,7 @@ func New(config Config) (*Handler, error) {
 	if config.Random == nil {
 		config.Random = rand.Reader
 	}
-	h := &Handler{store: config.Store, submitters: submitters, queryCaller: config.QueryCaller, maxBody: config.MaximumBodyBytes, random: config.Random, mux: http.NewServeMux()}
+	h := &Handler{store: config.Store, submitters: submitters, queryCaller: config.QueryCaller, maxBody: config.MaximumBodyBytes, random: config.Random, onRejection: config.OnRejection, mux: http.NewServeMux()}
 	h.mux.HandleFunc("POST /v1/events", h.submit)
 	h.mux.HandleFunc("GET /v1/events", h.list)
 	h.mux.HandleFunc("GET /v1/events/{id}", h.get)
@@ -69,21 +71,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
-	caller, err := middleware.ImmediateCallerSPIFFEID(r.TLS)
+	caller, err := middleware.ImmediateCallerSPIFFEIDFromVerifiedMTLS(r.TLS)
 	if err != nil {
+		h.rejected("caller_unverified")
 		h.deny(w)
 		return
 	}
 	if _, ok := h.submitters[caller]; !ok {
+		h.rejected("caller_denied")
 		h.deny(w)
 		return
 	}
 	if r.Header.Get("Content-Type") != "application/json" {
+		h.rejected("content_type_invalid")
 		h.invalid(w)
 		return
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, h.maxBody+1))
 	if err != nil || int64(len(body)) > h.maxBody {
+		h.rejected("body_invalid")
 		h.invalid(w)
 		return
 	}
@@ -91,17 +97,20 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&event) != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		h.rejected("encoding_invalid")
 		h.invalid(w)
 		return
 	}
 	id, err := h.randomID()
 	if err != nil {
+		h.rejected("identifier_unavailable")
 		h.unavailable(w)
 		return
 	}
 	record := audit.Record{ID: id, TransactionID: event.TransactionID, UserID: event.UserID, EventType: event.Type, Target: event.Target, Decision: event.Decision, ReasonCode: event.ReasonCode, AgentID: event.AgentID, TransactionWorkloadID: event.TransactionWorkloadID, ImmediateCallerSPIFFEID: event.ImmediateCallerSPIFFEID, SubmittingSPIFFEID: caller, ProtocolMethod: event.ProtocolMethod, Tool: event.Tool, Purpose: event.Purpose, ResponseStatus: event.ResponseStatus, ResultType: event.ResultType, DurationMillis: event.DurationMillis}
 	stored, err := h.store.Add(record)
 	if err != nil {
+		h.rejected("record_invalid")
 		h.invalid(w)
 		return
 	}
@@ -134,7 +143,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) queryUser(w http.ResponseWriter, r *http.Request) (string, bool) {
-	caller, err := middleware.ImmediateCallerSPIFFEID(r.TLS)
+	caller, err := middleware.ImmediateCallerSPIFFEIDFromVerifiedMTLS(r.TLS)
 	user := strings.TrimSpace(r.Header.Get("X-WAI-User-ID"))
 	if err != nil || caller != h.queryCaller || user == "" || user != r.Header.Get("X-WAI-User-ID") {
 		h.deny(w)
@@ -162,4 +171,10 @@ func (h *Handler) invalid(w http.ResponseWriter) {
 }
 func (h *Handler) unavailable(w http.ResponseWriter) {
 	http.Error(w, "audit unavailable", http.StatusInternalServerError)
+}
+
+func (h *Handler) rejected(reason string) {
+	if h.onRejection != nil {
+		h.onRejection(reason)
+	}
 }

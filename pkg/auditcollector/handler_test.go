@@ -71,6 +71,18 @@ func TestCollectorDerivesSubmitterAndFiltersQueriesByUser(t *testing.T) {
 	}
 }
 
+func TestCollectorAcceptsVerifiedGatewaySummary(t *testing.T) {
+	handler := newCollector(t)
+	event := `{"type":"transaction.verify.succeeded","transaction_id":"e9d14ace-29ed-4087-84c6-a023403f3297","user_id":"demo-user","agent_id":"urn:agent:demo","transaction_workload_id":"spiffe://example.org/agent/demo","immediate_caller_spiffe_id":"spiffe://example.org/agent/demo","target":"mcp-gateway","decision":"allow","reason_code":"verified","protocol_method":"POST","purpose":"system.whoami"}`
+	request := requestWithCaller(t, http.MethodPost, "https://collector/v1/events", event, "spiffe://example.org/gateway/mcp")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("verified gateway summary rejected: %d %s", response.Code, response.Body.String())
+	}
+}
+
 func TestCollectorRejectsSpoofedCallerUnknownOversizedAndCredentialData(t *testing.T) {
 	handler := newCollector(t)
 	tests := []struct {
@@ -105,6 +117,43 @@ func TestCollectorRejectsUnboundedOrMalformedTrustConfiguration(t *testing.T) {
 	} {
 		if _, err := New(config); err == nil {
 			t.Fatal("unsafe collector trust or capacity configuration accepted")
+		}
+	}
+}
+
+func TestCollectorRejectionCallbackUsesFixedReasonWithoutRequestData(t *testing.T) {
+	store, _ := audit.NewStore(audit.StoreConfig{MaximumRecords: 1, MaximumFieldBytes: 256, Retention: time.Minute})
+	var reason string
+	handler, err := New(Config{
+		Store: store, AllowedSubmitters: []string{"spiffe://example.org/gateway/mcp"}, QueryCaller: "spiffe://example.org/agent/web-app", MaximumBodyBytes: 1024,
+		OnRejection: func(value string) { reason = value },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := requestWithCaller(t, http.MethodPost, "https://collector/v1/events", `{"access_token":"must-not-be-logged"}`, "spiffe://example.org/gateway/mcp")
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+	if reason != "encoding_invalid" || strings.Contains(reason, "must-not-be-logged") {
+		t.Fatalf("unsafe rejection diagnostic %q", reason)
+	}
+}
+
+func TestCollectorRejectsMissingOrAmbiguousVerifiedMTLSIdentity(t *testing.T) {
+	handler := newCollector(t)
+	for _, request := range []*http.Request{
+		httptest.NewRequest(http.MethodPost, "https://collector/v1/events", strings.NewReader(`{"type":"mcp.tool.allowed"}`)),
+		requestWithCaller(t, http.MethodPost, "https://collector/v1/events", `{"type":"mcp.tool.allowed"}`, "spiffe://example.org/gateway/mcp"),
+	} {
+		request.Header.Set("Content-Type", "application/json")
+		if len(request.TLS.PeerCertificates) == 1 {
+			second, _ := url.Parse("spiffe://example.org/attacker")
+			request.TLS.PeerCertificates[0].URIs = append(request.TLS.PeerCertificates[0].URIs, second)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusForbidden {
+			t.Fatalf("unbound or ambiguous mTLS identity status = %d", response.Code)
 		}
 	}
 }

@@ -12,7 +12,7 @@ func TestComposeProfilesAndIdentityIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	compose := string(b)
-	for _, required := range []string{`profiles: ["app-only", "local-lab"]`, `profiles: ["local-lab"]`, "wai.workload: mcp-gateway", "wai.workload: demo-mcp-server", "wai.workload: demo-api", "wai.workload: demo-agent"} {
+	for _, required := range []string{`profiles: ["app-only", "local-lab"]`, `profiles: ["local-lab"]`, "wai.workload: mcp-gateway", "wai.workload: demo-mcp-server", "wai.workload: demo-api", "wai.workload: demo-agent", "wai.workload: web-app", "wai.workload: audit-collector"} {
 		if !strings.Contains(compose, required) {
 			t.Fatalf("orchestration missing %q", required)
 		}
@@ -20,7 +20,7 @@ func TestComposeProfilesAndIdentityIsolation(t *testing.T) {
 	if !strings.Contains(compose, "${SPIRE_SOCKET_VOLUME:-spire_spire-agent-socket}") {
 		t.Fatal("application profile must default to the repository SPIRE Compose socket volume")
 	}
-	if strings.Count(compose, "wai.workload:") != 4 {
+	if strings.Count(compose, "wai.workload:") != 6 {
 		t.Fatal("each demo workload must have exactly one distinct attested label")
 	}
 }
@@ -31,9 +31,14 @@ func TestComposeDoesNotContainCredentialValues(t *testing.T) {
 		t.Fatal(err)
 	}
 	compose := string(b)
-	for _, forbidden := range []string{"2FederateM0re", "Bearer eyJ", "client_secret:"} {
+	for _, forbidden := range []string{"2FederateM0re", "Bearer eyJ"} {
 		if strings.Contains(compose, forbidden) {
 			t.Fatalf("Compose contains credential material %q", forbidden)
+		}
+	}
+	for _, line := range strings.Split(compose, "\n") {
+		if strings.Contains(strings.ToLower(line), "client_secret:") && !strings.Contains(line, "${") {
+			t.Fatalf("Compose embeds a client-secret value instead of requiring environment interpolation: %q", line)
 		}
 	}
 	for _, required := range []string{"${PF_CLIENT_SECRET:?", "${USER_ACCESS_TOKEN:-}"} {
@@ -44,6 +49,11 @@ func TestComposeDoesNotContainCredentialValues(t *testing.T) {
 	for _, required := range []string{"PF_CA_FILE: /run/pingfederate/ca.pem", "local-runtime-ca.pem:/run/pingfederate/ca.pem:ro"} {
 		if !strings.Contains(compose, required) {
 			t.Fatalf("PingFederate trust anchor must be explicitly mounted using %q", required)
+		}
+	}
+	for _, required := range []string{"server-cert.pem:/run/web/server-cert.pem:ro", "server-key.pem:/run/web/server-key.pem:ro", "PF_WEB_CLIENT_SECRET: ${TF_VAR_browser_client_secret:?", "AUDIT_COLLECTOR_URL: https://audit-collector:8447"} {
+		if !strings.Contains(compose, required) {
+			t.Fatalf("web/audit runtime wiring missing %q", required)
 		}
 	}
 	if !strings.Contains(compose, "authorization.rego:/run/wai/authorization.rego:ro") {
@@ -80,6 +90,56 @@ func TestLiveLabCoversFailureBoundariesWithoutTokenOutput(t *testing.T) {
 	for _, forbidden := range []string{"print(subject_token)", "write_text", "CERT_NONE", "check_hostname = False"} {
 		if strings.Contains(script, forbidden) {
 			t.Fatalf("live lab weakens validation or persists a token using %q", forbidden)
+		}
+	}
+}
+
+func TestLocalWebTLSGeneratorPreservesStrictLeafTrust(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/generate-web-local-tls.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"AddDays(30)",
+		"AddDnsName('localhost')",
+		"AddIpAddress([Net.IPAddress]::Loopback)",
+		"$leaf = $leafRequest.CreateSelfSigned($notBefore, $notAfter)",
+		"certutil.exe -f -user -addstore Root",
+		"local-web-cert.pem",
+		"FindByThumbprint",
+		"$rootStore.Remove($match)",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("local web TLS generator missing strict trust control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"InsecureSkipVerify", "--ignore-certificate-errors", "WAI Local Web Development CA", "X509KeyUsageFlags]::KeyCertSign"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("local web TLS generator weakens certificate validation using %q", forbidden)
+		}
+	}
+}
+
+func TestPingFederateLocalTrustRejectsBroadCertificates(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/export-pf-local-ca.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"$basicConstraints.CertificateAuthority",
+		"$cert.Subject -ne $cert.Issuer",
+		"certutil.exe -f -user -addstore Root $OutputPath",
+		"DNS Name=$([regex]::Escape($name))",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("PingFederate local trust missing strict validation %q", required)
+		}
+	}
+	for _, forbidden := range []string{"InsecureSkipVerify", "--ignore-certificate-errors", "CERT_NONE"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("PingFederate local trust weakens validation using %q", forbidden)
 		}
 	}
 }

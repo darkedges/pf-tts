@@ -1,4 +1,4 @@
-.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -68,6 +68,9 @@ pf-live-exchange:
 pf-export-ca:
 	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/export-pf-local-ca.ps1
 
+pf-trust-local:
+	pwsh -NoProfile -File scripts/export-pf-local-ca.ps1 -Trust
+
 pf-generate-tfvars:
 	$(PYTHON_RUN) -EnvFile .env.local -ScriptPath deploy/pingfederate/scripts/generate_pf13_1_tfvars.py
 
@@ -77,11 +80,14 @@ pf-ensure-scope:
 app-config:
 	docker compose --env-file .env.local --profile app-only -f deploy/docker/compose.yaml config --quiet
 
+web-tls:
+	pwsh -NoProfile -File scripts/generate-web-local-tls.ps1 -Trust
+
 app-up:
 	docker compose --env-file .env.local --profile app-only -f deploy/docker/compose.yaml up -d --build
 
 lab-up:
-	docker compose --env-file .env.local --profile local-lab -f deploy/docker/compose.yaml up -d --build mcp-gateway demo-mcp-server demo-api
+	docker compose --env-file .env.local --profile local-lab -f deploy/docker/compose.yaml up -d --build audit-collector mcp-gateway demo-mcp-server demo-api web-app
 
 lab-verify:
 	$(PYTHON_RUN) -EnvFile .env.local -ScriptPath deploy/docker/run_live_lab.py

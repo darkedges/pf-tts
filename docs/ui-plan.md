@@ -202,6 +202,10 @@ and browser-driven validation remain in UI-07.
 
 ### UI-07 — Complete end-to-end validation
 
+Status: complete. The local Compose lab includes distinct web and audit
+workloads, strict local browser trust commands, browser-verified PingFederate
+sign-in/invocation/audit selection/logout, and the full live failure matrix.
+
 - Extend Compose and SPIRE registration for both new workloads.
 - Add a browser-driven live test for PingFederate sign-in, tool invocation,
   four-hop correlation, audit selection, and logout.

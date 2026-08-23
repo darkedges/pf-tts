@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const state = { csrf: "", records: [], timer: 0 };
+  const state = { csrf: "", records: [], auditVersion: "", selected: "", timer: 0 };
   const byId = (id) => document.getElementById(id);
   const identity = byId("identity");
   const signIn = byId("sign-in");
@@ -25,6 +25,9 @@
 
   const signedOut = () => {
     state.csrf = "";
+    state.records = [];
+    state.auditVersion = "";
+    state.selected = "";
     identity.textContent = "Not signed in";
     signIn.hidden = false;
     signOut.hidden = true;
@@ -34,6 +37,12 @@
     setBadge(serviceState, "Signed out", "neutral");
     auditState.textContent = "Sign in to view interactions.";
     auditList.replaceChildren();
+    byId("detail-fields").replaceChildren();
+    byId("audit-detail").hidden = true;
+    setBadge(byId("result-status"), "No invocation", "neutral");
+    byId("result-message").textContent = "Run an approved interaction to see its verified transaction identifier.";
+    byId("result-transaction").textContent = "";
+    byId("result-details").hidden = true;
     if (state.timer) window.clearInterval(state.timer);
   };
 
@@ -67,6 +76,12 @@
   };
 
   const renderAudit = (records) => {
+    const version = records.map((record) => record.id).join("|");
+    if (version === state.auditVersion) {
+      auditState.textContent = `${records.length} verified event${records.length === 1 ? "" : "s"}`;
+      return;
+    }
+    state.auditVersion = version;
     auditList.replaceChildren();
     if (!records.length) {
       auditState.textContent = "No verified interactions yet.";
@@ -90,6 +105,7 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "audit-event";
+        button.setAttribute("aria-label", `${index + 1} ${event.event_type} ${event.target || event.submitting_spiffe_id} ${event.decision || "observed"} transaction ${transaction}`);
         button.addEventListener("click", () => showDetail(event.id));
         const hop = document.createElement("span");
         hop.className = "hop";
@@ -113,6 +129,7 @@
 
   const showDetail = async (id) => {
     try {
+      state.selected = id;
       const record = await request(`/api/interactions/${encodeURIComponent(id)}`);
       const fields = byId("detail-fields");
       fields.replaceChildren();
@@ -130,6 +147,7 @@
       byId("audit-detail").hidden = false;
       byId("detail-title").focus?.();
     } catch (_) {
+      state.selected = "";
       auditState.textContent = "That audit event is unavailable for this session.";
     }
   };
@@ -168,6 +186,6 @@
     }
   });
   refreshAudit.addEventListener("click", loadAudit);
-  byId("close-detail").addEventListener("click", () => { byId("audit-detail").hidden = true; });
+  byId("close-detail").addEventListener("click", () => { state.selected = ""; byId("audit-detail").hidden = true; });
   loadSession();
 })();

@@ -110,6 +110,9 @@ make lab-verify
 ```
 
 `pf-export-ca` rejects expired, ambiguous, or incorrectly named certificates.
+On Windows, `make pf-trust-local` additionally rejects CA or non-self-signed
+certificates before trusting only the current PingFederate runtime leaf for the
+current user. Review the Windows certificate prompt before accepting it.
 The application containers mount the validated public certificate read-only;
 they never disable TLS verification.
 

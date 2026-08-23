@@ -25,3 +25,16 @@ Secrets and TLS private keys must be mounted or injected outside Git. The
 browser client secret and token-exchange secret are distinct. The command
 fails startup when a required value is absent or a URL violates its HTTPS and
 exact-route requirements.
+
+For the local lab, `make web-tls` generates an ignored, self-signed 30-day
+certificate constrained to the `localhost` DNS name and loopback IP address,
+then places only that public leaf in the current user's root store. There is no
+development CA with authority to sign other names. Review and accept the
+Windows certificate prompt; Chromium does not use `TrustedPeople` for HTTPS
+server authentication.
+
+The local container keeps the OIDC endpoint and issuer at
+`https://localhost:9031`. Its backchannel dials Docker's host gateway only for
+that exact address while retaining `localhost` TLS hostname verification. This
+local routing adapter rejects every other destination; issuer/origin checks and
+certificate validation are not relaxed.

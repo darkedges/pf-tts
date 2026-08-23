@@ -6,6 +6,7 @@ x-app: &app
     PF_TRANSACTION_ISSUER: ${PF_TRANSACTION_ISSUER:?Set PF_TRANSACTION_ISSUER outside Compose}
     PF_JWKS_URL: ${PF_JWKS_URL:?Set PF_JWKS_URL outside Compose}
     PF_CA_FILE: /run/pingfederate/ca.pem
+    AUDIT_COLLECTOR_URL: https://audit-collector:8447
   volumes:
     - spire-agent-socket:/run/spire/sockets:ro
     - ../pingfederate/generated/local-runtime-ca.pem:/run/pingfederate/ca.pem:ro
@@ -23,6 +24,7 @@ services:
       <<: *common-env
       MCP_SERVER_URL: https://demo-mcp-server:8444
     ports: ["127.0.0.1:8443:8443"]
+    depends_on: [audit-collector]
 
   demo-mcp-server:
     <<: *app
@@ -33,6 +35,7 @@ services:
     environment:
       <<: *common-env
       DEMO_API_URL: https://demo-api:8445
+    depends_on: [audit-collector]
 
   demo-api:
     <<: *app
@@ -40,6 +43,43 @@ services:
       context: ../..
       args: {COMMAND: demo-api}
     labels: {wai.workload: demo-api}
+    depends_on: [audit-collector]
+
+  audit-collector:
+    <<: *app
+    build:
+      context: ../..
+      args: {COMMAND: audit-collector}
+    labels: {wai.workload: audit-collector}
+
+  web-app:
+    <<: *app
+    build:
+      context: ../..
+      args: {COMMAND: web-app}
+    labels: {wai.workload: web-app}
+    environment:
+      <<: *common-env
+      WEB_LISTEN: :8446
+      WEB_PUBLIC_URL: https://localhost:8446
+      WEB_TLS_CERT_FILE: /run/web/server-cert.pem
+      WEB_TLS_KEY_FILE: /run/web/server-key.pem
+      OIDC_AUTHORIZATION_ENDPOINT: ${PF_TRANSACTION_ISSUER:?Set PF_TRANSACTION_ISSUER outside Compose}/as/authorization.oauth2
+      OIDC_TOKEN_ENDPOINT: ${PF_TRANSACTION_ISSUER:?Set PF_TRANSACTION_ISSUER outside Compose}/as/token.oauth2
+      OIDC_REDIRECT_URI: https://localhost:8446/oauth/callback
+      OIDC_CLIENT_ID: wai-web-app
+      PF_WEB_CLIENT_SECRET: ${TF_VAR_browser_client_secret:?Set TF_VAR_browser_client_secret outside Compose}
+      PF_TOKEN_ENDPOINT: ${PF_TOKEN_ENDPOINT:?Set PF_TOKEN_ENDPOINT outside Compose}
+      PF_CLIENT_ID: ${PF_CLIENT_ID:-wai-agent-token-exchange}
+      PF_CLIENT_SECRET: ${PF_CLIENT_SECRET:?Set PF_CLIENT_SECRET outside Compose}
+      MCP_GATEWAY_URL: https://mcp-gateway:8443
+    volumes:
+      - spire-agent-socket:/run/spire/sockets:ro
+      - ../pingfederate/generated/local-runtime-ca.pem:/run/pingfederate/ca.pem:ro
+      - ../web/generated/server-cert.pem:/run/web/server-cert.pem:ro
+      - ../web/generated/server-key.pem:/run/web/server-key.pem:ro
+    ports: ["127.0.0.1:8446:8446"]
+    depends_on: [audit-collector, mcp-gateway]
 
   demo-agent:
     <<: *app
@@ -56,6 +96,7 @@ services:
       USER_ACCESS_TOKEN: ${USER_ACCESS_TOKEN:-}
       TRANSACTION_PURPOSE: ${TRANSACTION_PURPOSE:-system.whoami}
       AGENT_MODE: ${AGENT_MODE:-normal}
+    depends_on: [audit-collector, mcp-gateway]
 
 volumes:
   spire-agent-socket:

@@ -1,6 +1,7 @@
 param(
     [string]$Container = 'wai-pingfederate-13-1',
-    [string]$OutputPath = 'deploy/pingfederate/generated/local-runtime-ca.pem'
+    [string]$OutputPath = 'deploy/pingfederate/generated/local-runtime-ca.pem',
+    [switch]$Trust
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,6 +29,13 @@ try {
             throw "PingFederate TLS certificate is missing the required $name DNS binding."
         }
     }
+    $basicConstraints = $cert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.19' }
+    if ($basicConstraints -and $basicConstraints.CertificateAuthority) {
+        throw 'PingFederate returned a CA certificate; refusing broad local trust.'
+    }
+    if ($cert.Subject -ne $cert.Issuer) {
+        throw 'PingFederate local trust requires an exact self-signed runtime leaf.'
+    }
 } finally {
     $cert.Dispose()
 }
@@ -38,3 +46,8 @@ $temporary = "$OutputPath.tmp"
 [IO.File]::WriteAllText((Join-Path (Get-Location) $temporary), $pem, [Text.UTF8Encoding]::new($false))
 Move-Item -LiteralPath $temporary -Destination $OutputPath -Force
 Write-Output "Exported the validated public PingFederate local trust anchor to $OutputPath."
+if ($Trust) {
+    & certutil.exe -f -user -addstore Root $OutputPath
+    if ($LASTEXITCODE -ne 0) { throw 'Could not trust the PingFederate local runtime certificate.' }
+    Write-Output 'Trusted only the validated public PingFederate runtime leaf for the current user.'
+}

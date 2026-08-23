@@ -99,6 +99,13 @@ func ImmediateCallerSPIFFEID(state *tls.ConnectionState) (string, error) {
 	return immediateCallerSPIFFEID(state, false)
 }
 
+// ImmediateCallerSPIFFEIDFromVerifiedMTLS extracts the peer identity after the
+// server's TLS configuration has already authenticated the SPIFFE certificate.
+// It must only be used behind a fail-closed SPIFFE mTLS listener.
+func ImmediateCallerSPIFFEIDFromVerifiedMTLS(state *tls.ConnectionState) (string, error) {
+	return immediateCallerSPIFFEID(state, true)
+}
+
 func immediateCallerSPIFFEID(state *tls.ConnectionState, spiffeMTLSAlreadyVerified bool) (string, error) {
 	if state == nil || len(state.PeerCertificates) == 0 || (!spiffeMTLSAlreadyVerified && len(state.VerifiedChains) == 0) {
 		return "", ErrUnauthenticated

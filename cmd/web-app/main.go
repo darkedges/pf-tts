@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -32,6 +34,10 @@ func main() {
 		log.Fatal(err)
 	}
 	pfHTTP, err := demoenv.PFHTTPClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+	oidcHTTP, err := localOIDCBackchannelClient(pfHTTP)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -65,13 +71,29 @@ func main() {
 		AuthorizationEndpoint: must("OIDC_AUTHORIZATION_ENDPOINT"), TokenEndpoint: must("OIDC_TOKEN_ENDPOINT"),
 		RedirectURI: must("OIDC_REDIRECT_URI"), PublicOrigin: must("WEB_PUBLIC_URL"), ClientID: must("OIDC_CLIENT_ID"), ClientSecret: must("PF_WEB_CLIENT_SECRET"),
 		Scopes: []string{"openid", "mcp:invoke"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: 5 * time.Minute, MaximumSessions: 1000,
-		HTTPClient: pfHTTP, Verifier: verifier, Interactions: runner, AllowedInteractions: []webapp.AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}, Audit: remoteAudit,
+		HTTPClient: oidcHTTP, Verifier: verifier, Interactions: runner, AllowedInteractions: []webapp.AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}, Audit: remoteAudit,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	server := &http.Server{Addr: must("WEB_LISTEN"), Handler: handler, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: time.Minute}
 	log.Fatal(server.ListenAndServeTLS(must("WEB_TLS_CERT_FILE"), must("WEB_TLS_KEY_FILE")))
+}
+
+func localOIDCBackchannelClient(base *http.Client) (*http.Client, error) {
+	transport, ok := base.Transport.(*http.Transport)
+	if !ok || transport == nil || base.Timeout <= 0 {
+		return nil, errors.New("local OIDC backchannel requires a bounded HTTP transport")
+	}
+	clone := transport.Clone()
+	dialer := &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}
+	clone.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		if address != "localhost:9031" {
+			return nil, errors.New("unexpected local OIDC backchannel address")
+		}
+		return dialer.DialContext(ctx, network, "host.docker.internal:9031")
+	}
+	return &http.Client{Timeout: base.Timeout, Transport: clone}, nil
 }
 
 func must(name string) string {
