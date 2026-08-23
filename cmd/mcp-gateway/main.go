@@ -4,11 +4,9 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"example.com/workload-agent-identity/internal/demoenv"
-	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/authorization"
 	"example.com/workload-agent-identity/pkg/mcp"
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
@@ -37,7 +35,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	gateway, err := mcp.NewGatewayWithAuthorizer(client, []mcp.Target{{Name: "demo", URL: targetURL, Tools: map[string]struct{}{"customer.get": {}, "system.whoami": {}}}}, policy, audit.NewJSONSink(os.Stdout))
+	sink, err := demoenv.AuditSink(ctx, source)
+	if err != nil {
+		log.Fatal(err)
+	}
+	gateway, err := mcp.NewGatewayWithAuthorizer(client, []mcp.Target{{Name: "demo", URL: targetURL, Tools: map[string]struct{}{"customer.get": {}, "system.whoami": {}}}}, policy, sink)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -45,19 +47,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	auth, err := demoenv.Middleware("urn:wai:mcp-gateway", verifier, "spiffe://example.org/agent/demo", "mcp-gateway")
+	auth, err := demoenv.MiddlewareForCallers("urn:wai:mcp-gateway", verifier, []string{"spiffe://example.org/agent/demo", "spiffe://example.org/agent/web-app"}, "mcp-gateway", sink)
 	if err != nil {
 		log.Fatal(err)
 	}
 	server := &http.Server{Addr: ":8443", Handler: auth.Handler(gateway), ReadHeaderTimeout: 5 * time.Second}
-	if err := corespiffe.ConfigureHTTPServer(ctx, server, source, mustPolicy("spiffe://example.org/agent/demo")); err != nil {
+	if err := corespiffe.ConfigureHTTPServer(ctx, server, source, mustPolicy("spiffe://example.org/agent/demo", "spiffe://example.org/agent/web-app")); err != nil {
 		log.Fatal(err)
 	}
 	log.Fatal(server.ListenAndServeTLS("", ""))
 }
 
-func mustPolicy(id string) corespiffe.ExactPeerPolicy {
-	p, err := corespiffe.NewExactPeerPolicy(id)
+func mustPolicy(ids ...string) corespiffe.ExactPeerPolicy {
+	p, err := corespiffe.NewExactPeerPolicy(ids...)
 	if err != nil {
 		panic(err)
 	}

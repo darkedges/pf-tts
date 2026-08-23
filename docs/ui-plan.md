@@ -176,6 +176,9 @@ web workload and interface are added.
 
 ### UI-05 — Queryable audit collector
 
+Status: complete in code. Compose wiring and browser-driven live correlation
+remain in UI-07.
+
 - Add a bounded in-memory store and mTLS collector API behind small interfaces.
 - Fan out audit events to stdout and the collector; allowed operations fail
   closed when the required audit write fails.

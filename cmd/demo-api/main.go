@@ -22,7 +22,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	auth, err := demoenv.Middleware("urn:wai:mcp-gateway", verifier, "spiffe://example.org/mcp/demo", "demo-api")
+	sink, err := demoenv.AuditSink(ctx, source)
+	if err != nil {
+		log.Fatal(err)
+	}
+	auth, err := demoenv.Middleware("urn:wai:mcp-gateway", verifier, "spiffe://example.org/mcp/demo", "demo-api", sink)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -90,7 +90,7 @@ func (r Runner) invoke(ctx context.Context, userToken, purpose, tool string, mod
 		if err := r.Audit.Write(audit.Event{
 			Type: audit.TransactionExchangeSucceeded, TransactionID: claims.TransactionID,
 			UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
-			Target: r.AuditTarget, Decision: "allow", ReasonCode: "verified",
+			Target: r.AuditTarget, Decision: "allow", ReasonCode: "verified", ProtocolMethod: "token_exchange", Tool: tool, Purpose: purpose,
 		}); err != nil {
 			return "", errors.New("audit unavailable")
 		}

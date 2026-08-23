@@ -107,7 +107,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		event := audit.Event{
 			TransactionID: value.Transaction.ID, UserID: value.User.ID, AgentID: value.Agent.ID,
 			TransactionWorkloadID: value.OriginalWorkload.SPIFFEID, ImmediateCallerSPIFFEID: value.ImmediateCaller.SPIFFEID,
-			Target: target.Name + ":" + name,
+			Target: target.Name + ":" + name, ProtocolMethod: method, Tool: name, Purpose: value.Transaction.Purpose,
 		}
 		if g.authz.Authorize(r.Context(), value, target.Name, name) != nil {
 			event.Type, event.Decision, event.ReasonCode = audit.MCPToolDenied, "deny", "policy_denied"

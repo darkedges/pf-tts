@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"example.com/workload-agent-identity/pkg/audit"
 )
 
 var ErrInvalidConfiguration = errors.New("invalid web application configuration")
@@ -30,6 +32,11 @@ type InteractionInvoker interface {
 type AllowedInteraction struct {
 	Tool    string
 	Purpose string
+}
+
+type AuditReader interface {
+	ListByUser(context.Context, string) ([]audit.Record, error)
+	GetByUser(context.Context, string, string) (audit.Record, error)
 }
 
 type Config struct {
@@ -48,6 +55,7 @@ type Config struct {
 	Verifier              IDTokenVerifier
 	Interactions          InteractionInvoker
 	AllowedInteractions   []AllowedInteraction
+	Audit                 AuditReader
 	Now                   func() time.Time
 	Random                io.Reader
 }
@@ -112,6 +120,10 @@ func New(config Config) (*Handler, error) {
 	h.mux.HandleFunc("POST /logout", h.logout)
 	if config.Interactions != nil {
 		h.mux.HandleFunc("POST /api/interactions", h.invokeInteraction)
+	}
+	if config.Audit != nil {
+		h.mux.HandleFunc("GET /api/interactions", h.listInteractions)
+		h.mux.HandleFunc("GET /api/interactions/{id}", h.getInteraction)
 	}
 	return h, nil
 }
@@ -319,6 +331,40 @@ func (h *Handler) invokeInteraction(w http.ResponseWriter, r *http.Request) {
 		TransactionID string `json:"transaction_id"`
 		Status        string `json:"status"`
 	}{TransactionID: transactionID, Status: "completed"})
+}
+
+func (h *Handler) listInteractions(w http.ResponseWriter, r *http.Request) {
+	_, current, ok := h.authenticate(r)
+	if !ok {
+		h.unauthorized(w)
+		return
+	}
+	records, err := h.config.Audit.ListByUser(r.Context(), current.subject)
+	if err != nil {
+		h.unavailable(w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(records)
+}
+
+func (h *Handler) getInteraction(w http.ResponseWriter, r *http.Request) {
+	_, current, ok := h.authenticate(r)
+	if !ok {
+		h.unauthorized(w)
+		return
+	}
+	record, err := h.config.Audit.GetByUser(r.Context(), current.subject, r.PathValue("id"))
+	if errors.Is(err, audit.ErrRecordMissing) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		h.unavailable(w)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(record)
 }
 
 func (h *Handler) validCSRF(r *http.Request, current session) bool {

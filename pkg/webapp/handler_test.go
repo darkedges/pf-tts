@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"example.com/workload-agent-identity/pkg/audit"
 )
 
 type fakeVerifier struct {
@@ -19,6 +21,21 @@ type fakeVerifier struct {
 type fakeInvoker struct {
 	userToken, purpose, tool string
 	err                      error
+}
+
+type fakeAuditReader struct{ user string }
+
+func (r *fakeAuditReader) ListByUser(_ context.Context, user string) ([]audit.Record, error) {
+	r.user = user
+	return []audit.Record{{ID: "record-a", UserID: user, TransactionID: "tx", EventType: audit.MCPToolAllowed}}, nil
+}
+
+func (r *fakeAuditReader) GetByUser(_ context.Context, user, id string) (audit.Record, error) {
+	r.user = user
+	if id != "record-a" {
+		return audit.Record{}, audit.ErrRecordMissing
+	}
+	return audit.Record{ID: id, UserID: user, TransactionID: "tx", EventType: audit.MCPToolAllowed}, nil
 }
 
 func (i *fakeInvoker) Invoke(_ context.Context, userToken, purpose, tool string) (string, error) {
@@ -49,6 +66,10 @@ func newFlow(t *testing.T) *flowFixture {
 }
 
 func newFlowWithInteractions(t *testing.T, invoker InteractionInvoker) *flowFixture {
+	return newFlowWithServices(t, invoker, nil)
+}
+
+func newFlowWithServices(t *testing.T, invoker InteractionInvoker, auditReader AuditReader) *flowFixture {
 	t.Helper()
 	verifier := &fakeVerifier{}
 	tokenServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +88,7 @@ func newFlowWithInteractions(t *testing.T, invoker InteractionInvoker) *flowFixt
 	if invoker != nil {
 		allowed = []AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}
 	}
-	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, HTTPClient: tokenServer.Client(), Verifier: verifier, Interactions: invoker, AllowedInteractions: allowed})
+	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, HTTPClient: tokenServer.Client(), Verifier: verifier, Interactions: invoker, AllowedInteractions: allowed, Audit: auditReader})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -268,5 +289,26 @@ func TestInteractionRejectsMissingSessionWrongCSRFAndFailure(t *testing.T) {
 	flowForFailure.handler.ServeHTTP(failedResponse, failedRequest)
 	if failedResponse.Code != http.StatusBadGateway || strings.Contains(failedResponse.Body.String(), "DeadlineExceeded") {
 		t.Fatalf("downstream failure not safely contained: %d %s", failedResponse.Code, failedResponse.Body.String())
+	}
+}
+
+func TestAuditQueriesUseOnlyAuthenticatedSessionUser(t *testing.T) {
+	reader := &fakeAuditReader{}
+	flow := newFlowWithServices(t, nil, reader)
+	callback := flow.callback(t, flow.state, nil)
+	cookie := callback.Result().Cookies()[0]
+	list := httptest.NewRequest(http.MethodGet, "https://app.example/api/interactions?user_id=attacker", nil)
+	list.AddCookie(cookie)
+	listed := httptest.NewRecorder()
+	flow.handler.ServeHTTP(listed, list)
+	if listed.Code != http.StatusOK || reader.user != "user-123" || strings.Contains(listed.Body.String(), "attacker") {
+		t.Fatalf("audit query used browser ownership: %d user=%q body=%s", listed.Code, reader.user, listed.Body.String())
+	}
+	guessed := httptest.NewRequest(http.MethodGet, "https://app.example/api/interactions/other-user-record", nil)
+	guessed.AddCookie(cookie)
+	guessedResult := httptest.NewRecorder()
+	flow.handler.ServeHTTP(guessedResult, guessed)
+	if guessedResult.Code != http.StatusNotFound || reader.user != "user-123" {
+		t.Fatalf("guessed record was not same-user filtered: %d user=%q", guessedResult.Code, reader.user)
 	}
 }

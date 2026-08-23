@@ -101,18 +101,54 @@ func PFHTTPClient() (*http.Client, error) {
 	}, nil
 }
 
-func Middleware(audience string, verifier *pingfederate.JWTVerifier, allowedCaller, target string) (middleware.Middleware, error) {
-	policy, err := corespiffe.NewExactPeerPolicy(allowedCaller)
+func Middleware(audience string, verifier *pingfederate.JWTVerifier, allowedCaller, target string, sinks ...audit.Sink) (middleware.Middleware, error) {
+	return MiddlewareForCallers(audience, verifier, []string{allowedCaller}, target, sinks...)
+}
+
+func MiddlewareForCallers(audience string, verifier *pingfederate.JWTVerifier, allowedCallers []string, target string, sinks ...audit.Sink) (middleware.Middleware, error) {
+	policy, err := corespiffe.NewExactPeerPolicy(allowedCallers...)
 	if err != nil {
 		return middleware.Middleware{}, err
 	}
 	if strings.TrimSpace(target) == "" {
 		return middleware.Middleware{}, errors.New("audit target is required")
 	}
+	sink := audit.Sink(audit.NewJSONSink(os.Stdout))
+	if len(sinks) > 1 || len(sinks) == 1 && sinks[0] == nil {
+		return middleware.Middleware{}, errors.New("at most one non-nil audit sink is allowed")
+	}
+	if len(sinks) == 1 {
+		sink = sinks[0]
+	}
 	return middleware.Middleware{
 		Verifier: verifier, Audience: audience, Callers: exactCaller{policy}, SPIFFEMTLSAlreadyVerified: true,
-		Audit: audit.NewJSONSink(os.Stdout), Target: target,
+		Audit: sink, Target: target,
 	}, nil
+}
+
+func AuditSink(ctx context.Context, source corespiffe.X509Source) (audit.Sink, error) {
+	stdout := audit.NewJSONSink(os.Stdout)
+	endpoint := strings.TrimSpace(os.Getenv("AUDIT_COLLECTOR_URL"))
+	if endpoint == "" {
+		return stdout, nil
+	}
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, errors.New("AUDIT_COLLECTOR_URL must be an HTTPS URL without query or fragment")
+	}
+	peer, err := corespiffe.NewExactPeerPolicy("spiffe://example.org/audit/collector")
+	if err != nil {
+		return nil, err
+	}
+	client, err := corespiffe.NewHTTPClient(ctx, source, peer, 5*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	remote, err := audit.NewRemote(parsed.String(), client, 8<<20)
+	if err != nil {
+		return nil, err
+	}
+	return audit.NewFanout(stdout, remote)
 }
 
 type exactCaller struct{ policy corespiffe.ExactPeerPolicy }

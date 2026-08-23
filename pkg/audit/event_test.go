@@ -17,4 +17,11 @@ func TestJSONSinkCannotLogCredentials(t *testing.T) {
 			t.Fatalf("audit output contains credential field %q", secret)
 		}
 	}
+	before := out.String()
+	if err := s.Write(Event{Type: MCPToolDenied, UserID: "Bearer stolen-token"}); err == nil {
+		t.Fatal("credential-shaped audit value accepted")
+	}
+	if out.String() != before {
+		t.Fatal("rejected credential-shaped value was written to stdout")
+	}
 }

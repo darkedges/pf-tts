@@ -8,7 +8,6 @@ import (
 
 	"example.com/workload-agent-identity/internal/demoenv"
 	"example.com/workload-agent-identity/pkg/agent"
-	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/pingfederate"
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
 )
@@ -50,8 +49,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	sink, err := demoenv.AuditSink(ctx, source)
+	if err != nil {
+		log.Fatal(err)
+	}
 	runner := agent.Runner{
-		SPIFFE: provider, Exchange: exchange, Verifier: verifier, Audit: audit.NewJSONSink(os.Stdout), HTTP: httpClient,
+		SPIFFE: provider, Exchange: exchange, Verifier: verifier, Audit: sink, HTTP: httpClient,
 		ActorAudience: "urn:pingfederate:wai:token-exchange", ExchangeAudience: "mcp-gateway", TransactionAudience: "urn:wai:mcp-gateway",
 		GatewayURL: "https://mcp-gateway:8443", DirectAPIURL: "https://demo-api:8445",
 		AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/demo", AuditTarget: "demo-agent",

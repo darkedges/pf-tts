@@ -74,7 +74,7 @@ func (m Middleware) Handler(next http.Handler) http.Handler {
 			err = m.Audit.Write(audit.Event{
 				Type: audit.TransactionVerifySucceeded, TransactionID: claims.TransactionID,
 				UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
-				ImmediateCallerSPIFFEID: caller, Target: m.Target, Decision: "allow", ReasonCode: "verified",
+				ImmediateCallerSPIFFEID: caller, Target: m.Target, Decision: "allow", ReasonCode: "verified", ProtocolMethod: r.Method, Purpose: claims.Purpose,
 			})
 			if err != nil {
 				http.Error(w, "audit unavailable", http.StatusInternalServerError)
