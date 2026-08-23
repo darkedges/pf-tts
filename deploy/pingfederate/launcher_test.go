@@ -171,6 +171,43 @@ func TestSDKExtractionUsesOnlyPinnedImageAndFixedPublicJars(t *testing.T) {
 	}
 }
 
+func TestBulkProfileExportKeepsPrivilegedMaterialOutsideTrustedProfile(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/export-pingfederate-profile.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"https://localhost:9999/",
+		"ResponseHeadersRead",
+		"MaximumResponseBytes",
+		"FixedTimeEquals",
+		"RemoteCertificateNameMismatch",
+		"ping-bulkexport-tools@sha256:",
+		"'--network', 'none'",
+		"'--read-only'",
+		"'--cap-drop', 'ALL'",
+		"target=$containerConfig,readonly",
+		"deploy/pingfederate/generated/bulk-export",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("bulk profile export missing fail-closed control %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"2FederateM0re",
+		"administrator:",
+		"ping-bulkexport-tools:latest",
+		"-k",
+		"SkipCertificateCheck",
+		"deploy/pingfederate/profile/instance/bulk-config",
+	} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("bulk profile export contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

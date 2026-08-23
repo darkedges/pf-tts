@@ -633,3 +633,27 @@ Acceptance criteria:
   configuration, keys, or state.
 - Automatically perform extraction only when a required build dependency is
   absent.
+
+## Task 29 — Safe PingFederate bulk-profile export
+
+Goal: export an existing local PingFederate configuration and run the approved
+parameterizer without crossing secrets from generated state into the trusted
+repository-owned profile.
+
+Acceptance criteria:
+
+- Read administrator credentials only from the ignored local environment file.
+- Accept only the fixed local HTTPS PingFederate Admin API origin and validate
+  its exact, current runtime certificate without disabling TLS verification.
+- Bound request time and response size, and never include response bodies or
+  credentials in errors.
+- Run the converter by immutable image digest with no network, a read-only root
+  filesystem, dropped capabilities, and a read-only parameterization config.
+- Keep the raw export, extracted environment properties, converter log, and
+  parameterized output under the ignored generated directory.
+- Validate the parameterization config and resulting JSON, reject symlinked
+  inputs/outputs, and never promote generated output into the startup profile
+  automatically.
+- Add failure tests for insecure TLS, embedded credentials, mutable images,
+  unbounded export handling, writable converter inputs, and automatic profile
+  promotion.

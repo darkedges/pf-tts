@@ -127,6 +127,20 @@ build-time JARs from the same digest-pinned PingFederate image. The ignored SDK
 directory is populated automatically; no license, key, credential,
 configuration, or state file is copied from the image.
 
+To capture an existing local PingFederate configuration for review, refresh
+the runtime certificate and run the isolated bulk exporter:
+
+```bash
+make pf-export-ca
+make pf-profile-export
+```
+
+The raw export, converter log, extracted environment values, and substituted
+JSON are sensitive ignored files under
+`deploy/pingfederate/generated/bulk-export`. The converter is digest-pinned and
+has no network access. Nothing is copied into the trusted startup profile;
+review and extend `deploy/pingfederate/bulk-export/pf-config.json` first.
+
 ## Live local verification
 
 After PingFederate Terraform has been applied and the SPIRE entries are

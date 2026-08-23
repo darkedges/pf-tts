@@ -1,4 +1,4 @@
-.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -42,6 +42,9 @@ pf-apply:
 
 pf-profile:
 	pwsh -NoProfile -File scripts/build-pingfederate-profile.ps1
+
+pf-profile-export:
+	pwsh -NoProfile -File scripts/export-pingfederate-profile.ps1
 
 pf-local-up: pf-profile
 	docker compose --env-file .env.local -f deploy/pingfederate/compose.yaml up -d
