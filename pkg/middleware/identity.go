@@ -16,10 +16,24 @@ import (
 var ErrUnauthenticated = errors.New("request authentication failed")
 
 type verifiedTokenContextKey struct{}
+type verifiedTokenEvidenceContextKey struct{}
 
 func VerifiedTransactionToken(ctx context.Context) (string, bool) {
 	token, ok := ctx.Value(verifiedTokenContextKey{}).(string)
 	return token, ok && token != ""
+}
+
+// VerifiedTransactionTokenEvidence returns the allowlisted evidence created
+// only after the transaction JWT and immediate caller have been verified.
+func VerifiedTransactionTokenEvidence(ctx context.Context) (*audit.TokenEvidence, bool) {
+	evidence, ok := ctx.Value(verifiedTokenEvidenceContextKey{}).(*audit.TokenEvidence)
+	if !ok || evidence == nil {
+		return nil, false
+	}
+	copy := *evidence
+	copy.Audience = append([]string(nil), evidence.Audience...)
+	copy.Scope = append([]string(nil), evidence.Scope...)
+	return &copy, true
 }
 
 type CallerPolicy interface {
@@ -55,6 +69,11 @@ func (m Middleware) Handler(next http.Handler) http.Handler {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+		tokenEvidence, err := audit.NewVerifiedTransactionTokenEvidence(raw, claims)
+		if err != nil {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		user, e1 := identity.NewUserIdentity(claims.Subject)
 		agent, e2 := identity.NewAgentIdentity(claims.AgentID, claims.AgentInstanceID)
 		workload, e3 := identity.NewWorkloadIdentity(claims.WorkloadID)
@@ -74,7 +93,7 @@ func (m Middleware) Handler(next http.Handler) http.Handler {
 			err = m.Audit.Write(audit.Event{
 				Type: audit.TransactionVerifySucceeded, TransactionID: claims.TransactionID,
 				UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
-				ImmediateCallerSPIFFEID: caller, Target: m.Target, Decision: "allow", ReasonCode: "verified", ProtocolMethod: r.Method, Purpose: claims.Purpose,
+				ImmediateCallerSPIFFEID: caller, Target: m.Target, Decision: "allow", ReasonCode: "verified", ProtocolMethod: r.Method, Purpose: claims.Purpose, Token: tokenEvidence,
 			})
 			if err != nil {
 				http.Error(w, "audit unavailable", http.StatusInternalServerError)
@@ -83,6 +102,7 @@ func (m Middleware) Handler(next http.Handler) http.Handler {
 		}
 		ctx := identity.WithContext(r.Context(), value)
 		ctx = context.WithValue(ctx, verifiedTokenContextKey{}, raw)
+		ctx = context.WithValue(ctx, verifiedTokenEvidenceContextKey{}, tokenEvidence)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

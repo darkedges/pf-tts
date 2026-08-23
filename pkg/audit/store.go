@@ -17,25 +17,26 @@ var (
 // Record is a typed, credential-safe interaction summary. It intentionally
 // has no arbitrary headers, arguments, or request/response body fields.
 type Record struct {
-	ID                      string    `json:"id"`
-	Sequence                uint64    `json:"sequence"`
-	Timestamp               time.Time `json:"timestamp"`
-	TransactionID           string    `json:"transaction_id"`
-	UserID                  string    `json:"user_id"`
-	EventType               string    `json:"event_type"`
-	Target                  string    `json:"target,omitempty"`
-	Decision                string    `json:"decision,omitempty"`
-	ReasonCode              string    `json:"reason_code,omitempty"`
-	AgentID                 string    `json:"agent_id,omitempty"`
-	TransactionWorkloadID   string    `json:"transaction_workload_id,omitempty"`
-	ImmediateCallerSPIFFEID string    `json:"immediate_caller_spiffe_id,omitempty"`
-	SubmittingSPIFFEID      string    `json:"submitting_spiffe_id"`
-	ProtocolMethod          string    `json:"protocol_method,omitempty"`
-	Tool                    string    `json:"tool,omitempty"`
-	Purpose                 string    `json:"purpose,omitempty"`
-	ResponseStatus          int       `json:"response_status,omitempty"`
-	ResultType              string    `json:"result_type,omitempty"`
-	DurationMillis          int64     `json:"duration_ms,omitempty"`
+	ID                      string         `json:"id"`
+	Sequence                uint64         `json:"sequence"`
+	Timestamp               time.Time      `json:"timestamp"`
+	TransactionID           string         `json:"transaction_id"`
+	UserID                  string         `json:"user_id"`
+	EventType               string         `json:"event_type"`
+	Target                  string         `json:"target,omitempty"`
+	Decision                string         `json:"decision,omitempty"`
+	ReasonCode              string         `json:"reason_code,omitempty"`
+	AgentID                 string         `json:"agent_id,omitempty"`
+	TransactionWorkloadID   string         `json:"transaction_workload_id,omitempty"`
+	ImmediateCallerSPIFFEID string         `json:"immediate_caller_spiffe_id,omitempty"`
+	SubmittingSPIFFEID      string         `json:"submitting_spiffe_id"`
+	ProtocolMethod          string         `json:"protocol_method,omitempty"`
+	Tool                    string         `json:"tool,omitempty"`
+	Purpose                 string         `json:"purpose,omitempty"`
+	ResponseStatus          int            `json:"response_status,omitempty"`
+	ResultType              string         `json:"result_type,omitempty"`
+	DurationMillis          int64          `json:"duration_ms,omitempty"`
+	Token                   *TokenEvidence `json:"verified_transaction_token,omitempty"`
 }
 
 type StoreConfig struct {
@@ -66,6 +67,7 @@ func (s *Store) Add(record Record) (Record, error) {
 	if err := s.validate(record); err != nil {
 		return Record{}, err
 	}
+	record.Token = cloneTokenEvidence(record.Token)
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := s.config.Now().UTC()
@@ -84,7 +86,7 @@ func (s *Store) Add(record Record) (Record, error) {
 	} else {
 		s.records = append(s.records, record)
 	}
-	return record, nil
+	return cloneRecord(record), nil
 }
 
 func (s *Store) ListByUser(userID string) []Record {
@@ -94,7 +96,7 @@ func (s *Store) ListByUser(userID string) []Record {
 	result := make([]Record, 0)
 	for _, record := range s.records {
 		if record.UserID == userID {
-			result = append(result, record)
+			result = append(result, cloneRecord(record))
 		}
 	}
 	return result
@@ -106,7 +108,7 @@ func (s *Store) GetByUser(userID, recordID string) (Record, error) {
 	s.purgeLocked(s.config.Now().UTC())
 	for _, record := range s.records {
 		if record.ID == recordID && record.UserID == userID {
-			return record, nil
+			return cloneRecord(record), nil
 		}
 	}
 	return Record{}, ErrRecordMissing
@@ -131,7 +133,15 @@ func (s *Store) validate(record Record) error {
 			return ErrInvalidRecord
 		}
 	}
+	if validateTokenEvidence(record.Token, s.config.MaximumFieldBytes) != nil {
+		return ErrInvalidRecord
+	}
 	return nil
+}
+
+func cloneRecord(record Record) Record {
+	record.Token = cloneTokenEvidence(record.Token)
+	return record
 }
 
 var allowedEventTypes = map[string]struct{}{

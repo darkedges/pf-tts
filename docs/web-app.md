@@ -38,3 +38,12 @@ The local container keeps the OIDC endpoint and issuer at
 that exact address while retaining `localhost` TLS hostname verification. This
 local routing adapter rejects every other destination; issuer/origin checks and
 certificate validation are not relaxed.
+
+## Verified transaction-token evidence
+
+Audit detail shows a SHA-256 fingerprint and a strict allowlist of claims from
+the transaction JWT only after cryptographic and identity-binding validation.
+The same fingerprint across the web app, gateway, MCP server, and API proves
+that the immutable transaction token traversed the chain. Raw compact JWTs,
+subject tokens, actor JWT-SVIDs, cookies, and client credentials are never
+returned to the browser. See ADR 0009.

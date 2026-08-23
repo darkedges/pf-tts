@@ -15,7 +15,7 @@ func TestEmbeddedUIHasSecureAccessibleResponsiveStructure(t *testing.T) {
 	}{
 		{"/", "text/html", []string{`class="workspace"`, `class="interaction-panel"`, `class="audit-panel"`, `href="#workspace"`, `aria-live="polite"`, `Sign in with PingFederate`, `src="/app.js"`}},
 		{"/app.css", "text/css", []string{"grid-template-columns: minmax(0, 2fr) minmax(20rem, 1fr)", "@media (max-width: 820px)", ":focus-visible", "prefers-reduced-motion"}},
-		{"/app.js", "text/javascript", []string{"textContent", "replaceChildren", "same-origin", "X-CSRF-Token", "encodeURIComponent", "No verified interactions yet", "version === state.auditVersion", "transaction ${transaction}", `byId("detail-fields").replaceChildren()`, `byId("result-transaction").textContent = ""`}},
+		{"/app.js", "text/javascript", []string{"textContent", "replaceChildren", "same-origin", "X-CSRF-Token", "encodeURIComponent", "No verified interactions yet", "version === state.auditVersion", "transaction ${transaction}", `byId("detail-fields").replaceChildren()`, `byId("result-transaction").textContent = ""`, "verified_transaction_token", "bearer credentials are never returned to the browser"}},
 	}
 	for _, test := range tests {
 		t.Run(test.path, func(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -74,6 +75,10 @@ func TestMiddlewarePlacesVerifiedIdentityInContext(t *testing.T) {
 		if token, ok := VerifiedTransactionToken(r.Context()); !ok || token != "raw-transaction-secret" {
 			t.Error("verified immutable transaction token missing from trusted context")
 		}
+		evidence, ok := VerifiedTransactionTokenEvidence(r.Context())
+		if !ok || evidence.Fingerprint == "" || evidence.Issuer != "https://pf" {
+			t.Error("verified token evidence missing from trusted context")
+		}
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	req := httptest.NewRequest(http.MethodPost, "https://gateway/mcp", nil)
@@ -98,6 +103,9 @@ func TestRejectedRequestNeverReceivesVerifiedTransactionToken(t *testing.T) {
 	m.Handler(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 		if _, ok := VerifiedTransactionToken(r.Context()); ok {
 			t.Fatal("unverified token entered trusted context")
+		}
+		if _, ok := VerifiedTransactionTokenEvidence(r.Context()); ok {
+			t.Fatal("unverified token evidence entered trusted context")
 		}
 	})).ServeHTTP(rr, req)
 	if rr.Code != http.StatusUnauthorized {
@@ -156,7 +164,7 @@ func TestMiddlewareAuditsOnlyVerifiedIdentitiesAndFailsClosed(t *testing.T) {
 	req.TLS = tlsState(t, "spiffe://example.org/agent/demo")
 	rr := httptest.NewRecorder()
 	m.Handler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })).ServeHTTP(rr, req)
-	if rr.Code != http.StatusNoContent || sink.event.TransactionID != "tx" || sink.event.ImmediateCallerSPIFFEID != "spiffe://example.org/agent/demo" || sink.event.Target != "gateway" {
+	if rr.Code != http.StatusNoContent || sink.event.TransactionID != "tx" || sink.event.ImmediateCallerSPIFFEID != "spiffe://example.org/agent/demo" || sink.event.Target != "gateway" || sink.event.Token == nil || sink.event.Token.Issuer != "https://pf" || !strings.HasPrefix(sink.event.Token.Fingerprint, "sha256:") {
 		t.Fatalf("verified audit event mismatch: status=%d event=%+v", rr.Code, sink.event)
 	}
 

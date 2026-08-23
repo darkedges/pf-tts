@@ -92,6 +92,7 @@ func TestCollectorRejectsSpoofedCallerUnknownOversizedAndCredentialData(t *testi
 		{"spoofed workload", "spiffe://example.org/attacker", `{"type":"mcp.tool.allowed","transaction_id":"tx","user_id":"user"}`, http.StatusForbidden},
 		{"unknown identity field", "spiffe://example.org/gateway/mcp", `{"type":"mcp.tool.allowed","transaction_id":"tx","user_id":"user","submitting_spiffe_id":"spiffe://attacker"}`, http.StatusBadRequest},
 		{"credential shaped", "spiffe://example.org/gateway/mcp", `{"type":"mcp.tool.allowed","transaction_id":"tx","user_id":"Bearer stolen"}`, http.StatusBadRequest},
+		{"raw token evidence", "spiffe://example.org/gateway/mcp", `{"type":"mcp.tool.allowed","transaction_id":"tx","user_id":"user","verified_transaction_token":{"kind":"transaction_jwt","fingerprint":"aaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbb.cccccccccccccccc","issuer":"https://issuer","audience":["mcp"],"jwt_id":"jti","issued_at":"2026-08-23T00:00:00Z","expires_at":"2026-08-23T00:01:00Z"}}`, http.StatusBadRequest},
 		{"unknown event type", "spiffe://example.org/gateway/mcp", `{"type":"custom.unreviewed","transaction_id":"tx","user_id":"user"}`, http.StatusBadRequest},
 		{"oversized", "spiffe://example.org/gateway/mcp", `{"type":"mcp.tool.allowed","transaction_id":"tx","user_id":"` + strings.Repeat("x", 1100) + `"}`, http.StatusBadRequest},
 	}

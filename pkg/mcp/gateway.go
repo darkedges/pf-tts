@@ -11,6 +11,7 @@ import (
 
 	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/identity"
+	"example.com/workload-agent-identity/pkg/middleware"
 )
 
 var ErrRouteDenied = errors.New("MCP route denied")
@@ -108,6 +109,9 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			TransactionID: value.Transaction.ID, UserID: value.User.ID, AgentID: value.Agent.ID,
 			TransactionWorkloadID: value.OriginalWorkload.SPIFFEID, ImmediateCallerSPIFFEID: value.ImmediateCaller.SPIFFEID,
 			Target: target.Name + ":" + name, ProtocolMethod: method, Tool: name, Purpose: value.Transaction.Purpose,
+		}
+		if tokenEvidence, ok := middleware.VerifiedTransactionTokenEvidence(r.Context()); ok {
+			event.Token = tokenEvidence
 		}
 		if g.authz.Authorize(r.Context(), value, target.Name, name) != nil {
 			event.Type, event.Decision, event.ReasonCode = audit.MCPToolDenied, "deny", "policy_denied"

@@ -107,7 +107,7 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 		h.unavailable(w)
 		return
 	}
-	record := audit.Record{ID: id, TransactionID: event.TransactionID, UserID: event.UserID, EventType: event.Type, Target: event.Target, Decision: event.Decision, ReasonCode: event.ReasonCode, AgentID: event.AgentID, TransactionWorkloadID: event.TransactionWorkloadID, ImmediateCallerSPIFFEID: event.ImmediateCallerSPIFFEID, SubmittingSPIFFEID: caller, ProtocolMethod: event.ProtocolMethod, Tool: event.Tool, Purpose: event.Purpose, ResponseStatus: event.ResponseStatus, ResultType: event.ResultType, DurationMillis: event.DurationMillis}
+	record := audit.Record{ID: id, TransactionID: event.TransactionID, UserID: event.UserID, EventType: event.Type, Target: event.Target, Decision: event.Decision, ReasonCode: event.ReasonCode, AgentID: event.AgentID, TransactionWorkloadID: event.TransactionWorkloadID, ImmediateCallerSPIFFEID: event.ImmediateCallerSPIFFEID, SubmittingSPIFFEID: caller, ProtocolMethod: event.ProtocolMethod, Tool: event.Tool, Purpose: event.Purpose, ResponseStatus: event.ResponseStatus, ResultType: event.ResultType, DurationMillis: event.DurationMillis, Token: event.Token}
 	stored, err := h.store.Add(record)
 	if err != nil {
 		h.rejected("record_invalid")

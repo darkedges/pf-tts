@@ -144,6 +144,27 @@
         row.append(term, value);
         fields.append(row);
       });
+      const token = record.verified_transaction_token;
+      if (token && typeof token === "object") {
+        const tokenFields = ["kind", "fingerprint", "issuer", "audience", "scope", "jwt_id", "agent_instance_id", "issued_at", "expires_at"];
+        tokenFields.forEach((key) => {
+          if (token[key] === undefined || token[key] === "" || (Array.isArray(token[key]) && token[key].length === 0)) return;
+          const row = document.createElement("div");
+          const term = document.createElement("dt");
+          const value = document.createElement("dd");
+          term.textContent = `verified token ${key.replaceAll("_", " ")}`;
+          value.textContent = Array.isArray(token[key]) ? token[key].join(", ") : String(token[key]);
+          row.append(term, value);
+          fields.append(row);
+        });
+        const notice = document.createElement("div");
+        const noticeTerm = document.createElement("dt");
+        const noticeValue = document.createElement("dd");
+        noticeTerm.textContent = "raw token";
+        noticeValue.textContent = "Withheld: bearer credentials are never returned to the browser.";
+        notice.append(noticeTerm, noticeValue);
+        fields.append(notice);
+      }
       byId("audit-detail").hidden = false;
       byId("detail-title").focus?.();
     } catch (_) {

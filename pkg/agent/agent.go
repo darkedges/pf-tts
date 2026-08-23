@@ -86,11 +86,15 @@ func (r Runner) invoke(ctx context.Context, userToken, purpose, tool string, mod
 	if claims.AgentID != r.AgentID || claims.WorkloadID != r.WorkloadID || claims.Purpose != purpose {
 		return "", errors.New("issued transaction identity binding mismatch")
 	}
+	tokenEvidence, err := audit.NewVerifiedTransactionTokenEvidence(response.AccessToken, claims)
+	if err != nil {
+		return "", errors.New("issued transaction token evidence invalid")
+	}
 	if r.Audit != nil {
 		if err := r.Audit.Write(audit.Event{
 			Type: audit.TransactionExchangeSucceeded, TransactionID: claims.TransactionID,
 			UserID: claims.Subject, AgentID: claims.AgentID, TransactionWorkloadID: claims.WorkloadID,
-			Target: r.AuditTarget, Decision: "allow", ReasonCode: "verified", ProtocolMethod: "token_exchange", Tool: tool, Purpose: purpose,
+			Target: r.AuditTarget, Decision: "allow", ReasonCode: "verified", ProtocolMethod: "token_exchange", Tool: tool, Purpose: purpose, Token: tokenEvidence,
 		}); err != nil {
 			return "", errors.New("audit unavailable")
 		}

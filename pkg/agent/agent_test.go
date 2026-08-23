@@ -81,6 +81,11 @@ func validRunner(claims transaction.Claims, sink audit.Sink) Runner {
 	}
 }
 
+func validAgentClaims() transaction.Claims {
+	now := time.Now().UTC()
+	return transaction.Claims{Issuer: "https://issuer.example", Subject: "user", Audience: []string{"urn:wai:mcp-gateway"}, JWTID: "jti", AgentID: "urn:agent:demo", AgentInstanceID: "instance", WorkloadID: "spiffe://example.org/agent/demo", TransactionID: "tx", Purpose: "system.whoami", Scope: []string{"mcp:invoke"}, IssuedAt: now, ExpiresAt: now.Add(time.Minute)}
+}
+
 func TestRunnerRejectsVerifiedTokenWithForgedAgentBinding(t *testing.T) {
 	claims := transaction.Claims{AgentID: "urn:agent:forged", WorkloadID: "spiffe://example.org/agent/demo", Purpose: "system.whoami"}
 	if err := validRunner(claims, fakeAuditSink{}).Run(context.Background(), "user-token", "system.whoami", Normal); err == nil {
@@ -89,7 +94,7 @@ func TestRunnerRejectsVerifiedTokenWithForgedAgentBinding(t *testing.T) {
 }
 
 func TestRunnerFailsClosedWhenVerifiedAuditCannotBeWritten(t *testing.T) {
-	claims := transaction.Claims{Subject: "user", AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/demo", TransactionID: "tx", Purpose: "system.whoami"}
+	claims := validAgentClaims()
 	err := validRunner(claims, fakeAuditSink{err: errors.New("unavailable")}).Run(context.Background(), "user-token", "system.whoami", Normal)
 	if err == nil || err.Error() != "audit unavailable" {
 		t.Fatalf("audit failure did not fail closed: %v", err)
@@ -97,7 +102,7 @@ func TestRunnerFailsClosedWhenVerifiedAuditCannotBeWritten(t *testing.T) {
 }
 
 func TestReusableInvokerUsesSubjectTokenAndServerBoundIdentity(t *testing.T) {
-	claims := transaction.Claims{Subject: "user", AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/demo", TransactionID: "tx", Purpose: "system.whoami"}
+	claims := validAgentClaims()
 	runner := validRunner(claims, fakeAuditSink{})
 	exchange := &recordingExchange{}
 	runner.Exchange = exchange
@@ -116,7 +121,8 @@ func TestReusableInvokerUsesSubjectTokenAndServerBoundIdentity(t *testing.T) {
 }
 
 func TestReusableInvokerFailsOnWrongWorkloadExchangeAndDownstream(t *testing.T) {
-	claims := transaction.Claims{Subject: "user", AgentID: "urn:agent:demo", WorkloadID: "spiffe://example.org/agent/web-app", TransactionID: "tx", Purpose: "system.whoami"}
+	claims := validAgentClaims()
+	claims.WorkloadID = "spiffe://example.org/agent/web-app"
 	if _, err := validRunner(claims, fakeAuditSink{}).Invoke(context.Background(), "subject", "system.whoami", "system.whoami"); err == nil {
 		t.Fatal("verified transaction with wrong workload binding accepted")
 	}
