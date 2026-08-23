@@ -145,6 +145,32 @@ func TestPluginBuildIsReproducible(t *testing.T) {
 	}
 }
 
+func TestSDKExtractionUsesOnlyPinnedImageAndFixedPublicJars(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/extract-pingfederate-sdk.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"pingidentity/pingfederate:2606-13.1.0@sha256:",
+		"wai-pf-sdk-extract-$PID",
+		"/opt/server/server/default/lib/$name",
+		"$item.Length -lt 1024",
+		"$stream.ReadByte() -ne 0x50",
+		"$stream.ReadByte() -ne 0x4b",
+		"docker rm -f $containerName",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("PingFederate SDK extraction missing bounded control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"latest", ":edge", "client_secret", "PING_IDENTITY_DEVOPS"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("PingFederate SDK extraction contains unpinned or secret material %q", forbidden)
+		}
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

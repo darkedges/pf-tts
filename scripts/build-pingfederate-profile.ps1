@@ -8,7 +8,11 @@ $source = Join-Path $root 'deploy/pingfederate/plugins/target/pingfederate-spiff
 $destinationDirectory = Join-Path $root 'deploy/pingfederate/profile/instance/server/default/deploy'
 $destination = Join-Path $destinationDirectory 'wai-pingfederate-spiffe-plugins.jar'
 
-foreach ($required in @('jose4j.jar', 'slf4j-api.jar', 'pingfederate-sdk.jar', 'pf-protocolengine.jar')) {
+$requiredSDK = @('jose4j.jar', 'slf4j-api.jar', 'pingfederate-sdk.jar', 'pf-protocolengine.jar')
+if ($requiredSDK | Where-Object { -not (Test-Path -LiteralPath (Join-Path $sdk $_) -PathType Leaf) }) {
+    & (Join-Path $PSScriptRoot 'extract-pingfederate-sdk.ps1')
+}
+foreach ($required in $requiredSDK) {
     if (-not (Test-Path -LiteralPath (Join-Path $sdk $required) -PathType Leaf)) {
         throw "Missing reviewed PingFederate SDK dependency: $required. Extract the matching 13.1 runtime libraries first."
     }

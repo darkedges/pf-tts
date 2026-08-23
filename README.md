@@ -122,6 +122,11 @@ repository-owned deployment package during first setup. The runtime
 certificate export rejects a certificate that is not valid for the stable
 `pingauthorize-wai` service identity.
 
+On a clean checkout, the profile builder extracts only its four required
+build-time JARs from the same digest-pinned PingFederate image. The ignored SDK
+directory is populated automatically; no license, key, credential,
+configuration, or state file is copied from the image.
+
 ## Live local verification
 
 After PingFederate Terraform has been applied and the SPIRE entries are

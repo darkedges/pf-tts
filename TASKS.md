@@ -616,3 +616,20 @@ Acceptance criteria:
 - Add failure tests for unpinned images, embedded credentials, writable policy
   mounts, sample-policy fallback, malformed plugin artifacts, and unexpected
   network drivers.
+
+## Task 28 — Clean-clone PingFederate profile bootstrap
+
+Goal: build the repository-owned PingFederate profile from a clean checkout
+without committing proprietary product SDK libraries.
+
+Acceptance criteria:
+
+- Extract only the four required public build-time JARs from the same
+  digest-pinned PingFederate image used at runtime.
+- Use a uniquely named, script-owned temporary container and remove only that
+  exact container in cleanup.
+- Reject missing, undersized, or non-JAR extraction results.
+- Keep extracted SDK files ignored and never extract credentials, licenses,
+  configuration, keys, or state.
+- Automatically perform extraction only when a required build dependency is
+  absent.
