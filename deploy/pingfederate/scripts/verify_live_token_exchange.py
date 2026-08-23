@@ -39,6 +39,24 @@ parsed_issuer = urllib.parse.urlsplit(issuer)
 if parsed_issuer.scheme != "https" or not parsed_issuer.netloc or parsed_issuer.username or parsed_issuer.password:
     raise SystemExit("PF_TRANSACTION_ISSUER must be an HTTPS origin without credentials.")
 
+
+def validated_https_url(name: str, default: str) -> str:
+    value = os.getenv(name, default)
+    parsed = urllib.parse.urlsplit(value)
+    if (
+        parsed.scheme != "https"
+        or not parsed.netloc
+        or parsed.username
+        or parsed.password
+        or parsed.fragment
+    ):
+        raise SystemExit(f"{name} must be an HTTPS URL without credentials or fragment.")
+    return value
+
+
+token_endpoint = validated_https_url("PF_TOKEN_ENDPOINT", f"{issuer}/as/token.oauth2")
+jwks_url = validated_https_url("PF_JWKS_URL", f"{issuer}/pf/JWKS")
+
 context = ssl.create_default_context()
 if os.getenv("PF_ADMIN_INSECURE", "false").lower() == "true":
     context.check_hostname = False
@@ -48,7 +66,7 @@ if os.getenv("PF_ADMIN_INSECURE", "false").lower() == "true":
 def post_form(form: dict[str, str], client_id: str, client_secret: str) -> tuple[int, dict]:
     basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
     request = urllib.request.Request(
-        f"{issuer}/as/token.oauth2",
+        token_endpoint,
         headers={
             "Authorization": f"Basic {basic}",
             "Accept": "application/json",
@@ -158,7 +176,7 @@ kid = header.get("kid")
 if kid != "wai-transaction-signing":
     raise SystemExit("Transaction token key ID is not the configured signing key.")
 
-with urllib.request.urlopen(f"{issuer}/pf/JWKS", context=context, timeout=15) as response:
+with urllib.request.urlopen(jwks_url, context=context, timeout=15) as response:
     jwks = json.load(response)
 keys = [key for key in jwks.get("keys", []) if isinstance(key, dict) and key.get("kid") == kid and key.get("kty") == "RSA"]
 if len(keys) != 1:

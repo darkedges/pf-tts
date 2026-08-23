@@ -214,6 +214,52 @@ func TestBulkProfileExportKeepsPrivilegedMaterialOutsideTrustedProfile(t *testin
 	}
 }
 
+func TestCleanBootstrapOwnsOnlyRandomIsolatedResources(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/test-pingfederate-clean-bootstrap.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"RandomNumberGenerator]::Fill",
+		`"wai-pf-clean-$suffix"`,
+		`"wai-pf-clean-output-$suffix"`,
+		"'127.0.0.1::9999'",
+		"'127.0.0.1::9031'",
+		"HealthTimeoutSeconds",
+		"$attempt -le 12",
+		"The isolated PingFederate certificate did not become valid within 60 seconds.",
+		"PINGFEDERATE_PROVIDER_INSECURE_TRUST_ALL_TLS = 'false'",
+		"PINGFEDERATE_PROVIDER_CA_CERTIFICATE_PEM_FILES",
+		"PF_ADMIN_INSECURE = 'false'",
+		"SSL_CERT_FILE",
+		"pf13_1.auto.tfvars.json",
+		"verify_live_token_exchange.py",
+		"^wai-pf-clean-[0-9a-f]{16}$",
+		"^wai-pf-clean-output-[0-9a-f]{16}$",
+		"deploy/pingfederate/generated/clean-bootstrap/",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("clean bootstrap missing isolation or failure control %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"wai-pingfederate-13-1",
+		"pingfederate-output",
+		"9999:9999",
+		"9031:9031",
+		"terraform destroy",
+		"docker system prune",
+		"docker volume prune",
+		"INSECURE_TRUST_ALL_TLS = 'true'",
+		"PF_ADMIN_INSECURE = 'true'",
+	} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("clean bootstrap contains unsafe shared or insecure behavior %q", forbidden)
+		}
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

@@ -676,3 +676,23 @@ Acceptance criteria:
   the generated candidate automatically.
 - Add failure tests for an unexpected resource, unexpected client, residual
   encrypted value, literal secret, and attempted automatic import.
+
+## Task 31 — Isolated clean-volume PingFederate bootstrap test
+
+Goal: prove that the repository-owned profile and Terraform configuration can
+recreate PingFederate without relying on the normal lab volume or state.
+
+Acceptance criteria:
+
+- Use cryptographically random, script-owned container, volume, and working
+  directory names plus Docker-assigned loopback ports.
+- Never stop, replace, connect to, or delete the normal workbench container or
+  volume.
+- Build the profile, wait for bounded health, and validate the exact runtime
+  TLS certificate without disabling verification.
+- Use an isolated ignored Terraform directory and state, apply the required
+  scope and configuration, and verify a live token exchange plus its tampered
+  actor-token failure case.
+- Clean only exact test-owned resources and erase the isolated state by default.
+- Add failure tests for fixed ports, shared state, insecure TLS, broad cleanup,
+  unbounded waits, and ambiguous resource names.
