@@ -717,3 +717,101 @@ Acceptance criteria:
 - Add failure tests for committed private material, weak keys, excessive
   validity, missing SANs, overwrite, plaintext administrator password, and
   mutable profile mounts.
+
+## Task 33 — Transaction Tokens profile alignment review and migration plan
+
+Goal: determine how closely the existing PingFederate, SPIRE, PingAuthorize,
+MCP, and audit implementation can align with the Transaction Tokens model used
+by CNCF Tokenetes and the current IETF Transaction Tokens draft, then produce a
+phased plan that gets as close as the product boundaries safely allow.
+
+This is a review and planning task. Do not change token issuance, validation,
+transport, PingFederate configuration, or service behavior while completing
+Task 33.
+
+Acceptance criteria:
+
+- Pin the review to an identified version and publication date of the IETF
+  Transaction Tokens draft and record that it is not yet a final RFC. Compare
+  the base profile separately from any agent-specific Transaction Tokens draft
+  or actor profile so experimental extensions are not presented as base
+  requirements.
+- Use Tokenetes documentation and source as an implementation reference, but
+  distinguish Tokenetes behavior, IETF normative requirements, and local
+  design choices. Do not claim compatibility or conformance without evidence.
+- Produce `docs/transaction-tokens-alignment-plan.md` with a requirement matrix
+  covering the TTS trust-domain model, RFC 8693 request and response,
+  requester authentication, subject-token processing, token type URNs,
+  `typ: txntoken+jwt`, signing-key discovery and rotation, required and
+  optional claims, lifetime, replay limits, replacement tokens, HTTP
+  propagation, validation, policy input, privacy, audit, and error handling.
+- Classify every requirement as implemented, partially implemented, missing,
+  intentionally different, unsupported by the current product, or requiring
+  investigation. For implemented items, cite exact repository files and tests.
+  For product-dependent items, cite exact PingFederate or PingAuthorize
+  documentation, discovered descriptors, or reproducible Admin API evidence.
+- Map the current application claims to Transaction Tokens claims without
+  collapsing `UserID`, `AgentID`, `AgentInstanceID`, `SPIFFEID`, or
+  `TransactionID`. At minimum, review `sub`, `txn`, `scope`, `aud`, `req_wl`,
+  `tctx`, and `rctx`, including which values are immutable, caller-derived,
+  policy-derived, optional, sensitive, or prohibited.
+- Review how PingFederate could act as the single logical Transaction Token
+  Service for the local trust domain. Determine whether its token exchange,
+  access-token manager, mapping expressions, token type response, and JOSE
+  header controls can produce the required profile exactly. Never weaken
+  subject-token, actor-token, issuer, audience, algorithm, key ID, time, or
+  workload-to-agent validation to fit the profile.
+- Review the SPIRE JWT-SVID actor token as an explicit agent integration.
+  Explain whether it is requester authentication, an RFC 8693 `actor_token`,
+  an agent-profile extension, or a local combination of those roles. Preserve
+  the rule that PingFederate derives the logical `AgentID` from verified
+  workload evidence rather than caller assertion.
+- Review the audience migration from the current logical-resource audience to
+  the Transaction Tokens trust-domain audience. Define how target, MCP server,
+  tool, purpose, and scope remain narrowly authorized when `aud` no longer
+  names only the gateway. Do not broaden effective authority as a side effect
+  of this change.
+- Review migration from bearer `Authorization` transport to the dedicated
+  `Txn-Token` HTTP header. Cover gateway, MCP Streamable HTTP, MCP server, API,
+  reverse proxy, CORS, header-size, duplicate-header, forwarding, redaction,
+  and observability behavior. Reject multiple candidate transaction tokens and
+  never silently prefer one header over another.
+- Define an explicit compatibility strategy. Prefer an atomic local cutover or
+  separately configured strict modes. Do not accept both the legacy token
+  shape and Transaction Tokens shape ambiguously on the same protected route.
+- Define the PingAuthorize and OPA policy-input migration using only verified,
+  typed claims and authenticated immediate-caller identity. A policy engine
+  remains an authorization decision point and does not replace Txn-Token or
+  SPIFFE verification.
+- Define privacy and logging rules for `tctx`, `rctx`, subject identity, actor
+  identity, and decoded audit views. Raw subject tokens, actor tokens,
+  Txn-Tokens, authorization headers, cookies, secrets, and private material
+  remain prohibited from logs and durable audit payloads.
+- Produce a phased implementation backlog with independently testable tasks,
+  dependencies, rollback points, product capability blockers, and an explicit
+  definition of done. Separate required profile conformance from optional
+  agent extensions, replacement-token support, replay controls, and future
+  proof of possession.
+- Include a conformance test plan with positive and failure cases for token
+  type, JOSE `typ`, issuer where configured, trust-domain audience, expiry,
+  unique transaction ID, subject, scope, requester workload, exact claim
+  schema, unknown key ID, disallowed algorithm, malformed context, duplicate
+  headers, legacy bearer presentation, wrong SPIFFE caller, authority
+  broadening, raw-token leakage, and immutable propagation through every hop.
+- Identify any requirement that PingFederate or PingAuthorize cannot implement
+  exactly. For each blocker, recommend one of: a narrowly scoped tested
+  adapter, an upstream product enhancement, a documented non-conformance, or
+  stopping the migration. Do not introduce an untrusted token rewriting proxy
+  or custom signing service merely to make the conformance matrix appear
+  complete.
+
+Definition of done:
+
+- The alignment plan is specific enough to split into ordered implementation
+  tasks without further architectural guessing.
+- Every security-sensitive gap states its trust boundary, failure behavior,
+  required negative tests, and whether it changes effective authorization.
+- The plan reports the closest safely achievable profile, the remaining
+  non-conformances, and the evidence needed to resolve product-dependent
+  unknowns.
+- No runtime or infrastructure behavior changes as part of Task 33.
