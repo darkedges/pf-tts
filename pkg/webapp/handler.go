@@ -87,6 +87,7 @@ func New(config Config) (*Handler, error) {
 	if authErr != nil || tokenErr != nil || redirectErr != nil || publicErr != nil ||
 		authURL.Scheme != tokenURL.Scheme || authURL.Host != tokenURL.Host ||
 		redirectURL.Scheme != publicURL.Scheme || redirectURL.Host != publicURL.Host ||
+		redirectURL.Path != "/oauth/callback" || publicURL.Path != "" && publicURL.Path != "/" ||
 		strings.TrimSpace(config.ClientID) == "" || strings.TrimSpace(config.ClientSecret) == "" ||
 		len(config.Scopes) == 0 || !contains(config.Scopes, "openid") ||
 		!strings.HasPrefix(config.CookieName, "__Host-") || config.SessionTTL <= 0 ||
@@ -118,6 +119,9 @@ func New(config Config) (*Handler, error) {
 	h.mux.HandleFunc("GET /oauth/callback", h.callback)
 	h.mux.HandleFunc("GET /api/session", h.getSession)
 	h.mux.HandleFunc("POST /logout", h.logout)
+	h.mux.HandleFunc("GET /{$}", h.static("static/index.html", "text/html; charset=utf-8"))
+	h.mux.HandleFunc("GET /app.css", h.static("static/app.css", "text/css; charset=utf-8"))
+	h.mux.HandleFunc("GET /app.js", h.static("static/app.js", "text/javascript; charset=utf-8"))
 	if config.Interactions != nil {
 		h.mux.HandleFunc("POST /api/interactions", h.invokeInteraction)
 	}
@@ -132,7 +136,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()")
+	w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	w.Header().Set("X-Frame-Options", "DENY")
 	h.mux.ServeHTTP(w, r)
+}
+
+func (h *Handler) static(name, contentType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		content, err := staticFiles.ReadFile(name)
+		if err != nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		_, _ = w.Write(content)
+	}
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
@@ -417,7 +437,7 @@ func exactlyOne(values url.Values, key string) (string, bool) {
 
 func secureURL(raw string) (*url.URL, error) {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, ErrInvalidConfiguration
 	}
 	return parsed, nil

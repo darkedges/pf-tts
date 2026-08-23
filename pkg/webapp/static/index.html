@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delegated Workbench</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Verified delegated identity</p>
+      <h1>Agent Workbench</h1>
+    </div>
+    <div id="account" class="account" aria-live="polite">
+      <span id="identity">Checking session…</span>
+      <a id="sign-in" class="button" href="/login" hidden>Sign in with PingFederate</a>
+      <button id="sign-out" class="button secondary" type="button" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <main id="workspace" class="workspace">
+    <section class="interaction-panel" aria-labelledby="interaction-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Approved operation</p>
+          <h2 id="interaction-title">Service interaction</h2>
+        </div>
+        <span id="service-state" class="state-badge neutral">Signed out</span>
+      </div>
+
+      <form id="interaction-form" class="interaction-form" hidden>
+        <label for="tool">Tool</label>
+        <select id="tool" name="tool">
+          <option value="system.whoami">system.whoami</option>
+        </select>
+        <label for="purpose">Purpose</label>
+        <select id="purpose" name="purpose">
+          <option value="system.whoami">Verify delegated identity chain</option>
+        </select>
+        <p class="hint">Agent, workload, target, and authorization scope are fixed by trusted server configuration.</p>
+        <button id="invoke" class="button primary" type="submit">Invoke approved service</button>
+      </form>
+
+      <div id="welcome" class="empty-state">
+        <h3>Sign in to begin</h3>
+        <p>Your credentials are entered only on PingFederate. This application receives an opaque session cookie.</p>
+      </div>
+
+      <section class="result-card" aria-labelledby="result-title">
+        <div class="result-header">
+          <h3 id="result-title">Latest result</h3>
+          <span id="result-status" class="state-badge neutral">No invocation</span>
+        </div>
+        <p id="result-message" aria-live="polite">Run an approved interaction to see its verified transaction identifier.</p>
+        <dl id="result-details" hidden>
+          <div><dt>Transaction</dt><dd id="result-transaction"></dd></div>
+        </dl>
+      </section>
+    </section>
+
+    <aside class="audit-panel" aria-labelledby="audit-title">
+      <div class="section-heading audit-heading">
+        <div>
+          <p class="eyebrow">Correlated evidence</p>
+          <h2 id="audit-title">Audit trail</h2>
+        </div>
+        <button id="refresh-audit" class="icon-button" type="button" aria-label="Refresh audit trail" disabled>↻</button>
+      </div>
+      <p id="audit-state" class="audit-state" aria-live="polite">Sign in to view interactions.</p>
+      <div id="audit-list" class="audit-list" role="list"></div>
+      <section id="audit-detail" class="audit-detail" aria-labelledby="detail-title" hidden>
+        <div class="detail-heading">
+          <h3 id="detail-title" tabindex="-1">Selected event</h3>
+          <button id="close-detail" class="icon-button" type="button" aria-label="Close audit detail">×</button>
+        </div>
+        <dl id="detail-fields"></dl>
+      </section>
+    </aside>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

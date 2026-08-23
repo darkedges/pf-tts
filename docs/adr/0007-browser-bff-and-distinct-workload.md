@@ -33,6 +33,11 @@ SPIFFEID: spiffe://example.org/audit/collector
 Neither identity may be selected by browser input, and the two workloads may
 not share a SPIFFE ID.
 
+The browser-facing listener uses a conventionally trusted HTTPS certificate
+and private key supplied as files. SPIFFE X.509-SVID mTLS is used only on the
+BFF's service connections to the gateway and audit collector; an ordinary
+user browser is not treated as a SPIFFE workload.
+
 ## Consequences
 
 PingFederate, SPIRE, and OPA require explicit web-app bindings. Browser OAuth

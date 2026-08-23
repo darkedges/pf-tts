@@ -132,6 +132,18 @@ func AuditSink(ctx context.Context, source corespiffe.X509Source) (audit.Sink, e
 	if endpoint == "" {
 		return stdout, nil
 	}
+	remote, err := AuditRemote(ctx, source)
+	if err != nil {
+		return nil, err
+	}
+	return audit.NewFanout(stdout, remote)
+}
+
+func AuditRemote(ctx context.Context, source corespiffe.X509Source) (*audit.Remote, error) {
+	endpoint, err := Required("AUDIT_COLLECTOR_URL")
+	if err != nil {
+		return nil, err
+	}
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return nil, errors.New("AUDIT_COLLECTOR_URL must be an HTTPS URL without query or fragment")
@@ -148,7 +160,7 @@ func AuditSink(ctx context.Context, source corespiffe.X509Source) (audit.Sink, e
 	if err != nil {
 		return nil, err
 	}
-	return audit.NewFanout(stdout, remote)
+	return remote, nil
 }
 
 type exactCaller struct{ policy corespiffe.ExactPeerPolicy }

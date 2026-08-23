@@ -312,3 +312,23 @@ func TestAuditQueriesUseOnlyAuthenticatedSessionUser(t *testing.T) {
 		t.Fatalf("guessed record was not same-user filtered: %d user=%q", guessedResult.Code, reader.user)
 	}
 }
+
+func TestNewRejectsMismatchedRuntimeRoutesAndEndpointQueries(t *testing.T) {
+	flow := newFlow(t)
+	base := flow.handler.config
+	for name, mutate := range map[string]func(*Config){
+		"callback path": func(config *Config) { config.RedirectURI = "https://app.example/other-callback" },
+		"public path":   func(config *Config) { config.PublicOrigin = "https://app.example/prefix" },
+		"endpoint query": func(config *Config) {
+			config.AuthorizationEndpoint += "?client=attacker"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			config := base
+			mutate(&config)
+			if _, err := New(config); err == nil {
+				t.Fatal("ambiguous browser runtime route accepted")
+			}
+		})
+	}
+}

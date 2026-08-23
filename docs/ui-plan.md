@@ -188,6 +188,9 @@ remain in UI-07.
 
 ### UI-06 — Browser interface
 
+Status: complete in code. Container wiring, trusted local browser certificate,
+and browser-driven validation remain in UI-07.
+
 - Build responsive two-column layout with a two-thirds interaction panel and a
   one-third audit panel.
 - Provide sign-in/sign-out state, allowlisted tool forms, result display,
