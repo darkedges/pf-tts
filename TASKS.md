@@ -573,3 +573,25 @@ Only after Tasks 00–23:
 - multi-trust-domain federation,
 - per-tool derived/downscoped tokens,
 - WIT-SVID investigation.
+
+## Task 26 — PingAuthorize policy adapter
+
+Goal: evaluate the same trusted MCP authorization input through the
+PingAuthorize JSON PDP API without treating a remote `PERMIT` as sufficient
+when the response is incomplete or carries unfulfilled obligations.
+
+Acceptance criteria:
+
+- Send only typed, verified user, agent, workload, immediate-caller,
+  transaction, scope, target, and tool values to a fixed HTTPS
+  `/governance-engine` endpoint.
+- Require a bounded HTTP client, decision timeout, response size, exact JSON
+  schema, successful policy status, and consistent `PERMIT` plus `authorised`
+  values.
+- Deny unavailable, timed-out, cancelled, malformed, oversized, ambiguous, or
+  contradictory responses.
+- Deny unfulfilled obligatory statements until a named obligation handler is
+  implemented and tested.
+- Reject disabled TLS verification and ambiguous scope serialization.
+- Keep OPA as the default adapter until a repository-owned PingAuthorize
+  deployment package implements and passes the full allow/deny policy matrix.

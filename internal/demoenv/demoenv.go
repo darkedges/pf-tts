@@ -101,6 +101,31 @@ func PFHTTPClient() (*http.Client, error) {
 	}, nil
 }
 
+// CAHTTPClient creates a bounded HTTPS client using an explicitly configured
+// PEM trust anchor. It is intended for external product adapters whose local
+// development certificates are not in the system trust store.
+func CAHTTPClient(caEnvironmentVariable string, timeout time.Duration) (*http.Client, error) {
+	if strings.TrimSpace(caEnvironmentVariable) == "" || timeout <= 0 {
+		return nil, errors.New("CA environment variable and positive timeout are required")
+	}
+	caFile, err := Required(caEnvironmentVariable)
+	if err != nil {
+		return nil, err
+	}
+	pool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("load system certificate pool: %w", err)
+	}
+	pem, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", caEnvironmentVariable, err)
+	}
+	if !pool.AppendCertsFromPEM(pem) {
+		return nil, fmt.Errorf("%s contains no valid PEM certificates", caEnvironmentVariable)
+	}
+	return &http.Client{Timeout: timeout, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12, RootCAs: pool}}}, nil
+}
+
 func Middleware(audience string, verifier *pingfederate.JWTVerifier, allowedCaller, target string, sinks ...audit.Sink) (middleware.Middleware, error) {
 	return MiddlewareForCallers(audience, verifier, []string{allowedCaller}, target, sinks...)
 }

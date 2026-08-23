@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"example.com/workload-agent-identity/internal/demoenv"
@@ -31,7 +34,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	policy, err := authorization.NewOPA(ctx, "/run/wai/authorization.rego", 100*time.Millisecond)
+	policy, err := configuredAuthorizer(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,6 +59,25 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Fatal(server.ListenAndServeTLS("", ""))
+}
+
+func configuredAuthorizer(ctx context.Context) (mcp.Authorizer, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AUTHORIZATION_PROVIDER"))) {
+	case "", "opa":
+		return authorization.NewOPA(ctx, "/run/wai/authorization.rego", 100*time.Millisecond)
+	case "pingauthorize":
+		endpoint, err := demoenv.Required("PINGAUTHORIZE_URL")
+		if err != nil {
+			return nil, err
+		}
+		client, err := demoenv.CAHTTPClient("PINGAUTHORIZE_CA_FILE", 2*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		return authorization.NewPingAuthorize(client, endpoint, 500*time.Millisecond)
+	default:
+		return nil, fmt.Errorf("unsupported AUTHORIZATION_PROVIDER")
+	}
 }
 
 func mustPolicy(ids ...string) corespiffe.ExactPeerPolicy {
