@@ -31,7 +31,7 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-admin-profile", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-vendor-admin", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
@@ -110,15 +110,15 @@ func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(b)
-	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"username": "Administrator"`, `"resourceType": "/administrativeAccounts"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/keyPairs/sslServer/settings"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
+	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/keyPairs/sslServer/settings"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
 		if !strings.Contains(content, required) {
 			t.Errorf("administrator bootstrap profile missing %q", required)
 		}
 	}
-	if strings.Count(content, `"resourceType":`) != 4 {
-		t.Fatal("bootstrap must contain exactly the four required resource types")
+	if strings.Count(content, `"resourceType":`) != 3 {
+		t.Fatal("bootstrap must contain exactly the three non-account bootstrap resource types")
 	}
-	for _, forbidden := range []string{"2FederateM0re", "secretpass", "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
+	for _, forbidden := range []string{"2FederateM0re", "secretpass", "/administrativeAccounts", "PING_IDENTITY_PASSWORD", `"username"`, "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("administrator bootstrap contains forbidden input %q", forbidden)
 		}

@@ -427,6 +427,28 @@ func TestBootstrapMaterialIsStrongGeneratedAndIgnored(t *testing.T) {
 	}
 }
 
+func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T) {
+	b, err := os.ReadFile("../../profiles/pingfederate/instance/bulk-config/data.json.subst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := string(b)
+	for _, forbidden := range []string{"/administrativeAccounts", "PING_IDENTITY_PASSWORD", `"username"`} {
+		if strings.Contains(profile, forbidden) {
+			t.Fatalf("repository bulk profile must not import administrator credentials: found %q", forbidden)
+		}
+	}
+
+	hookBytes, err := os.ReadFile("../../profiles/pingfederate/hooks/02-get-remote-server-profile.sh.post")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hook := string(hookBytes)
+	if !strings.Contains(hook, `PING_IDENTITY_PASSWORD is required`) {
+		t.Fatal("repository profile must fail closed when the Vault-backed vendor administrator password is absent")
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

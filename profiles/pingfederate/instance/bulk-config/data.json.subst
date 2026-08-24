@@ -39,25 +39,6 @@
         }
       ],
       "resourceType": "/serverSettings/systemKeys"
-    },
-    {
-      "operationType": "SAVE",
-      "items": [
-        {
-          "password": "${PING_IDENTITY_PASSWORD}",
-          "roles": [
-            "EXPRESSION_ADMINISTRATOR",
-            "USER_ADMINISTRATOR",
-            "ADMINISTRATOR",
-            "CRYPTO_ADMINISTRATOR"
-          ],
-          "auditor": false,
-          "description": "Initial administrator user.",
-          "active": true,
-          "username": "Administrator"
-        }
-      ],
-      "resourceType": "/administrativeAccounts"
     }
   ]
 }
