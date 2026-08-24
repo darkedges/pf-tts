@@ -104,6 +104,27 @@ func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
 	}
 }
 
+func TestRepositoryProfileOnlyParameterizesAdministratorBootstrap(t *testing.T) {
+	b, err := os.ReadFile("../profiles/pingfederate/instance/bulk-config/data.json.subst")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(b)
+	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"username": "Administrator"`, `"resourceType": "/administrativeAccounts"`} {
+		if !strings.Contains(content, required) {
+			t.Errorf("administrator bootstrap profile missing %q", required)
+		}
+	}
+	if strings.Count(content, `"resourceType":`) != 1 {
+		t.Fatal("administrator bootstrap must contain exactly one resource type")
+	}
+	for _, forbidden := range []string{"2FederateM0re", "secretpass", "/oauth/", "/serverSettings/", "PRIVATE KEY", `"kty"`} {
+		if strings.Contains(content, forbidden) {
+			t.Errorf("administrator bootstrap contains forbidden input %q", forbidden)
+		}
+	}
+}
+
 func TestPrivateAdminTrustBootstrapRejectsAmbiguityAndTLSBypass(t *testing.T) {
 	script, err := os.ReadFile("../scripts/export-pf13-kubernetes-admin-ca.ps1")
 	if err != nil {
