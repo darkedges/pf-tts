@@ -25,8 +25,15 @@ func (v fakeStrictTokenVerifier) Verify(context.Context, string) (transaction.Tx
 
 func strictRunnerClaims() transaction.TxnTokenClaims {
 	return transaction.TxnTokenClaims{
-		RequestingWorkloadID: "spiffe://example.org/agent/demo", Scope: []string{"mcp.system.whoami"},
+		TransactionID: "txn-test", RequestingWorkloadID: "spiffe://example.org/agent/demo", Scope: []string{"mcp.system.whoami"},
 		TransactionContext: transaction.TransactionContext{WAI: transaction.WAITransactionContext{Target: "demo", Tool: "system.whoami", Agent: transaction.WAIAgentContext{ID: "urn:agent:demo"}}},
+	}
+}
+
+func TestStrictRunnerRejectsConfiguredWorkloadMismatch(t *testing.T) {
+	runner := StrictRunner{SPIFFE: fakeProvider{}, AdapterHTTP: &http.Client{Timeout: time.Second}, GatewayHTTP: &http.Client{Timeout: time.Second}, AdapterURL: "https://adapter.example", GatewayURL: "https://gateway.example", Verifier: fakeStrictTokenVerifier{claims: strictRunnerClaims()}, MaximumBytes: 1024, WorkloadID: "spiffe://example.org/agent/web-app", AgentID: "urn:agent:web-app"}
+	if _, err := runner.Invoke(context.Background(), "user-secret", "system.whoami", "system.whoami"); !errors.Is(err, ErrStrictAgent) {
+		t.Fatalf("configured workload mismatch was accepted: %v", err)
 	}
 }
 

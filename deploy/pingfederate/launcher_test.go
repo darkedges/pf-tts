@@ -119,6 +119,58 @@ func TestLocalProfileBuildAndComposeKeepArtifactsBounded(t *testing.T) {
 	}
 }
 
+func TestProfileArtifactUsesExactSecretFreeScratchInventory(t *testing.T) {
+	dockerfileBytes, err := os.ReadFile("profile-artifact/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(dockerfileBytes)
+	for _, required := range []string{
+		"FROM scratch", "COPY --chmod=0444 profile/hooks/02-get-remote-server-profile.sh.post /profile/hooks/02-get-remote-server-profile.sh.post",
+		"COPY --chmod=0444 profile/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar /profile/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar",
+		"org.opencontainers.image.revision",
+	} {
+		if !strings.Contains(dockerfile, required) {
+			t.Fatalf("profile artifact Dockerfile missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"pingidentity/pingfederate", "env_vars", "sdk", "ARG SECRET", "ARG PASSWORD"} {
+		if strings.Contains(strings.ToLower(dockerfile), strings.ToLower(forbidden)) {
+			t.Fatalf("profile artifact Dockerfile includes forbidden product or secret input %q", forbidden)
+		}
+	}
+	if strings.Count(dockerfile, "--chmod=0444") != 2 {
+		t.Fatal("profile artifact must make both allowlisted files read-only")
+	}
+	if strings.Contains(dockerfile, "COPY profile/") {
+		t.Fatal("profile artifact must not copy a directory whose future contents could broaden the artifact")
+	}
+
+	scriptBytes, err := os.ReadFile("../../scripts/build-pingfederate-profile-artifact.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(scriptBytes)
+	for _, required := range []string{
+		"build-pingfederate-profile.ps1", "GetRandomFileName", "Compare-Object $expectedContext $actualContext",
+		"Compare-Object $expectedOutput $listed", "BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY",
+		"Refusing to publish the profile artifact from a dirty Git tree", "--platform linux/amd64,linux/arm64",
+		"--output \"type=tar,dest=$outputTar\"", "Remove-Item -LiteralPath $temporaryRoot",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("profile artifact builder missing fail-closed control %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"deploy/pingfederate/sdk/runtime-lib", "deploy/pingfederate/profile/env_vars",
+		"docker build .", "--build-context", "Write-Output $bytes", "Copy-Item -Recurse",
+	} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("profile artifact builder can include forbidden build input %q", forbidden)
+		}
+	}
+}
+
 func TestPluginBuildIsReproducible(t *testing.T) {
 	b, err := os.ReadFile("plugins/pom.xml")
 	if err != nil {

@@ -28,27 +28,41 @@ type StrictRunner struct {
 	GatewayURL   string
 	Verifier     StrictTokenVerifier
 	MaximumBytes int
+	WorkloadID   string
+	AgentID      string
 }
 
 func (r StrictRunner) Run(ctx context.Context, userToken string) error {
+	_, err := r.Invoke(ctx, userToken, "system.whoami", "system.whoami")
+	return err
+}
+
+func (r StrictRunner) Invoke(ctx context.Context, userToken, purpose, tool string) (string, error) {
 	if r.SPIFFE == nil || r.AdapterHTTP == nil || r.AdapterHTTP.Timeout <= 0 || r.GatewayHTTP == nil || r.GatewayHTTP.Timeout <= 0 || r.Verifier == nil || r.MaximumBytes <= 0 || userToken == "" || len(userToken) > r.MaximumBytes {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
+	}
+	workloadID, agentID := r.WorkloadID, r.AgentID
+	if workloadID == "" && agentID == "" {
+		workloadID, agentID = "spiffe://example.org/agent/demo", "urn:agent:demo"
+	}
+	if workloadID == "" || agentID == "" || purpose != "system.whoami" || tool != "system.whoami" {
+		return "", ErrStrictAgent
 	}
 	adapterURL, err := fixedHTTPS(r.AdapterURL)
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	gatewayURL, err := fixedHTTPS(r.GatewayURL)
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	adapterHTTP := *r.AdapterHTTP
 	adapterHTTP.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	gatewayHTTP := *r.GatewayHTTP
 	gatewayHTTP.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	svid, err := r.SPIFFE.FetchJWTSVID(ctx, []string{"urn:pingfederate:wai:token-exchange"})
-	if err != nil || svid.SPIFFEID != "spiffe://example.org/agent/demo" || svid.Token == "" || len(svid.Token) > r.MaximumBytes {
-		return ErrStrictAgent
+	if err != nil || svid.SPIFFEID != workloadID || svid.Token == "" || len(svid.Token) > r.MaximumBytes {
+		return "", ErrStrictAgent
 	}
 	form := url.Values{
 		"grant_type": {"urn:ietf:params:oauth:grant-type:token-exchange"}, "subject_token": {userToken},
@@ -58,29 +72,29 @@ func (r StrictRunner) Run(ctx context.Context, userToken string) error {
 	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, adapterURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	response, err := adapterHTTP.Do(request)
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	result, err := decodeStrictAdapterResponse(response.Body, r.MaximumBytes)
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	claims, err := r.Verifier.Verify(ctx, result.AccessToken)
-	if err != nil || claims.RequestingWorkloadID != "spiffe://example.org/agent/demo" || claims.TransactionContext.WAI.Agent.ID != "urn:agent:demo" || claims.TransactionContext.WAI.Target != "demo" || claims.TransactionContext.WAI.Tool != "system.whoami" || len(claims.Scope) != 1 || claims.Scope[0] != "mcp.system.whoami" {
-		return ErrStrictAgent
+	if err != nil || claims.RequestingWorkloadID != workloadID || claims.TransactionContext.WAI.Agent.ID != agentID || claims.TransactionContext.WAI.Target != "demo" || claims.TransactionContext.WAI.Tool != tool || len(claims.Scope) != 1 || claims.Scope[0] != "mcp.system.whoami" || claims.TransactionID == "" {
+		return "", ErrStrictAgent
 	}
 	payload := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"system.whoami","arguments":{}}}`
 	invoke, err := http.NewRequestWithContext(ctx, http.MethodPost, gatewayURL, strings.NewReader(payload))
 	if err != nil || transaction.SetTxnToken(invoke.Header, result.AccessToken, r.MaximumBytes) != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	invoke.Header.Set("Content-Type", "application/json")
 	invoke.Header.Set("Accept", "application/json, text/event-stream")
@@ -89,14 +103,14 @@ func (r StrictRunner) Run(ctx context.Context, userToken string) error {
 	invoke.Header.Set("Mcp-Name", "system.whoami")
 	invocation, err := gatewayHTTP.Do(invoke)
 	if err != nil {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
 	defer invocation.Body.Close()
 	body, readErr := io.ReadAll(io.LimitReader(invocation.Body, int64(r.MaximumBytes)+1))
 	if readErr != nil || len(body) > r.MaximumBytes || invocation.StatusCode < 200 || invocation.StatusCode >= 300 {
-		return ErrStrictAgent
+		return "", ErrStrictAgent
 	}
-	return nil
+	return claims.TransactionID, nil
 }
 
 type strictAdapterResponse struct {

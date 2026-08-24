@@ -78,6 +78,13 @@ func Verifier() (*pingfederate.JWTVerifier, error) {
 }
 
 func StrictTxnVerifier() (*transaction.TxnTokenVerifier, error) {
+	return StrictTxnVerifierForBindings(map[string]string{"spiffe://example.org/agent/demo": "urn:agent:demo"})
+}
+
+func StrictTxnVerifierForBindings(bindings map[string]string) (*transaction.TxnTokenVerifier, error) {
+	if len(bindings) == 0 {
+		return nil, errors.New("strict workload-agent bindings are required")
+	}
 	issuer, err := Required("PF_TRANSACTION_ISSUER")
 	if err != nil {
 		return nil, err
@@ -100,7 +107,7 @@ func StrictTxnVerifier() (*transaction.TxnTokenVerifier, error) {
 		MaximumLifetime: 60 * time.Second, MaximumTokenBytes: 16 << 10, MaximumPayloadBytes: 8 << 10,
 		MaximumIdentifierBytes: 256, MaximumContextBytes: 2 << 10, MaximumScopes: 1,
 		AllowedScopes:         map[string]struct{}{"mcp.system.whoami": {}},
-		WorkloadAgentBindings: map[string]string{"spiffe://example.org/agent/demo": "urn:agent:demo"}, Keys: keys,
+		WorkloadAgentBindings: bindings, Keys: keys,
 	})
 }
 

@@ -1284,3 +1284,171 @@ Acceptance criteria:
   latest images, writable policy, and missing ServiceAccount identity binding.
 - Do not deploy to a cluster, install CRDs, create Secrets, publish images, or
   change the local Docker workbench in Task 48.
+
+## Task 49 — Isolated Kubernetes PingFederate 13.1 deployment contract
+
+Goal: define the security and operational contract for a new Kubernetes-only
+PingFederate 13.1 logical TTS without modifying the shared 12.3 deployment.
+
+Acceptance criteria:
+
+- Record the decision in ADR 0011 and keep `id.ping.darkedges.com`, its state,
+  signing keys, clients, and workloads out of the new release's ownership.
+- Use namespace `wai-pingfederate`, a digest-pinned official 13.1 product
+  image, a distinct persistent `/opt/out`, and a repository-owned profile
+  artifact assembled at the supported `/opt/in` boundary.
+- Keep the administrator Service private. Permit browser access only to the
+  minimum engine paths routed through `workbench.ping.darkedges.com`; never
+  publish `/pf-admin-api`, the admin console, or port 9999.
+- Define exact Vault records, ServiceAccounts, SPIFFE identities, network
+  flows, persistence, readiness, backup, rollback, and image provenance.
+- Treat PingFederate as the only signer. The TTS adapter may translate outer
+  protocol semantics but may not sign or mutate the inner Transaction Token.
+- Add failure tests for admin ingress, mutable product images, embedded
+  credentials/bootstrap material, shared 12.3 resource references, and
+  missing workload-to-AgentID bindings.
+- Do not build images, create Vault records, or apply Kubernetes resources in
+  Task 49.
+
+## Task 50 — Secret-free PingFederate profile artifact image
+
+Goal: package only repository-owned public startup artifacts needed by the
+isolated 13.1 instance.
+
+Acceptance criteria:
+
+- Build and test the custom plugin against the matching pinned 13.1 SDK.
+- Produce a minimal artifact image containing the reviewed plugin JAR and
+  public profile hook only; do not redistribute the PingFederate product.
+- Exclude `env_vars`, system keys, certificates, licenses, credentials,
+  generated exports, Terraform files/state, and product SDK/runtime libraries.
+- Pin the build inputs and publish by immutable digest from a clean Git tree.
+- Add tests that enumerate the final artifact and fail on any unapproved file,
+  private-key marker, credential name, symlink, or unexpected writable path.
+
+## Task 51 — Explicit Vault bootstrap contract for isolated PingFederate
+
+Goal: provide the isolated product and applications with reviewed secrets
+without broadening the existing narrow local importer implicitly.
+
+Acceptance criteria:
+
+- Define separate KV v2 records for administrator password, Ping Identity
+  DevOps credentials, bootstrap/system material, OAuth clients, and runtime CA.
+- Require an explicit import switch for DevOps and bootstrap records; never
+  import them through the default application-secret path.
+- Bind Vault Kubernetes authentication to exact namespace and ServiceAccounts
+  with the least-privilege policy and audience `vault`.
+- Reject missing, duplicate, malformed, symlinked, oversized, or inconsistent
+  inputs and create-only conflicts without printing values or response bodies.
+- Add failure tests for wildcard policies, static Vault tokens, AppRole secrets,
+  TLS verification bypass, partial input, and accidental secret rendering.
+
+## Task 52 — Isolated PingFederate 13.1 Kubernetes runtime
+
+Goal: start a durable, private-admin PingFederate 13.1 instance from the
+reviewed profile and Vault inputs.
+
+Acceptance criteria:
+
+- Add a StatefulSet, persistent volume claim, private admin and engine
+  Services, dedicated ServiceAccount, restrictive security context, resource
+  bounds, probes, disruption behavior, and default-deny NetworkPolicy.
+- Assemble `/opt/in` in an init container from the allowlisted artifact and
+  read-only Vault-synchronized files; reject missing or unexpected artifacts.
+- Pin the official product and profile artifact images by digest and accept the
+  EULA explicitly without embedding image-download credentials.
+- Never share `/opt/out`, credentials, signing material, Services, or selectors
+  with the existing 12.3 release.
+- Prove clean startup reports 13.1 and the exact reviewed plugin descriptors.
+- Add failure tests for public admin exposure, mutable images, writable secret
+  mounts, absent persistence, unsafe probes, and cross-namespace selection.
+
+## Task 53 — Private Terraform configuration gate for PingFederate 13.1
+
+Goal: configure the isolated logical TTS only after runtime and descriptor
+attestation succeeds.
+
+Acceptance criteria:
+
+- Reach port 9999 only through a bounded local port-forward or equivalent
+  private administrative channel; never create an admin Ingress.
+- Verify exact product version and plugin class names before plan or apply.
+- Configure the strict subject/actor processors, TEPP, ATM, scope, OAuth
+  clients, signing configuration, and exact demo/workbench workload bindings.
+- Keep administrator and OAuth credentials out of arguments, output, plans,
+  committed tfvars, and shared state; document protected state handling.
+- Reject wrong version, missing actor processor, unknown descriptor, forged
+  AgentID, wrong SPIFFE ID, missing audience, and encrypted/plaintext drift
+  ambiguity without weakening validation.
+
+## Task 54 — Strict Kubernetes workbench and audit integration
+
+Goal: deploy the authenticated UI on the strict Transaction Token path with a
+complete selectable audit trail.
+
+Acceptance criteria:
+
+- Give workbench and audit collector distinct ServiceAccounts and exact SPIFFE
+  IDs; bind workbench only to `urn:agent:web-app` in trusted TTS configuration.
+- Replace Docker-only OIDC backchannel behavior with fixed Kubernetes-safe
+  endpoints and exact SPIFFE peers for adapter, gateway, and audit collector.
+- Deploy the audit collector and configure every strict hop to submit bounded,
+  redacted evidence while preserving one immutable Transaction ID/token.
+- Store sessions only in bounded memory for this lab, use secure host cookies,
+  PKCE, state, nonce, exact redirect URI, CSRF origin checks, and no refresh
+  tokens.
+- Add failure tests for demo/workbench identity substitution, raw-token audit,
+  legacy gateway use, unapproved tool/purpose, wrong audit caller, and unsafe
+  OIDC endpoint rewriting.
+
+## Task 55 — Immutable application publication and deployment values
+
+Goal: publish every repository-owned runtime artifact and create a fully
+digest-pinned deployment input.
+
+Acceptance criteria:
+
+- Publish strict services, workbench, audit collector, and profile artifact
+  from a clean commit for Linux amd64/arm64 where supported.
+- Record registry manifest digests and use digests, not tags, in reviewed Helm
+  values; never commit registry tokens or Docker credential files.
+- Render and lint the complete chart with no Secret values and no unresolved
+  required configuration.
+- Add failure tests for dirty publication, missing platform, mutable tag,
+  digest mismatch, missing image, and secret-bearing Docker context.
+
+## Task 56 — Single-hostname workbench and PingFederate engine routing
+
+Goal: expose only the browser-required surface through Cloudflare and nginx.
+
+Acceptance criteria:
+
+- Keep `workbench.ping.darkedges.com` as the only new public hostname.
+- Route application paths to workbench and an explicit allowlist of required
+  `/as`, `/pf`, and `/idp` engine paths to the isolated engine Service.
+- Deny admin API/console paths and keep adapter, gateway, MCP, API, audit, Vault,
+  SPIRE, and port 9999 private.
+- Preserve external HTTPS origin and exact redirect URI without trusting
+  Cloudflare identity headers as user or workload identity.
+- Add rendering and live negative tests proving forbidden paths and hosts do
+  not reach PingFederate or internal services.
+
+## Task 57 — Kubernetes end-to-end deployment and rollback gate
+
+Goal: prove and hand over the complete isolated Kubernetes Transaction Token
+solution with repeatable rollback.
+
+Acceptance criteria:
+
+- Pass browser login, strict exchange, immutable-token call chain, and
+  correlated audit evidence through API completion.
+- Fail forged logical AgentID, wrong SPIFFE workload/caller, wrong audience,
+  expired token, unapproved target/tool, legacy Bearer transport, and a stolen
+  token presented over the wrong mTLS identity.
+- Scan logs and rendered/live resources for raw tokens, credentials, private
+  keys, unsafe public Services, and unexpected identity entries.
+- Record pinned versions/digests, sanitized evidence, backup/restore steps,
+  readiness observations, and exact rollback commands.
+- Rollback must remove only the isolated WAI releases/resources and must not
+  mutate or interrupt the existing PingFederate 12.3 deployment.

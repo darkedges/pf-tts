@@ -7,6 +7,10 @@
 **/.terraform
 deploy/pingfederate/generated
 deploy/pingfederate/discovered
+deploy/pingfederate/sdk
+deploy/pingfederate/plugins/target
+deploy/pingfederate/profile/env_vars
+deploy/pingfederate/profile/instance/server/default/deploy/*.jar
 deploy/pingfederate/terraform/*.tfvars
 deploy/pingfederate/terraform/*.auto.tfvars.json
 deploy/pingauthorize/generated

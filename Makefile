@@ -1,4 +1,4 @@
-.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect pf-profile-artifact pf-profile-artifact-push spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
 REGISTRY_HOST ?= docker.io
 REGISTRY_USER ?= darkedges
@@ -7,6 +7,7 @@ IMAGE_PREFIX ?= pf-tts-
 IMAGE_TAG ?= $(shell git rev-parse --short=12 HEAD)
 IMAGE_PLATFORMS ?= linux/amd64,linux/arm64
 STRICT_IMAGES := tts-adapter strict-mcp-gateway strict-demo-mcp-server strict-demo-api
+PF_PROFILE_ARTIFACT_IMAGE ?= $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)pingfederate-profile:$(IMAGE_TAG)
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -42,6 +43,12 @@ image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-
 
 images-inspect:
 	@$(foreach image,$(STRICT_IMAGES),docker buildx imagetools inspect $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(image):$(IMAGE_TAG)$(if $(filter $(image),$(lastword $(STRICT_IMAGES))),, &&) )
+
+pf-profile-artifact:
+	pwsh -NoProfile -File scripts/build-pingfederate-profile-artifact.ps1
+
+pf-profile-artifact-push: image-source-check
+	pwsh -NoProfile -File scripts/build-pingfederate-profile-artifact.ps1 -Push -ImageReference $(PF_PROFILE_ARTIFACT_IMAGE)
 
 vault-import-local:
 	pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1
