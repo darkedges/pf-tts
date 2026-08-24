@@ -181,7 +181,7 @@ func TestBakedRuntimeImageUsesPinnedOfficialProfileAndSecretFreeContext(t *testi
 		"FROM pingidentity/pingfederate:2606-13.1.0@sha256:3a74b4d40398202d7f32b029da4d59c73471bad952dec6225ca22f8857fa6be0",
 		"SERVER_PROFILE_URL=\"https://github.com/darkedges/pf-tts.git\"",
 		"SERVER_PROFILE_PATH=\"profiles/pingfederate\"", "SERVER_PROFILE_BRANCH=\"main\"",
-		"COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar",
+		"COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/wai-pingfederate-spiffe-plugins.jar",
 		"PING_IDENTITY_PASSWORD=\"\"", "SECURITY_CHECKS_STRICT=\"true\"",
 	} {
 		if !strings.Contains(dockerfile, required) {

@@ -60,16 +60,6 @@ spec:
               valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: current-system-key}}
             - name: serverSettings_systemKeys_items_pending_keyData
               valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: pending-system-key}}
-            - name: TF_VAR_token_exchange_client_secret
-              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-token-exchange, key: client-secret}}
-            - name: TF_VAR_browser_client_secret
-              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-browser, key: client-secret}}
-            - name: TF_VAR_lab_user_client_secret
-              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-lab-user, key: client-secret}}
-            - name: TF_VAR_lab_user_password
-              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-lab-user, key: user-password}}
-            - name: TF_VAR_mcp_gateway_client_secret
-              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-mcp-gateway, key: client-secret}}
           ports:
             - {name: admin-https, containerPort: 9999}
             - {name: engine-https, containerPort: 9031}
@@ -79,7 +69,7 @@ spec:
           resources: {{- toYaml .Values.resources | nindent 12 }}
           securityContext: *restricted
           volumeMounts:
-            - {name: out-pf13-repository, mountPath: /opt/out}
+            - {name: out-pf13-profile, mountPath: /opt/out}
             - {name: writable-staging, mountPath: /opt/staging}
             - {name: writable-etc, mountPath: /etc/motd, subPath: motd}
             - {name: tmp, mountPath: /tmp}
@@ -93,7 +83,7 @@ spec:
         - name: runtime-ca
           secret: {secretName: wai-pf13-runtime-ca, defaultMode: 256}
   volumeClaimTemplates:
-    - metadata: {name: out-pf13-repository}
+    - metadata: {name: out-pf13-profile}
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: {{ .Values.storage.storageClassName }}

@@ -14,4 +14,4 @@ ENV SERVER_PROFILE_URL="https://github.com/darkedges/pf-tts.git" \
     PING_IDENTITY_PASSWORD="" \
     SECURITY_CHECKS_STRICT="true"
 
-COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar
+COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/wai-pingfederate-spiffe-plugins.jar

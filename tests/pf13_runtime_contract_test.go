@@ -31,7 +31,7 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-repository", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-profile", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
@@ -80,23 +80,22 @@ func TestPingFederate13RuntimeRejectsMutableOrWritableSecretInputs(t *testing.T)
 	}
 }
 
-func TestRepositoryPingFederateProfileIsParameterizedAndSecretFree(t *testing.T) {
-	profile, err := os.ReadFile("../profiles/pingfederate/instance/bulk-config/data.json.subst")
+func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
+	profile, err := os.ReadFile("../profiles/pingfederate/hooks/02-get-remote-server-profile.sh.post")
 	if err != nil {
 		t.Fatal(err)
 	}
 	content := string(profile)
 	for _, required := range []string{
-		"${TF_VAR_browser_client_secret}", "${TF_VAR_lab_user_client_secret}", "${TF_VAR_lab_user_password}",
-		"${TF_VAR_mcp_gateway_client_secret}", "${TF_VAR_token_exchange_client_secret}",
+		"/opt/staging/wai-pingfederate-spiffe-plugins.jar", "/opt/staging/instance/server/default/deploy",
+		`[ ! -f "${source_jar}" ]`, `[ -L "${source_jar}" ]`, `install -d -m 0550`, `install -m 0444`,
 	} {
 		if !strings.Contains(content, required) {
-			t.Errorf("repository profile missing parameter %q", required)
+			t.Errorf("repository profile missing fail-closed staging control %q", required)
 		}
 	}
 	for _, forbidden := range []string{
-		"-----BEGIN PRIVATE KEY-----", "-----BEGIN CERTIFICATE-----", "2FederateM0re", "secretpass",
-		`"kty":"oct"`, `"access_token":"`, `"refresh_token":"`,
+		"env_vars", "bulk-config", "curl ", "wget ", "-----BEGIN", "2FederateM0re", "secretpass",
 	} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("repository profile contains forbidden input %q", forbidden)

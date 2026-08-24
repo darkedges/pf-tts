@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+set -eu
+
+source_jar=/opt/staging/wai-pingfederate-spiffe-plugins.jar
+deploy_dir=/opt/staging/instance/server/default/deploy
+target_jar=${deploy_dir}/wai-pingfederate-spiffe-plugins.jar
+
+if [ ! -f "${source_jar}" ] || [ -L "${source_jar}" ]; then
+    echo "Reviewed baked PingFederate plugin is missing or unsafe." >&2
+    exit 1
+fi
+
+install -d -m 0550 "${deploy_dir}"
+install -m 0444 "${source_jar}" "${target_jar}"
