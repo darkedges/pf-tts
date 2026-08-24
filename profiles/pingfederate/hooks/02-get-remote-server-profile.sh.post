@@ -10,5 +10,6 @@ if [ ! -f "${source_jar}" ] || [ -L "${source_jar}" ]; then
     exit 1
 fi
 
-install -d -m 0550 "${deploy_dir}"
+install -d -m 0750 "${deploy_dir}"
 install -m 0444 "${source_jar}" "${target_jar}"
+chmod 0550 "${deploy_dir}"

@@ -88,7 +88,7 @@ func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
 	content := string(profile)
 	for _, required := range []string{
 		"/opt/staging/wai-pingfederate-spiffe-plugins.jar", "/opt/staging/instance/server/default/deploy",
-		`[ ! -f "${source_jar}" ]`, `[ -L "${source_jar}" ]`, `install -d -m 0550`, `install -m 0444`,
+		`[ ! -f "${source_jar}" ]`, `[ -L "${source_jar}" ]`, `install -d -m 0750`, `install -m 0444`, `chmod 0550`,
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("repository profile missing fail-closed staging control %q", required)
