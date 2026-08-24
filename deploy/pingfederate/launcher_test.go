@@ -179,8 +179,8 @@ func TestBakedRuntimeImageUsesPinnedOfficialProfileAndSecretFreeContext(t *testi
 	dockerfile := string(dockerfileBytes)
 	for _, required := range []string{
 		"FROM pingidentity/pingfederate:2606-13.1.0@sha256:3a74b4d40398202d7f32b029da4d59c73471bad952dec6225ca22f8857fa6be0",
-		"SERVER_PROFILE_URL=\"https://github.com/pingidentity/pingidentity-server-profiles.git\"",
-		"SERVER_PROFILE_PATH=\"getting-started/pingfederate\"", "SERVER_PROFILE_BRANCH=\"2606\"",
+		"50c5d58cb063d742335084d88bff3c2b5fb52cd9/getting-started/pingfederate/instance/bulk-config/data.json.subst",
+		"--checksum=sha256:16f9a0391b41d304eca2b89c7741053a1c21a8543aeaa6755c91c7b26626c77e",
 		"COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar",
 		"PING_IDENTITY_PASSWORD=\"\"", "SECURITY_CHECKS_STRICT=\"true\"",
 	} {
@@ -191,7 +191,7 @@ func TestBakedRuntimeImageUsesPinnedOfficialProfileAndSecretFreeContext(t *testi
 	if strings.Contains(dockerfile, "RUN ") {
 		t.Fatal("runtime image must not execute target-platform shell layers; cross-platform publication must remain native-build independent")
 	}
-	for _, forbidden := range []string{"COPY .", "env_vars", "client_secret", "PRIVATE KEY", ":latest", ":edge"} {
+	for _, forbidden := range []string{"COPY .", "env_vars", "pf.jwk", "secretpass", "2FederateM0re", "SERVER_PROFILE_URL=", "client_secret", "PRIVATE KEY", ":latest", ":edge"} {
 		if strings.Contains(dockerfile, forbidden) {
 			t.Errorf("baked runtime Dockerfile contains forbidden input %q", forbidden)
 		}
