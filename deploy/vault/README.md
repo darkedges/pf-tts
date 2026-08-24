@@ -69,3 +69,13 @@ make vault-import-local
 
 The importer deliberately does not guess another mount after a 404 because
 doing so could write credentials into an unintended secrets engine.
+
+## Isolated PingFederate 13.1 privileged bootstrap
+
+Administrator, Ping Identity DevOps, and generated system/bootstrap material
+remain outside the default importer above. Task 51 provides a separate explicit
+operator path documented in `docs/implementation-notes-task-51.md`. Its runtime
+read policy is `wai-pingfederate-13-1-policy.hcl`, and its example Kubernetes
+role binds only `wai-pingfederate/wai-pingfederate-vault-auth` with audience
+`vault`. Apply the policy and role through an approved Vault administration
+workflow; do not commit a Vault token or place secret values in Helm values.
