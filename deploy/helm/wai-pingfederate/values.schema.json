@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["namespace", "images", "storage", "vault", "resources"],
+  "properties": {
+    "namespace": {"const": "wai-pingfederate"},
+    "images": {
+      "type": "object", "required": ["runtime"],
+      "properties": {
+        "runtime": {"type": "string", "pattern": "^docker.io/darkedges/pf-tts-pingfederate@sha256:[a-f0-9]{64}$"}
+      }
+    },
+    "storage": {
+      "type": "object", "required": ["size", "storageClassName"],
+      "properties": {"size": {"type": "string", "minLength": 2}, "storageClassName": {"type": "string", "minLength": 1}}
+    },
+    "vault": {
+      "type": "object", "required": ["address", "connectionName", "caCertSecretRef", "authName", "authServiceAccount", "role", "audience", "kubernetesMount", "kvMount", "refreshAfter"],
+      "properties": {
+        "address": {"type": "string", "pattern": "^https://"},
+        "connectionName": {"const": "wai-pingfederate-vault"},
+        "caCertSecretRef": {"const": "wai-vault-server-ca"},
+        "authName": {"const": "wai-pingfederate-vault-auth"},
+        "authServiceAccount": {"const": "wai-pingfederate-vault-auth"},
+        "role": {"const": "wai-pingfederate-13-1"},
+        "audience": {"const": "vault"},
+        "kubernetesMount": {"type": "string", "minLength": 1},
+        "kvMount": {"type": "string", "minLength": 1},
+        "refreshAfter": {"type": "string", "minLength": 2}
+      }
+    },
+    "resources": {"type": "object", "required": ["requests", "limits"]}
+  }
+}

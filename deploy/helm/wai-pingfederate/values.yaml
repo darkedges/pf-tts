@@ -1,0 +1,24 @@
+namespace: wai-pingfederate
+images:
+  runtime: docker.io/darkedges/pf-tts-pingfederate@sha256:292c7b5b6cbe6923e73ca689bfce2265f3756db3e5dc77a87258b3e0aecb2212
+storage:
+  size: 8Gi
+  storageClassName: hostpath
+vault:
+  address: https://vault.internal.darkedges.com
+  connectionName: wai-pingfederate-vault
+  caCertSecretRef: wai-vault-server-ca
+  authName: wai-pingfederate-vault-auth
+  authServiceAccount: wai-pingfederate-vault-auth
+  role: wai-pingfederate-13-1
+  audience: vault
+  kubernetesMount: kubernetes
+  kvMount: kv
+  refreshAfter: 5m
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi

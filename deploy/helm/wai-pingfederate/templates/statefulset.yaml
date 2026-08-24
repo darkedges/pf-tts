@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wai-pingfederate
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: wai-pingfederate-admin
+  replicas: 1
+  updateStrategy: {type: RollingUpdate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: wai-pingfederate, app.kubernetes.io/instance: isolated-13-1}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: wai-pingfederate, app.kubernetes.io/instance: isolated-13-1, app.kubernetes.io/version: "13.1"}
+    spec:
+      serviceAccountName: wai-pingfederate
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 9031
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        - name: prepare-product-writable-paths
+          image: {{ .Values.images.runtime }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ceu"]
+          args: ["cp -R /opt/staging/. /writable-staging/\n: > /writable-etc/motd\n"]
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: writable-staging, mountPath: /writable-staging}
+            - {name: writable-etc, mountPath: /writable-etc}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: pingfederate
+          image: {{ .Values.images.runtime }}
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: PING_IDENTITY_ACCEPT_EULA, value: "YES"}
+            - {name: ORCHESTRATION_TYPE, value: "kubernetes"}
+            - name: PING_IDENTITY_DEVOPS_USER
+              valueFrom: {secretKeyRef: {name: wai-pf13-devops, key: username}}
+            - name: PING_IDENTITY_DEVOPS_KEY
+              valueFrom: {secretKeyRef: {name: wai-pf13-devops, key: key}}
+            - name: PING_IDENTITY_PASSWORD
+              valueFrom: {secretKeyRef: {name: wai-pf13-administrator, key: password}}
+            - name: dataStores_items_ProvisionerDS_ProvisionerDS_password
+              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: provisioner-password}}
+            - name: keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData
+              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: ssl-file-data}}
+            - name: keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_password
+              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: ssl-password}}
+            - name: serverSettings_systemKeys_items_current_keyData
+              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: current-system-key}}
+            - name: serverSettings_systemKeys_items_pending_keyData
+              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: pending-system-key}}
+            - name: TF_VAR_token_exchange_client_secret
+              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-token-exchange, key: client-secret}}
+            - name: TF_VAR_browser_client_secret
+              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-browser, key: client-secret}}
+            - name: TF_VAR_lab_user_client_secret
+              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-lab-user, key: client-secret}}
+            - name: TF_VAR_lab_user_password
+              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-lab-user, key: user-password}}
+            - name: TF_VAR_mcp_gateway_client_secret
+              valueFrom: {secretKeyRef: {name: wai-pf13-oauth-mcp-gateway, key: client-secret}}
+          ports:
+            - {name: admin-https, containerPort: 9999}
+            - {name: engine-https, containerPort: 9031}
+          startupProbe: {exec: {command: ["/opt/readiness.sh"]}, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 60}
+          readinessProbe: {exec: {command: ["/opt/readiness.sh"]}, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 18}
+          livenessProbe: {exec: {command: ["/opt/liveness.sh"]}, initialDelaySeconds: 180, periodSeconds: 30, timeoutSeconds: 5, failureThreshold: 4}
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          securityContext: *restricted
+          volumeMounts:
+            - {name: out-pf13-runtime, mountPath: /opt/out}
+            - {name: writable-staging, mountPath: /opt/staging}
+            - {name: writable-etc, mountPath: /etc/motd, subPath: motd}
+            - {name: tmp, mountPath: /tmp}
+            - {name: run-secrets, mountPath: /run/secrets}
+            - {name: runtime-ca, mountPath: /run/wai/runtime-ca, readOnly: true}
+      volumes:
+        - {name: writable-staging, emptyDir: {sizeLimit: 512Mi}}
+        - {name: writable-etc, emptyDir: {sizeLimit: 1Mi}}
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        - {name: run-secrets, emptyDir: {medium: Memory, sizeLimit: 16Mi}}
+        - name: runtime-ca
+          secret: {secretName: wai-pf13-runtime-ca, defaultMode: 256}
+  volumeClaimTemplates:
+    - metadata: {name: out-pf13-runtime}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.storage.storageClassName }}
+        resources: {requests: {storage: {{ .Values.storage.size }}}}

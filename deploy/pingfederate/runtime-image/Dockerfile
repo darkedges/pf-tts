@@ -4,10 +4,14 @@ ARG SOURCE_REVISION
 LABEL org.opencontainers.image.source="https://github.com/darkedges/pf-tts" \
       org.opencontainers.image.revision="$SOURCE_REVISION" \
       org.opencontainers.image.description="PingFederate 13.1 with the reviewed WAI plugin" \
-      org.opencontainers.image.vendor-profile="https://github.com/pingidentity/pingidentity-server-profiles/tree/50c5d58cb063d742335084d88bff3c2b5fb52cd9/getting-started/pingfederate"
+      org.opencontainers.image.vendor-profile="https://github.com/darkedges/pf-tts/tree/main/profiles/pingfederate"
 
-ENV PING_IDENTITY_PASSWORD="" \
+ENV SERVER_PROFILE_URL="https://github.com/darkedges/pf-tts.git" \
+    SERVER_PROFILE_PATH="profiles/pingfederate" \
+    SERVER_PROFILE_BRANCH="main" \
+    SERVER_PROFILE_URL_REDACT="true" \
+    SERVER_PROFILE_UPDATE="true" \
+    PING_IDENTITY_PASSWORD="" \
     SECURITY_CHECKS_STRICT="true"
 
-ADD --checksum=sha256:16f9a0391b41d304eca2b89c7741053a1c21a8543aeaa6755c91c7b26626c77e --chown=9031:0 --chmod=0444 https://raw.githubusercontent.com/pingidentity/pingidentity-server-profiles/50c5d58cb063d742335084d88bff3c2b5fb52cd9/getting-started/pingfederate/instance/bulk-config/data.json.subst /opt/in/instance/bulk-config/data.json.subst
 COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar

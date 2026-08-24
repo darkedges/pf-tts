@@ -1,0 +1,1172 @@
+{
+    "metadata": {"pfVersion": "13.1.0.5"},
+    "operations": [
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "configuration": {
+                    "tables": [{
+                        "name": "Users",
+                        "rows": [{
+                            "defaultRow": false,
+                            "fields": [
+                                {
+                                    "name": "Relax Password Requirements",
+                                    "value": "false"
+                                },
+                                {
+                                    "name": "Username",
+                                    "value": "demo-user"
+                                },
+                                {
+                                    "name": "Confirm Password",
+                                    "value": "${TF_VAR_lab_user_password}"
+                                },
+                                {
+                                    "name": "Password",
+                                    "value": "${TF_VAR_lab_user_password}"
+                                }
+                            ]
+                        }]
+                    }],
+                    "fields": []
+                },
+                "name": "WAI Local Lab User",
+                "id": "waiLabUserPCV",
+                "lastModified": "2026-08-23T19:42:31.063Z",
+                "pluginDescriptorRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/passwordCredentialValidators/descriptors/org.sourceid.saml20.domain.SimpleUsernamePasswordCredentialValidator",
+                    "id": "org.sourceid.saml20.domain.SimpleUsernamePasswordCredentialValidator"
+                },
+                "attributeContract": {"coreAttributes": [{"name": "username"}]}
+            }],
+            "resourceType": "/passwordCredentialValidators"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [
+                {
+                    "sequenceNumber": 1539361,
+                    "sessionValidationSettings": {
+                        "updateAuthnSessionActivity": false,
+                        "checkValidAuthnSession": false,
+                        "includeSessionId": false,
+                        "checkSessionRevocationStatus": false
+                    },
+                    "configuration": {
+                        "tables": [],
+                        "fields": [
+                            {
+                                "name": "Agent Bindings",
+                                "value": "spiffe://example.org/agent/demo=urn:agent:demo\nspiffe://example.org/agent/web-app=urn:agent:web-app"
+                            },
+                            {
+                                "name": "Audience",
+                                "value": "urn:wai:mcp-gateway"
+                            },
+                            {
+                                "name": "Issuer",
+                                "value": "https://localhost:9031"
+                            },
+                            {
+                                "name": "Key ID",
+                                "value": "wai-transaction-signing"
+                            },
+                            {
+                                "name": "Signing Certificate",
+                                "value": "wai-transaction-signing"
+                            },
+                            {
+                                "name": "Token Lifetime Seconds",
+                                "value": "20"
+                            },
+                            {
+                                "name": "Transaction Purpose",
+                                "value": "system.whoami"
+                            }
+                        ]
+                    },
+                    "tokenEndpointAttributeContract": {
+                        "inherited": false,
+                        "attributes": []
+                    },
+                    "name": "WAI Transaction Token Manager",
+                    "id": "waiTransactionToken",
+                    "lastModified": "2026-08-23T19:42:30.722Z",
+                    "pluginDescriptorRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/descriptors/org.example.wai.transaction.ExactTtlJwtAccessTokenManager",
+                        "id": "org.example.wai.transaction.ExactTtlJwtAccessTokenManager"
+                    },
+                    "accessControlSettings": {
+                        "restrictClients": false,
+                        "allowedClients": []
+                    },
+                    "attributeContract": {
+                        "coreAttributes": [
+                            {
+                                "name": "sub",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "transaction_purpose",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "transaction_id",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "agent_instance_id",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "agent_id",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "scope",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "workload_id",
+                                "multiValued": false
+                            },
+                            {
+                                "name": "aud",
+                                "multiValued": false
+                            }
+                        ],
+                        "extendedAttributes": [{
+                            "name": "wai_provider_contract_marker",
+                            "multiValued": false
+                        }]
+                    },
+                    "selectionSettings": {"resourceUris": ["urn:wai:mcp-gateway"]}
+                },
+                {
+                    "sequenceNumber": 1516462,
+                    "sessionValidationSettings": {
+                        "updateAuthnSessionActivity": false,
+                        "checkValidAuthnSession": false,
+                        "includeSessionId": false,
+                        "checkSessionRevocationStatus": false
+                    },
+                    "configuration": {
+                        "tables": [],
+                        "fields": [
+                            {
+                                "name": "Lifetime Extension Policy",
+                                "value": "NONE"
+                            },
+                            {
+                                "name": "Lifetime Extension Threshold Percentage",
+                                "value": "30"
+                            },
+                            {
+                                "name": "Token Length",
+                                "value": "28"
+                            },
+                            {
+                                "name": "Token Lifetime",
+                                "value": "10"
+                            },
+                            {
+                                "name": "Maximum Token Lifetime",
+                                "value": ""
+                            },
+                            {
+                                "name": "RPC Timeout",
+                                "value": "500"
+                            },
+                            {
+                                "name": "Mode for Synchronous RPC",
+                                "value": "3"
+                            },
+                            {
+                                "name": "Expand Scope Groups",
+                                "value": "false"
+                            }
+                        ]
+                    },
+                    "tokenEndpointAttributeContract": {
+                        "inherited": false,
+                        "attributes": []
+                    },
+                    "name": "WAI User Reference Access Token Manager",
+                    "id": "waiUserAccessToken",
+                    "lastModified": "2026-08-23T19:42:30.596Z",
+                    "pluginDescriptorRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/descriptors/org.sourceid.oauth20.token.plugin.impl.ReferenceBearerAccessTokenManagementPlugin",
+                        "id": "org.sourceid.oauth20.token.plugin.impl.ReferenceBearerAccessTokenManagementPlugin"
+                    },
+                    "accessControlSettings": {
+                        "restrictClients": false,
+                        "allowedClients": []
+                    },
+                    "attributeContract": {
+                        "coreAttributes": [],
+                        "extendedAttributes": [{
+                            "name": "user_id",
+                            "multiValued": false
+                        }]
+                    },
+                    "selectionSettings": {"resourceUris": ["urn:wai:user-access"]}
+                }
+            ],
+            "resourceType": "/oauth/accessTokenManagers"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "attributeMapping": {
+                    "attributeContractFulfillment": {
+                        "policy.action": {
+                            "source": {"type": "ADAPTER"},
+                            "value": "policy.action"
+                        },
+                        "username": {
+                            "source": {"type": "ADAPTER"},
+                            "value": "username"
+                        }
+                    },
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []}
+                },
+                "configuration": {
+                    "tables": [{
+                        "name": "Credential Validators",
+                        "rows": [{
+                            "defaultRow": false,
+                            "fields": [{
+                                "name": "Password Credential Validator Instance",
+                                "value": "waiLabUserPCV"
+                            }]
+                        }]
+                    }],
+                    "fields": [
+                        {
+                            "name": "Challenge Retries",
+                            "value": "3"
+                        },
+                        {
+                            "name": "Session State",
+                            "value": "None"
+                        },
+                        {
+                            "name": "Session Timeout",
+                            "value": "60"
+                        },
+                        {
+                            "name": "Session Max Timeout",
+                            "value": "480"
+                        },
+                        {
+                            "name": "Allow Password Changes",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Password Management System",
+                            "value": ""
+                        },
+                        {
+                            "name": "Enable 'Remember My Username'",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Enable 'This is My Device'",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Change Password Policy Contract",
+                            "value": ""
+                        },
+                        {
+                            "name": "Change Password Email Notification",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Show Password Expiring Warning",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Password Reset Type",
+                            "value": "NONE"
+                        },
+                        {
+                            "name": "Password Reset Policy Contract",
+                            "value": ""
+                        },
+                        {
+                            "name": "Revoke Sessions After Password Change Or Reset",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Account Unlock",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Local Identity Profile",
+                            "value": ""
+                        },
+                        {
+                            "name": "Notification Publisher",
+                            "value": ""
+                        },
+                        {
+                            "name": "Enable Username Recovery",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Login Template",
+                            "value": "html.form.login.template.html"
+                        },
+                        {
+                            "name": "Logout Path",
+                            "value": ""
+                        },
+                        {
+                            "name": "Logout Redirect",
+                            "value": ""
+                        },
+                        {
+                            "name": "Logout Template",
+                            "value": "idp.logout.success.page.template.html"
+                        },
+                        {
+                            "name": "Change Password Template",
+                            "value": "html.form.change.password.template.html"
+                        },
+                        {
+                            "name": "Change Password Message Template",
+                            "value": "html.form.message.template.html"
+                        },
+                        {
+                            "name": "Password Management System Message Template",
+                            "value": "html.form.message.template.html"
+                        },
+                        {
+                            "name": "Password Update Timeout",
+                            "value": "30"
+                        },
+                        {
+                            "name": "Change Password Email Template",
+                            "value": "message-template-end-user-password-change.html"
+                        },
+                        {
+                            "name": "Expiring Password Warning Template",
+                            "value": "html.form.password.expiring.notification.template.html"
+                        },
+                        {
+                            "name": "Threshold for Expiring Password Warning",
+                            "value": "7"
+                        },
+                        {
+                            "name": "Snooze Interval for Expiring Password Warning",
+                            "value": "24"
+                        },
+                        {
+                            "name": "Require Re-Authentication For Expiring Password Flow",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Require Re-Authentication for Change Password Flow",
+                            "value": "true"
+                        },
+                        {
+                            "name": "Require Re-Authentication for Password Reset Flow",
+                            "value": "true"
+                        },
+                        {
+                            "name": "Login Challenge Template",
+                            "value": "html.form.login.challenge.template.html"
+                        },
+                        {
+                            "name": "'Remember My Username' Lifetime",
+                            "value": "30"
+                        },
+                        {
+                            "name": "'This is My Device' Lifetime",
+                            "value": "30"
+                        },
+                        {
+                            "name": "Allow Username Edits During Chaining",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Track Authentication Time",
+                            "value": "true"
+                        },
+                        {
+                            "name": "Post-Password Change Re-Authentication Delay",
+                            "value": "0"
+                        },
+                        {
+                            "name": "Password Reset One-Time Link Email Template",
+                            "value": "message-template-forgot-password-link.html"
+                        },
+                        {
+                            "name": "Password Reset One-Time Password Email Template",
+                            "value": "message-template-forgot-password-code.html"
+                        },
+                        {
+                            "name": "Account Disabled Email Template",
+                            "value": "message-template-account-disabled.html"
+                        },
+                        {
+                            "name": "Password Reset Complete Email Template",
+                            "value": "message-template-forgot-password-complete.html"
+                        },
+                        {
+                            "name": "Password Reset Failed Email Template",
+                            "value": "message-template-forgot-password-failed.html"
+                        },
+                        {
+                            "name": "Password Reset Username Template",
+                            "value": "forgot-password.html"
+                        },
+                        {
+                            "name": "Password Reset Code Template",
+                            "value": "forgot-password-resume.html"
+                        },
+                        {
+                            "name": "Password Reset Template",
+                            "value": "forgot-password-change.html"
+                        },
+                        {
+                            "name": "Password Reset Error Template",
+                            "value": "forgot-password-error.html"
+                        },
+                        {
+                            "name": "Password Reset Success Template",
+                            "value": "forgot-password-success.html"
+                        },
+                        {
+                            "name": "Account Unlock Template",
+                            "value": "account-unlock.html"
+                        },
+                        {
+                            "name": "Account Unlock Email Template",
+                            "value": "message-template-account-unlock-complete.html"
+                        },
+                        {
+                            "name": "OTP Length",
+                            "value": "8"
+                        },
+                        {
+                            "name": "Allowed OTP Character Set",
+                            "value": "23456789BCDFGHJKMNPQRSTVWXZbcdfghjkmnpqrstvwxz"
+                        },
+                        {
+                            "name": "OTP Time to Live",
+                            "value": "10"
+                        },
+                        {
+                            "name": "PingID Properties",
+                            "value": ""
+                        },
+                        {
+                            "name": "Require Verified Email",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Username Recovery Template",
+                            "value": "username.recovery.template.html"
+                        },
+                        {
+                            "name": "Username Recovery Info Template",
+                            "value": "username.recovery.info.template.html"
+                        },
+                        {
+                            "name": "Username Recovery Email Template",
+                            "value": "message-template-username-recovery.html"
+                        },
+                        {
+                            "name": "Client Side Authenticator",
+                            "value": ""
+                        },
+                        {
+                            "name": "CAPTCHA Provider",
+                            "value": ""
+                        },
+                        {
+                            "name": "CAPTCHA for Authentication",
+                            "value": "false"
+                        },
+                        {
+                            "name": "CAPTCHA for Password change",
+                            "value": "false"
+                        },
+                        {
+                            "name": "CAPTCHA for Password Reset",
+                            "value": "false"
+                        },
+                        {
+                            "name": "CAPTCHA for Username recovery",
+                            "value": "false"
+                        },
+                        {
+                            "name": "Fail Authentication on Account Lockout",
+                            "value": "true"
+                        }
+                    ]
+                },
+                "name": "WAI Browser Hosted Login",
+                "id": "waiBrowserLogin",
+                "lastModified": "2026-08-23T19:42:31.181Z",
+                "pluginDescriptorRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/idp/adapters/descriptors/com.pingidentity.adapters.htmlform.idp.HtmlFormIdpAuthnAdapter",
+                    "id": "com.pingidentity.adapters.htmlform.idp.HtmlFormIdpAuthnAdapter"
+                },
+                "attributeContract": {
+                    "maskOgnlValues": false,
+                    "uniqueUserKeyAttribute": "username",
+                    "coreAttributes": [
+                        {
+                            "masked": false,
+                            "name": "policy.action",
+                            "pseudonym": false
+                        },
+                        {
+                            "masked": false,
+                            "name": "username",
+                            "pseudonym": true
+                        }
+                    ],
+                    "extendedAttributes": []
+                }
+            }],
+            "resourceType": "/idp/adapters"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [
+                {
+                    "configuration": {
+                        "tables": [],
+                        "fields": [
+                            {
+                                "name": "Allowed Clock Skew Seconds",
+                                "value": "5"
+                            },
+                            {
+                                "name": "Maximum Lifetime Seconds",
+                                "value": "300"
+                            },
+                            {
+                                "name": "Required Audience",
+                                "value": "urn:pingfederate:wai:token-exchange"
+                            },
+                            {
+                                "name": "SPIRE JWKS",
+                                "value": "{\"keys\":[{\"alg\":\"ES256\",\"kid\":\"ZIDM64vX7FAmL8johYrPD0krPpNpuhSZ\",\"y\":\"5w1-o0jyyfz3B9HyQVCAmozyhbZLNezPX96r247TMxU\",\"crv\":\"P-256\",\"x\":\"ZvOXbicxmDymdIeth6Cek5VKlr_mhEwZ7rsp2K7w2yI\",\"kty\":\"EC\",\"use\":\"sig\"},{\"alg\":\"ES256\",\"kid\":\"BnEehRi2gpaO1h0u7k6l4JPfATNfrxrX\",\"y\":\"ORa9v-Gqg3VoPpv_m5piG1WnMuWdCA86nTxgn--lFVM\",\"crv\":\"P-256\",\"x\":\"oFoPoKOtHpCRCOuXrtAwpfESy35Bb39dorgIxcb5Vy0\",\"kty\":\"EC\",\"use\":\"sig\"},{\"alg\":\"ES256\",\"kid\":\"R88cdNwwBj1tGYzHHZHZ7ipjX5pNCzsp\",\"y\":\"SDuylVKIO9zZgCNIRa3GixibhNxFfCX7FcpO8egkYTg\",\"crv\":\"P-256\",\"x\":\"FN-vc27Mr_Fc6Iv18722qnrFht5aqPvA3aiMVgrQMyQ\",\"kty\":\"EC\",\"use\":\"sig\"}]}"
+                            },
+                            {
+                                "name": "Trust Domain",
+                                "value": "example.org"
+                            }
+                        ]
+                    },
+                    "name": "WAI SPIRE JWT-SVID Processor",
+                    "id": "waiSpireJwtSvid",
+                    "lastModified": "2026-08-23T19:42:30.571Z",
+                    "pluginDescriptorRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/idp/tokenProcessors/descriptors/org.example.wai.spiffe.SpiffeJwtTokenProcessor",
+                        "id": "org.example.wai.spiffe.SpiffeJwtTokenProcessor"
+                    },
+                    "attributeContract": {
+                        "maskOgnlValues": false,
+                        "coreAttributes": [{
+                            "masked": false,
+                            "name": "sub"
+                        }],
+                        "extendedAttributes": []
+                    }
+                },
+                {
+                    "configuration": {
+                        "tables": [],
+                        "fields": [
+                            {
+                                "name": "Access Token Manager",
+                                "value": "waiUserAccessToken"
+                            },
+                            {
+                                "name": "Scope value as single string",
+                                "value": "true"
+                            }
+                        ]
+                    },
+                    "name": "WAI User Access Token Processor",
+                    "id": "waiUserAccessToken",
+                    "lastModified": "2026-08-23T19:42:30.679Z",
+                    "pluginDescriptorRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/idp/tokenProcessors/descriptors/org.sourceid.wstrust.processor.oauth.BearerAccessTokenTokenProcessor",
+                        "id": "org.sourceid.wstrust.processor.oauth.BearerAccessTokenTokenProcessor"
+                    },
+                    "attributeContract": {
+                        "maskOgnlValues": false,
+                        "coreAttributes": [
+                            {
+                                "masked": false,
+                                "name": "aud"
+                            },
+                            {
+                                "masked": false,
+                                "name": "expires_at"
+                            },
+                            {
+                                "masked": false,
+                                "name": "authorization_details"
+                            },
+                            {
+                                "masked": false,
+                                "name": "scope"
+                            },
+                            {
+                                "masked": false,
+                                "name": "iss"
+                            },
+                            {
+                                "masked": false,
+                                "name": "client_id"
+                            }
+                        ],
+                        "extendedAttributes": [{
+                            "masked": false,
+                            "name": "user_id"
+                        }]
+                    }
+                }
+            ],
+            "resourceType": "/idp/tokenProcessors"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "name": "WAI Agent Transaction Exchange",
+                "id": "wai-agent-transaction",
+                "processorMappings": [{
+                    "subjectTokenType": "urn:ietf:params:oauth:token-type:access_token",
+                    "attributeContractFulfillment": {
+                        "transaction_id": {"source": {"type": "NO_MAPPING"}},
+                        "agent_id": {"source": {"type": "NO_MAPPING"}},
+                        "user_id": {
+                            "source": {"type": "SUBJECT_TOKEN"},
+                            "value": "user_id"
+                        },
+                        "subject": {
+                            "source": {"type": "SUBJECT_TOKEN"},
+                            "value": "user_id"
+                        },
+                        "agent_instance_id": {"source": {"type": "NO_MAPPING"}},
+                        "scope": {
+                            "source": {"type": "SUBJECT_TOKEN"},
+                            "value": "scope"
+                        },
+                        "workload_id": {
+                            "source": {"type": "ACTOR_TOKEN"},
+                            "value": "sub"
+                        },
+                        "transaction_purpose": {"source": {"type": "NO_MAPPING"}}
+                    },
+                    "actorTokenProcessor": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/idp/tokenProcessors/waiSpireJwtSvid",
+                        "id": "waiSpireJwtSvid"
+                    },
+                    "actorTokenType": "urn:ietf:params:oauth:token-type:jwt",
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []},
+                    "subjectTokenProcessor": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/idp/tokenProcessors/waiUserAccessToken",
+                        "id": "waiUserAccessToken"
+                    }
+                }],
+                "actorTokenRequired": true,
+                "attributeContract": {
+                    "coreAttributes": [{"name": "subject"}],
+                    "extendedAttributes": [
+                        {"name": "transaction_id"},
+                        {"name": "agent_id"},
+                        {"name": "user_id"},
+                        {"name": "agent_instance_id"},
+                        {"name": "scope"},
+                        {"name": "workload_id"},
+                        {"name": "transaction_purpose"}
+                    ]
+                }
+            }],
+            "resourceType": "/oauth/tokenExchange/processor/policies"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "attributeContractFulfillment": {
+                    "USER_NAME": {
+                        "source": {"type": "ADAPTER"},
+                        "value": "username"
+                    },
+                    "USER_KEY": {
+                        "source": {"type": "ADAPTER"},
+                        "value": "username"
+                    }
+                },
+                "idpAdapterRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/idp/adapters/waiBrowserLogin",
+                    "id": "waiBrowserLogin"
+                },
+                "id": "waiBrowserLogin",
+                "attributeSources": [],
+                "issuanceCriteria": {"conditionalCriteria": []}
+            }],
+            "resourceType": "/oauth/idpAdapterMappings"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "passwordValidatorRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/passwordCredentialValidators/waiLabUserPCV",
+                    "id": "waiLabUserPCV"
+                },
+                "attributeContractFulfillment": {"USER_KEY": {
+                    "source": {"type": "PASSWORD_CREDENTIAL_VALIDATOR"},
+                    "value": "username"
+                }},
+                "id": "waiLabUserPCV",
+                "attributeSources": [],
+                "issuanceCriteria": {"conditionalCriteria": []}
+            }],
+            "resourceType": "/oauth/resourceOwnerCredentialsMappings"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "returnIdTokenOnTokenExchangeGrant": false,
+                "idTokenTypHeaderValue": "",
+                "scopeAttributeMappings": {},
+                "returnIdTokenOnRefreshGrant": false,
+                "includeSriInIdToken": false,
+                "includeSHashInIdToken": false,
+                "includeUserInfoInIdToken": false,
+                "attributeContract": {
+                    "coreAttributes": [{
+                        "name": "sub",
+                        "multiValued": false
+                    }],
+                    "extendedAttributes": []
+                },
+                "attributeMapping": {
+                    "attributeContractFulfillment": {"sub": {
+                        "source": {"type": "TOKEN"},
+                        "value": "user_id"
+                    }},
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []}
+                },
+                "includeX5tInIdToken": false,
+                "name": "WAI Browser OIDC Policy",
+                "allowIdTokenIntrospection": false,
+                "id": "waiBrowserOIDC",
+                "reissueIdTokenInHybridFlow": false,
+                "lastModified": "2026-08-23T19:42:30.763Z",
+                "idTokenLifetime": 5,
+                "accessTokenManagerRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiUserAccessToken",
+                    "id": "waiUserAccessToken"
+                }
+            }],
+            "resourceType": "/oauth/openIdConnect/policies"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "defaultPolicyRef": {
+                    "location": "https://localhost:9999/pf-admin-api/v1/oauth/openIdConnect/policies/waiBrowserOIDC",
+                    "id": "waiBrowserOIDC"
+                },
+                "sessionSettings": {
+                    "sessionRevocationLifetime": 490,
+                    "trackUserSessionsForLogout": false,
+                    "revokeUserSessionOnLogout": true
+                }
+            }],
+            "resourceType": "/oauth/openIdConnect/settings"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{}],
+            "resourceType": "/oauth/tokenExchange/generator/settings"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [
+                {
+                    "bypassApprovalPage": false,
+                    "offlineAccessRequireConsentPrompt": "SERVER_DEFAULT",
+                    "persistentGrantReuseType": "SERVER_DEFAULT",
+                    "persistentGrantIdleTimeoutType": "SERVER_DEFAULT",
+                    "requireSignedRequests": false,
+                    "description": "Confidential resource-server client selected as the RFC 8693 audience.",
+                    "persistentGrantIdleTimeout": 0,
+                    "enabled": true,
+                    "requireOfflineAccessScopeToIssueRefreshTokens": "SERVER_DEFAULT",
+                    "oidcPolicy": {
+                        "grantAccessSessionRevocationApi": false,
+                        "grantAccessSessionSessionManagementApi": false,
+                        "pingAccessLogoutCapable": false,
+                        "logoutMode": "NONE",
+                        "pairwiseIdentifierUserType": false
+                    },
+                    "persistentGrantExpirationTime": 0,
+                    "restrictedResponseTypes": [],
+                    "lockoutMaxMaliciousActionsType": "SERVER_DEFAULT",
+                    "requireProofKeyForCodeExchange": false,
+                    "enableCookielessAuthenticationApi": false,
+                    "persistentGrantIdleTimeoutTimeUnit": "DAYS",
+                    "restrictToDefaultAccessTokenManager": true,
+                    "dpopProofSettings": {
+                        "lifetimeSeconds": "SERVER_DEFAULT",
+                        "requireNonce": "SERVER_DEFAULT",
+                        "enforceReplayPrevention": "SERVER_DEFAULT"
+                    },
+                    "validateUsingAllEligibleAtms": false,
+                    "restrictScopes": false,
+                    "clientId": "mcp-gateway",
+                    "requireJwtSecuredAuthorizationResponseMode": false,
+                    "persistentGrantExpirationTimeUnit": "DAYS",
+                    "requireDpop": false,
+                    "allowAuthenticationApiInit": false,
+                    "refreshTokenRollingGracePeriodType": "SERVER_DEFAULT",
+                    "creationDate": "2026-08-23T19:42:30.826Z",
+                    "deviceFlowSettingType": "SERVER_DEFAULT",
+                    "redirectUris": [],
+                    "authorizationDetailTypes": [],
+                    "tags": [],
+                    "grantTypes": ["ACCESS_TOKEN_VALIDATION"],
+                    "modificationDate": "2026-08-23T19:42:30.826Z",
+                    "defaultAccessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiTransactionToken",
+                        "id": "waiTransactionToken"
+                    },
+                    "clientSecretRetentionPeriodType": "SERVER_DEFAULT",
+                    "requirePushedAuthorizationRequests": false,
+                    "clientSecretChangedTime": "2026-08-23T19:42:30Z",
+                    "name": "WAI MCP Gateway Resource Server",
+                    "refreshTokenRollingIntervalType": "SERVER_DEFAULT",
+                    "persistentGrantExpirationType": "SERVER_DEFAULT",
+                    "restrictedScopes": [],
+                    "refreshRolling": "SERVER_DEFAULT",
+                    "exclusiveScopes": [],
+                    "clientAuth": {
+                        "secondarySecrets": [],
+                        "secret": "${TF_VAR_mcp_gateway_client_secret}",
+                        "type": "SECRET"
+                    }
+                },
+                {
+                    "bypassApprovalPage": false,
+                    "offlineAccessRequireConsentPrompt": "SERVER_DEFAULT",
+                    "persistentGrantReuseType": "SERVER_DEFAULT",
+                    "persistentGrantIdleTimeoutType": "SERVER_DEFAULT",
+                    "requireSignedRequests": false,
+                    "description": "Confidential client used by WAI agents to perform RFC 8693 token exchange.",
+                    "persistentGrantIdleTimeout": 0,
+                    "enabled": true,
+                    "requireOfflineAccessScopeToIssueRefreshTokens": "SERVER_DEFAULT",
+                    "oidcPolicy": {
+                        "grantAccessSessionRevocationApi": false,
+                        "grantAccessSessionSessionManagementApi": false,
+                        "pingAccessLogoutCapable": false,
+                        "logoutMode": "NONE",
+                        "pairwiseIdentifierUserType": false
+                    },
+                    "persistentGrantExpirationTime": 0,
+                    "restrictedResponseTypes": [],
+                    "lockoutMaxMaliciousActionsType": "SERVER_DEFAULT",
+                    "requireProofKeyForCodeExchange": false,
+                    "enableCookielessAuthenticationApi": false,
+                    "persistentGrantIdleTimeoutTimeUnit": "DAYS",
+                    "restrictToDefaultAccessTokenManager": true,
+                    "dpopProofSettings": {
+                        "lifetimeSeconds": "SERVER_DEFAULT",
+                        "requireNonce": "SERVER_DEFAULT",
+                        "enforceReplayPrevention": "SERVER_DEFAULT"
+                    },
+                    "validateUsingAllEligibleAtms": false,
+                    "restrictScopes": true,
+                    "clientId": "wai-agent-token-exchange",
+                    "requireJwtSecuredAuthorizationResponseMode": false,
+                    "persistentGrantExpirationTimeUnit": "DAYS",
+                    "requireDpop": false,
+                    "allowAuthenticationApiInit": false,
+                    "refreshTokenRollingGracePeriodType": "SERVER_DEFAULT",
+                    "creationDate": "2026-08-23T19:43:05.77Z",
+                    "deviceFlowSettingType": "SERVER_DEFAULT",
+                    "redirectUris": [],
+                    "authorizationDetailTypes": [],
+                    "tags": [],
+                    "grantTypes": ["TOKEN_EXCHANGE"],
+                    "modificationDate": "2026-08-23T19:43:05.77Z",
+                    "defaultAccessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiTransactionToken",
+                        "id": "waiTransactionToken"
+                    },
+                    "tokenExchangeProcessorPolicyRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/tokenExchange/processor/policies/wai-agent-transaction",
+                        "id": "wai-agent-transaction"
+                    },
+                    "clientSecretRetentionPeriodType": "SERVER_DEFAULT",
+                    "requirePushedAuthorizationRequests": false,
+                    "clientSecretChangedTime": "2026-08-23T19:43:05Z",
+                    "name": "WAI Agent Token Exchange",
+                    "refreshTokenRollingIntervalType": "SERVER_DEFAULT",
+                    "persistentGrantExpirationType": "SERVER_DEFAULT",
+                    "restrictedScopes": ["mcp:invoke"],
+                    "refreshRolling": "SERVER_DEFAULT",
+                    "exclusiveScopes": [],
+                    "clientAuth": {
+                        "secondarySecrets": [],
+                        "secret": "${TF_VAR_token_exchange_client_secret}",
+                        "type": "SECRET"
+                    }
+                },
+                {
+                    "bypassApprovalPage": false,
+                    "offlineAccessRequireConsentPrompt": "SERVER_DEFAULT",
+                    "persistentGrantReuseType": "SERVER_DEFAULT",
+                    "persistentGrantIdleTimeoutType": "SERVER_DEFAULT",
+                    "requireSignedRequests": false,
+                    "description": "Development-only client for obtaining an authenticated subject token.",
+                    "persistentGrantIdleTimeout": 0,
+                    "enabled": true,
+                    "requireOfflineAccessScopeToIssueRefreshTokens": "SERVER_DEFAULT",
+                    "oidcPolicy": {
+                        "grantAccessSessionRevocationApi": false,
+                        "grantAccessSessionSessionManagementApi": false,
+                        "pingAccessLogoutCapable": false,
+                        "logoutMode": "NONE",
+                        "pairwiseIdentifierUserType": false
+                    },
+                    "persistentGrantExpirationTime": 0,
+                    "restrictedResponseTypes": [],
+                    "lockoutMaxMaliciousActionsType": "SERVER_DEFAULT",
+                    "requireProofKeyForCodeExchange": false,
+                    "enableCookielessAuthenticationApi": false,
+                    "persistentGrantIdleTimeoutTimeUnit": "DAYS",
+                    "restrictToDefaultAccessTokenManager": true,
+                    "dpopProofSettings": {
+                        "lifetimeSeconds": "SERVER_DEFAULT",
+                        "requireNonce": "SERVER_DEFAULT",
+                        "enforceReplayPrevention": "SERVER_DEFAULT"
+                    },
+                    "validateUsingAllEligibleAtms": false,
+                    "restrictScopes": true,
+                    "clientId": "wai-lab-user",
+                    "requireJwtSecuredAuthorizationResponseMode": false,
+                    "persistentGrantExpirationTimeUnit": "DAYS",
+                    "requireDpop": false,
+                    "allowAuthenticationApiInit": false,
+                    "refreshTokenRollingGracePeriodType": "SERVER_DEFAULT",
+                    "creationDate": "2026-08-23T19:43:05.79Z",
+                    "deviceFlowSettingType": "SERVER_DEFAULT",
+                    "redirectUris": [],
+                    "authorizationDetailTypes": [],
+                    "tags": [],
+                    "grantTypes": ["RESOURCE_OWNER_CREDENTIALS"],
+                    "modificationDate": "2026-08-23T19:43:05.79Z",
+                    "defaultAccessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiUserAccessToken",
+                        "id": "waiUserAccessToken"
+                    },
+                    "clientSecretRetentionPeriodType": "SERVER_DEFAULT",
+                    "requirePushedAuthorizationRequests": false,
+                    "clientSecretChangedTime": "2026-08-23T19:43:05Z",
+                    "name": "WAI Local Lab User Token",
+                    "refreshTokenRollingIntervalType": "SERVER_DEFAULT",
+                    "persistentGrantExpirationType": "SERVER_DEFAULT",
+                    "restrictedScopes": ["mcp:invoke"],
+                    "refreshRolling": "SERVER_DEFAULT",
+                    "exclusiveScopes": [],
+                    "clientAuth": {
+                        "secondarySecrets": [],
+                        "secret": "${TF_VAR_lab_user_client_secret}",
+                        "type": "SECRET"
+                    }
+                },
+                {
+                    "bypassApprovalPage": false,
+                    "offlineAccessRequireConsentPrompt": "SERVER_DEFAULT",
+                    "persistentGrantReuseType": "SERVER_DEFAULT",
+                    "persistentGrantIdleTimeoutType": "SERVER_DEFAULT",
+                    "requireSignedRequests": false,
+                    "description": "Confidential BFF client for PingFederate-hosted Authorization Code login.",
+                    "persistentGrantIdleTimeout": 0,
+                    "enabled": true,
+                    "requireOfflineAccessScopeToIssueRefreshTokens": "SERVER_DEFAULT",
+                    "oidcPolicy": {
+                        "grantAccessSessionRevocationApi": false,
+                        "grantAccessSessionSessionManagementApi": false,
+                        "pingAccessLogoutCapable": false,
+                        "policyGroup": {
+                            "location": "https://localhost:9999/pf-admin-api/v1/oauth/openIdConnect/policies/waiBrowserOIDC",
+                            "id": "waiBrowserOIDC"
+                        },
+                        "logoutMode": "NONE",
+                        "pairwiseIdentifierUserType": false
+                    },
+                    "persistentGrantExpirationTime": 0,
+                    "restrictedResponseTypes": ["code"],
+                    "lockoutMaxMaliciousActionsType": "SERVER_DEFAULT",
+                    "requireProofKeyForCodeExchange": true,
+                    "enableCookielessAuthenticationApi": false,
+                    "persistentGrantIdleTimeoutTimeUnit": "DAYS",
+                    "restrictToDefaultAccessTokenManager": true,
+                    "dpopProofSettings": {
+                        "lifetimeSeconds": "SERVER_DEFAULT",
+                        "requireNonce": "SERVER_DEFAULT",
+                        "enforceReplayPrevention": "SERVER_DEFAULT"
+                    },
+                    "validateUsingAllEligibleAtms": false,
+                    "restrictScopes": true,
+                    "clientId": "wai-web-app",
+                    "requireJwtSecuredAuthorizationResponseMode": false,
+                    "persistentGrantExpirationTimeUnit": "DAYS",
+                    "requireDpop": false,
+                    "allowAuthenticationApiInit": false,
+                    "refreshTokenRollingGracePeriodType": "SERVER_DEFAULT",
+                    "creationDate": "2026-08-23T19:43:05.779Z",
+                    "deviceFlowSettingType": "SERVER_DEFAULT",
+                    "redirectUris": ["https://localhost:8446/oauth/callback"],
+                    "authorizationDetailTypes": [],
+                    "tags": [],
+                    "grantTypes": ["AUTHORIZATION_CODE"],
+                    "modificationDate": "2026-08-23T19:43:05.779Z",
+                    "defaultAccessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiUserAccessToken",
+                        "id": "waiUserAccessToken"
+                    },
+                    "clientSecretRetentionPeriodType": "SERVER_DEFAULT",
+                    "requirePushedAuthorizationRequests": false,
+                    "clientSecretChangedTime": "2026-08-23T19:43:05Z",
+                    "name": "WAI Browser Application",
+                    "refreshTokenRollingIntervalType": "SERVER_DEFAULT",
+                    "persistentGrantExpirationType": "SERVER_DEFAULT",
+                    "restrictedScopes": [
+                        "mcp:invoke",
+                        "openid"
+                    ],
+                    "refreshRolling": "SERVER_DEFAULT",
+                    "exclusiveScopes": [],
+                    "clientAuth": {
+                        "secondarySecrets": [],
+                        "secret": "${TF_VAR_browser_client_secret}",
+                        "type": "SECRET"
+                    }
+                }
+            ],
+            "resourceType": "/oauth/clients"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [
+                {
+                    "context": {
+                        "contextRef": {
+                            "location": "https://localhost:9999/pf-admin-api/v1/idp/adapters/waiBrowserLogin",
+                            "id": "waiBrowserLogin"
+                        },
+                        "type": "IDP_ADAPTER"
+                    },
+                    "attributeContractFulfillment": {"user_id": {
+                        "source": {"type": "ADAPTER"},
+                        "value": "username"
+                    }},
+                    "id": "authz_req|waiBrowserLogin|waiUserAccessToken",
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []},
+                    "accessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiUserAccessToken",
+                        "id": "waiUserAccessToken"
+                    }
+                },
+                {
+                    "context": {
+                        "contextRef": {
+                            "location": "https://localhost:9999/pf-admin-api/v1/passwordCredentialValidators/waiLabUserPCV",
+                            "id": "waiLabUserPCV"
+                        },
+                        "type": "PCV"
+                    },
+                    "attributeContractFulfillment": {"user_id": {
+                        "source": {"type": "PASSWORD_CREDENTIAL_VALIDATOR"},
+                        "value": "username"
+                    }},
+                    "id": "password|waiLabUserPCV|waiUserAccessToken",
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []},
+                    "accessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiUserAccessToken",
+                        "id": "waiUserAccessToken"
+                    }
+                },
+                {
+                    "context": {
+                        "contextRef": {
+                            "location": "https://localhost:9999/pf-admin-api/v1/oauth/tokenExchange/processor/policies/wai-agent-transaction",
+                            "id": "wai-agent-transaction"
+                        },
+                        "type": "TOKEN_EXCHANGE_PROCESSOR_POLICY"
+                    },
+                    "attributeContractFulfillment": {
+                        "transaction_id": {"source": {"type": "NO_MAPPING"}},
+                        "aud": {
+                            "source": {"type": "TEXT"},
+                            "value": "urn:wai:mcp-gateway"
+                        },
+                        "sub": {
+                            "source": {"type": "TOKEN_EXCHANGE_PROCESSOR_POLICY"},
+                            "value": "user_id"
+                        },
+                        "agent_id": {"source": {"type": "NO_MAPPING"}},
+                        "agent_instance_id": {"source": {"type": "NO_MAPPING"}},
+                        "scope": {
+                            "source": {"type": "TOKEN_EXCHANGE_PROCESSOR_POLICY"},
+                            "value": "scope"
+                        },
+                        "wai_provider_contract_marker": {"source": {"type": "NO_MAPPING"}},
+                        "workload_id": {
+                            "source": {"type": "TOKEN_EXCHANGE_PROCESSOR_POLICY"},
+                            "value": "workload_id"
+                        },
+                        "transaction_purpose": {"source": {"type": "NO_MAPPING"}}
+                    },
+                    "id": "urn:ietf:params:oauth:grant-type:token-exchange|wai-agent-transaction|waiTransactionToken",
+                    "attributeSources": [],
+                    "issuanceCriteria": {"conditionalCriteria": []},
+                    "accessTokenManagerRef": {
+                        "location": "https://localhost:9999/pf-admin-api/v1/oauth/accessTokenManagers/waiTransactionToken",
+                        "id": "waiTransactionToken"
+                    }
+                }
+            ],
+            "resourceType": "/oauth/accessTokenMappings"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "defaultAuthenticationSources": [],
+                "failIfNoSelection": false,
+                "authnSelectionTrees": [],
+                "trackedHttpParameters": []
+            }],
+            "resourceType": "/authenticationPolicies/default"
+        },
+        {
+            "operationType": "SAVE",
+            "items": [{
+                "enableSpAuthnSelection": false,
+                "enableIdpAuthnSelection": false
+            }],
+            "resourceType": "/authenticationPolicies/settings"
+        }
+    ]
+}
