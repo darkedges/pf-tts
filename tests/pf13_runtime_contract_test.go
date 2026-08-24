@@ -35,7 +35,7 @@ func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
-		"docker.io/darkedges/pf-tts-pingfederate@sha256:292c7b5b6cbe6923e73ca689bfce2265f3756db3e5dc77a87258b3e0aecb2212",
+		"docker.io/darkedges/pf-tts-pingfederate@sha256:7a983488c5ccfc1decf0c1869d95ddd910581b099f9a805b4c393c8dd8bd554e",
 		"PING_IDENTITY_ACCEPT_EULA", "ORCHESTRATION_TYPE", "valueFrom: {secretKeyRef:",
 		"cp -R /opt/staging/. /writable-staging/", "mountPath: /etc/motd, subPath: motd",
 		"secretName: wai-pf13-runtime-ca, defaultMode: 256", "wai-pingfederate-vault-auth",

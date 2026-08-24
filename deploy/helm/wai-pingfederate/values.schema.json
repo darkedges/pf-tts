@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["namespace", "images", "storage", "vault", "resources"],
+  "required": ["namespace", "images", "profile", "storage", "vault", "resources"],
   "properties": {
     "namespace": {"const": "wai-pingfederate"},
     "images": {
@@ -9,6 +9,10 @@
       "properties": {
         "runtime": {"type": "string", "pattern": "^docker.io/darkedges/pf-tts-pingfederate@sha256:[a-f0-9]{64}$"}
       }
+    },
+    "profile": {
+      "type": "object", "required": ["branch"],
+      "properties": {"branch": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"}}
     },
     "storage": {
       "type": "object", "required": ["size", "storageClassName"],
