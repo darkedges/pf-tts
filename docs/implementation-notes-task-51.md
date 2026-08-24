@@ -33,7 +33,7 @@ ServiceAccount, or different namespace cannot authenticate through this role.
 
 ## Records
 
-Under KV v2 mount `secret`, the fixed base is `wai/pingfederate-13-1`:
+Under the reviewed KV v2 mount `kv`, the fixed base is `wai/pingfederate-13-1`:
 
 - `administrator`
 - `devops`

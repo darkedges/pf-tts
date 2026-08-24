@@ -2,7 +2,7 @@
   "bound_service_account_names": ["wai-pingfederate-vault-auth"],
   "bound_service_account_namespaces": ["wai-pingfederate"],
   "token_policies": ["wai-pingfederate-13-1"],
-  "token_audiences": ["vault"],
+  "audience": "vault",
   "token_ttl": "15m",
   "token_max_ttl": "30m"
 }

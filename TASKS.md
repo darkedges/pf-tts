@@ -1294,9 +1294,10 @@ Acceptance criteria:
 
 - Record the decision in ADR 0011 and keep `id.ping.darkedges.com`, its state,
   signing keys, clients, and workloads out of the new release's ownership.
-- Use namespace `wai-pingfederate`, a digest-pinned official 13.1 product
-  image, a distinct persistent `/opt/out`, and a repository-owned profile
-  artifact assembled at the supported `/opt/in` boundary.
+- Use namespace `wai-pingfederate`, a derived runtime built from the
+  digest-pinned official 13.1 product image, a distinct persistent `/opt/out`,
+  and only the tested repository plugin JAR baked at the supported `/opt/in`
+  boundary. Pin Ping's public Git server profile tag.
 - Keep the administrator Service private. Permit browser access only to the
   minimum engine paths routed through `workbench.ping.darkedges.com`; never
   publish `/pf-admin-api`, the admin console, or port 9999.
@@ -1354,10 +1355,11 @@ Acceptance criteria:
 - Add a StatefulSet, persistent volume claim, private admin and engine
   Services, dedicated ServiceAccount, restrictive security context, resource
   bounds, probes, disruption behavior, and default-deny NetworkPolicy.
-- Assemble `/opt/in` in an init container from the allowlisted artifact and
-  read-only Vault-synchronized files; reject missing or unexpected artifacts.
-- Pin the official product and profile artifact images by digest and accept the
-  EULA explicitly without embedding image-download credentials.
+- Build the derived runtime from an exact two-file context (Dockerfile and
+  tested plugin JAR), then inject bootstrap values only through read-only
+  Vault-synchronized runtime references.
+- Pin the official product base and derived runtime images by digest and accept
+  the EULA explicitly without embedding image-download credentials.
 - Never share `/opt/out`, credentials, signing material, Services, or selectors
   with the existing 12.3 release.
 - Prove clean startup reports 13.1 and the exact reviewed plugin descriptors.
@@ -1409,8 +1411,8 @@ digest-pinned deployment input.
 
 Acceptance criteria:
 
-- Publish strict services, workbench, audit collector, and profile artifact
-  from a clean commit for Linux amd64/arm64 where supported.
+- Publish strict services, workbench, audit collector, and the derived
+  PingFederate runtime from a clean commit for Linux amd64/arm64 where supported.
 - Record registry manifest digests and use digests, not tags, in reviewed Helm
   values; never commit registry tokens or Docker credential files.
 - Render and lint the complete chart with no Secret values and no unresolved

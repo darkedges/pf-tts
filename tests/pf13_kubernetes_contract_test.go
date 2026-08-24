@@ -24,7 +24,7 @@ func TestIsolatedPingFederate13ContractFailsClosed(t *testing.T) {
 		"PingFederate remains the only signer",
 		"workload-to-AgentID mapping",
 		"must not import or mount state from the shared 12.3 release",
-		"Reject a profile artifact containing anything outside the public allowlist",
+		"Reject a derived runtime build context containing anything outside the Dockerfile and tested plugin JAR allowlist",
 		"Reject public admin/API routes",
 	} {
 		if !strings.Contains(contract, required) {

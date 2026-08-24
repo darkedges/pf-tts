@@ -50,6 +50,12 @@ pf-profile-artifact:
 pf-profile-artifact-push: image-source-check
 	pwsh -NoProfile -File scripts/build-pingfederate-profile-artifact.ps1 -Push -ImageReference $(PF_PROFILE_ARTIFACT_IMAGE)
 
+pf-runtime-image:
+	pwsh -NoProfile -File scripts/build-pingfederate-runtime-image.ps1
+
+pf-runtime-image-push: image-source-check
+	pwsh -NoProfile -File scripts/build-pingfederate-runtime-image.ps1 -Push -ImageReference $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)pingfederate:$(IMAGE_TAG)
+
 vault-import-local:
 	pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1
 

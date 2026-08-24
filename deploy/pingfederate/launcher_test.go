@@ -171,6 +171,51 @@ func TestProfileArtifactUsesExactSecretFreeScratchInventory(t *testing.T) {
 	}
 }
 
+func TestBakedRuntimeImageUsesPinnedOfficialProfileAndSecretFreeContext(t *testing.T) {
+	dockerfileBytes, err := os.ReadFile("runtime-image/Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(dockerfileBytes)
+	for _, required := range []string{
+		"FROM pingidentity/pingfederate:2606-13.1.0@sha256:3a74b4d40398202d7f32b029da4d59c73471bad952dec6225ca22f8857fa6be0",
+		"SERVER_PROFILE_URL=\"https://github.com/pingidentity/pingidentity-server-profiles.git\"",
+		"SERVER_PROFILE_PATH=\"getting-started/pingfederate\"", "SERVER_PROFILE_BRANCH=\"2606\"",
+		"COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar",
+		"PING_IDENTITY_PASSWORD=\"\"", "SECURITY_CHECKS_STRICT=\"true\"", "chmod 0550 /opt/in/instance",
+	} {
+		if !strings.Contains(dockerfile, required) {
+			t.Errorf("baked runtime Dockerfile missing control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"COPY .", "env_vars", "client_secret", "PRIVATE KEY", ":latest", ":edge"} {
+		if strings.Contains(dockerfile, forbidden) {
+			t.Errorf("baked runtime Dockerfile contains forbidden input %q", forbidden)
+		}
+	}
+
+	scriptBytes, err := os.ReadFile("../../scripts/build-pingfederate-runtime-image.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(scriptBytes)
+	for _, required := range []string{
+		"build-pingfederate-profile.ps1", "GetRandomFileName", "Compare-Object $expected $actual",
+		"bounded regular non-symlink file", "PRIVATE KEY", "credentialScan",
+		"Refusing to publish the PingFederate runtime image from a dirty Git tree",
+		"--platform linux/amd64,linux/arm64", "--push", "--load",
+	} {
+		if !strings.Contains(script, required) {
+			t.Errorf("baked runtime builder missing control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"Copy-Item -Recurse", "deploy/pingfederate/profile/env_vars", "deploy/pingfederate/sdk/runtime-lib", "vault kv", "Write-Output $values"} {
+		if strings.Contains(script, forbidden) {
+			t.Errorf("baked runtime builder contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
 func TestPluginBuildIsReproducible(t *testing.T) {
 	b, err := os.ReadFile("plugins/pom.xml")
 	if err != nil {

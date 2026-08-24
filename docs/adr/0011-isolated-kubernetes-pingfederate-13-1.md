@@ -26,12 +26,14 @@ administrator credential, OAuth clients, Services, selectors, configuration,
 and rollback lifecycle. It must not import or mount state from the shared 12.3
 release.
 
-Use the digest-pinned official PingFederate image directly. Publish a separate
-minimal repository-owned artifact image containing only the tested plugin JAR
-and public profile hook. An init container assembles `/opt/in` from that
-allowlisted artifact plus read-only Vault-synchronized bootstrap inputs. The
-artifact image must not contain Ping product binaries, SDK libraries, secrets,
-certificates, system keys, generated exports, or Terraform state.
+Build a derived runtime image from the digest-pinned official PingFederate
+image. It inherits the licensed product binaries and startup hooks, pins Ping's
+public `2606` Git server profile, and adds only the tested plugin JAR to the
+supported `/opt/in` local profile overlay. The build context must not contain
+SDK libraries, secrets, certificates, system keys, generated exports, licenses,
+Terraform data, or the generated local `env_vars` file. Publish the derived
+image only to the approved registry from a clean revision and deploy it by
+manifest digest. Vault supplies bootstrap values at runtime.
 
 The administrator Service and port 9999 remain cluster-private. Browser access
 to the authorization server is provided only through explicitly allowlisted
@@ -60,7 +62,8 @@ semantics but cannot sign, rewrite, or mutate the compact inner token.
 
 ## Deployment gates
 
-1. Reject a profile artifact containing anything outside the public allowlist.
+1. Reject a derived runtime build context containing anything outside the
+   Dockerfile and tested plugin JAR allowlist.
 2. Reject missing, ambiguous, or mutable product/artifact provenance.
 3. Reject Vault input or policy that is partial, broad, static-token based, or
    unable to verify TLS.

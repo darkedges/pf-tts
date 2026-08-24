@@ -67,12 +67,12 @@ func TestPingFederate13VaultPolicyAndRoleAreExact(t *testing.T) {
 		ServiceAccounts []string `json:"bound_service_account_names"`
 		Namespaces      []string `json:"bound_service_account_namespaces"`
 		Policies        []string `json:"token_policies"`
-		Audiences       []string `json:"token_audiences"`
+		Audience        string   `json:"audience"`
 	}
 	if err := json.Unmarshal(roleBytes, &role); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(role.ServiceAccounts, ",") != "wai-pingfederate-vault-auth" || strings.Join(role.Namespaces, ",") != "wai-pingfederate" || strings.Join(role.Policies, ",") != "wai-pingfederate-13-1" || strings.Join(role.Audiences, ",") != "vault" {
+	if strings.Join(role.ServiceAccounts, ",") != "wai-pingfederate-vault-auth" || strings.Join(role.Namespaces, ",") != "wai-pingfederate" || strings.Join(role.Policies, ",") != "wai-pingfederate-13-1" || role.Audience != "vault" {
 		t.Fatal("Vault Kubernetes role must bind the exact namespace, ServiceAccount, policy, and audience")
 	}
 	if strings.Contains(string(roleBytes), "*") || strings.Contains(strings.ToLower(string(roleBytes)), "token_bound_cidrs") {
