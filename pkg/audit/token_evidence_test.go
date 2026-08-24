@@ -55,3 +55,25 @@ func TestTokenEvidenceRejectsPartialCredentialShapedOrMutableInput(t *testing.T)
 		t.Fatal("partial or credential-shaped token evidence accepted")
 	}
 }
+
+func TestVerifiedStrictTxnTokenEvidenceAllowsOptionalJWTIDWithoutRawToken(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	claims := transaction.TxnTokenClaims{
+		Issuer: "https://issuer.example", Audience: "example.org", Scope: []string{"mcp.system.whoami"},
+		IssuedAt: now, ExpiresAt: now.Add(20 * time.Second),
+		TransactionContext: transaction.TransactionContext{WAI: transaction.WAITransactionContext{Agent: transaction.WAIAgentContext{InstanceID: "instance"}}},
+	}
+	const raw = "header.payload.signature"
+	evidence, err := NewVerifiedTxnTokenEvidence(raw, claims)
+	if err != nil || evidence.Kind != "txn_token" || evidence.JWTID != "" || !tokenFingerprintPattern.MatchString(evidence.Fingerprint) {
+		t.Fatalf("strict evidence mismatch: evidence=%+v err=%v", evidence, err)
+	}
+	encoded, _ := json.Marshal(evidence)
+	if strings.Contains(string(encoded), raw) {
+		t.Fatal("raw strict Transaction Token leaked into evidence")
+	}
+	claims.ExpiresAt = claims.IssuedAt
+	if _, err := NewVerifiedTxnTokenEvidence(raw, claims); err == nil {
+		t.Fatal("invalid strict token evidence accepted")
+	}
+}

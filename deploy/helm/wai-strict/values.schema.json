@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["global", "images", "ttsAdapter", "serviceAccounts", "resources", "networkPolicy", "ingress", "vault"],
+  "properties": {
+    "global": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["imagePullPolicy", "spiffeEndpoint", "trustDomain", "pingFederate"],
+      "properties": {
+        "imagePullPolicy": {"enum": ["IfNotPresent", "Never", "Always"]},
+        "spiffeEndpoint": {"const": "unix:///run/spire/sockets/spire-agent.sock"},
+        "trustDomain": {"const": "example.org"},
+        "pingFederate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["issuer", "jwksURL", "caSecretName", "caSecretKey"],
+          "properties": {
+            "issuer": {"type": "string", "pattern": "^https://[^?#]+$"},
+            "jwksURL": {"type": "string", "pattern": "^https://[^?#]+$"},
+            "caSecretName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+            "caSecretKey": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "images": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ttsAdapter", "gateway", "mcpServer", "api"],
+      "properties": {
+        "ttsAdapter": {"$ref": "#/definitions/image"}, "gateway": {"$ref": "#/definitions/image"},
+        "mcpServer": {"$ref": "#/definitions/image"}, "api": {"$ref": "#/definitions/image"}
+      }
+    },
+    "ttsAdapter": {
+      "type": "object", "additionalProperties": false,
+      "required": ["tokenEndpoint", "oauthSecretName", "clientIDKey", "clientSecretKey"],
+      "properties": {
+        "tokenEndpoint": {"type": "string", "pattern": "^https://[^?#]+$"},
+        "oauthSecretName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "clientIDKey": {"type": "string", "minLength": 1}, "clientSecretKey": {"type": "string", "minLength": 1}
+      }
+    },
+    "serviceAccounts": {"type": "object"},
+    "resources": {"type": "object"},
+    "networkPolicy": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}}},
+    "ingress": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "className", "host", "workbenchServiceName", "workbenchServicePort"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "className": {"type": "string", "minLength": 1},
+        "host": {"const": "workbench.ping.darkedges.com"},
+        "workbenchServiceName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "workbenchServicePort": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "vault": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "address", "connectionName", "authName", "authServiceAccount", "kubernetesAuthMount", "kubernetesRole", "audience", "caCertSecretRef", "kvMount", "refreshAfter", "paths", "workbenchDestinationSecret"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "address": {"type": "string"},
+        "connectionName": {"type": "string", "minLength": 1},
+        "authName": {"type": "string", "minLength": 1},
+        "authServiceAccount": {"type": "string", "minLength": 1},
+        "kubernetesAuthMount": {"type": "string", "minLength": 1},
+        "kubernetesRole": {"type": "string", "minLength": 1},
+        "audience": {"type": "string", "minLength": 1},
+        "caCertSecretRef": {"type": "string"},
+        "kvMount": {"type": "string", "minLength": 1},
+        "refreshAfter": {"type": "string", "pattern": "^[1-9][0-9]*[smh]$"},
+        "paths": {
+          "type": "object", "additionalProperties": false,
+          "required": ["pingFederateCA", "tokenExchangeClient", "workbench"],
+          "properties": {
+            "pingFederateCA": {"type": "string", "minLength": 1},
+            "tokenExchangeClient": {"type": "string", "minLength": 1},
+            "workbench": {"type": "string", "minLength": 1}
+          }
+        },
+        "workbenchDestinationSecret": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
+        {"if": {"properties": {"enabled": {"const": true}}}, "then": {"properties": {"address": {"pattern": "^https://[^?#]+$"}}}}
+      ]
+    }
+  },
+  "definitions": {
+    "image": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository", "tag", "digest"],
+      "oneOf": [
+        {"properties": {"tag": {"type": "string", "minLength": 1, "not": {"const": "latest"}}, "digest": {"const": ""}}},
+        {"properties": {"tag": {"const": ""}, "digest": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}}}
+      ],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string", "not": {"const": "latest"}},
+        "digest": {"type": "string", "pattern": "^$|^sha256:[a-f0-9]{64}$"}
+      }
+    }
+  }
+}

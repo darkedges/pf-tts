@@ -1,0 +1,75 @@
+global:
+  imagePullPolicy: IfNotPresent
+  spiffeEndpoint: unix:///run/spire/sockets/spire-agent.sock
+  trustDomain: example.org
+  pingFederate:
+    issuer: ""
+    jwksURL: ""
+    caSecretName: ""
+    caSecretKey: ca.pem
+
+images:
+  ttsAdapter:
+    repository: ""
+    tag: ""
+    digest: ""
+  gateway:
+    repository: ""
+    tag: ""
+    digest: ""
+  mcpServer:
+    repository: ""
+    tag: ""
+    digest: ""
+  api:
+    repository: ""
+    tag: ""
+    digest: ""
+
+ttsAdapter:
+  tokenEndpoint: ""
+  oauthSecretName: ""
+  clientIDKey: client-id
+  clientSecretKey: client-secret
+
+serviceAccounts:
+  adapter: wai-tts-adapter
+  gateway: wai-strict-gateway
+  mcpServer: wai-strict-mcp
+  api: wai-strict-api
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 500m
+    memory: 128Mi
+
+networkPolicy:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  host: workbench.ping.darkedges.com
+  workbenchServiceName: wai-web-app
+  workbenchServicePort: 8446
+
+vault:
+  enabled: false
+  address: ""
+  connectionName: wai-vault
+  authName: wai-vault-auth
+  authServiceAccount: wai-vault-auth
+  kubernetesAuthMount: kubernetes
+  kubernetesRole: wai-strict
+  audience: vault
+  caCertSecretRef: ""
+  kvMount: secret
+  refreshAfter: 5m
+  paths:
+    pingFederateCA: wai/pingfederate/ca
+    tokenExchangeClient: wai/pingfederate/token-exchange-client
+    workbench: wai/workbench
+  workbenchDestinationSecret: wai-web-app-secrets

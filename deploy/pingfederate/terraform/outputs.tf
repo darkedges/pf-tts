@@ -27,7 +27,7 @@ output "actor_audience" {
 }
 
 output "transaction_audience" {
-  value = var.transaction_audience
+  value = local.effective_transaction_audience
 }
 
 output "transaction_jwks_url" {

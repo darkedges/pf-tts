@@ -47,12 +47,20 @@ Its current alignment is:
 | Immutable context across the internal call chain | Implemented and tested across agent, gateway, MCP server, and API |
 | Immediate caller authenticated independently | Implemented with SPIFFE X.509-SVID mTLS |
 | Unique transaction correlation across workloads | Implemented with `TransactionID` and structured audit events |
-| Trust-domain audience and strict validation | Partially aligned; strict audience validation exists, but the current audience identifies a logical resource rather than the Transaction Tokens trust domain |
-| `typ: txntoken+jwt` protected header | Not implemented |
-| `requested_token_type` and `issued_token_type` set to `urn:ietf:params:oauth:token-type:txn_token` | Not implemented; the current exchange returns an OAuth access-token type |
-| Standard `txn`, `scope`, `tctx`, `rctx`, and `req_wl` claims | Partially aligned through strongly typed application claims, but not yet encoded in the profile shape |
+| Trust-domain audience and strict validation | Implemented in an isolated strict inner profile; the running workbench remains legacy |
+| `typ: txntoken+jwt` protected header | Implemented and live-verified in the isolated PingFederate strict inner profile |
+| `requested_token_type` and `issued_token_type` set to `urn:ietf:params:oauth:token-type:txn_token` | Implemented and live-verified by an isolated non-signing outer-protocol adapter; native PingFederate and the running workbench remain access-token/Bearer |
+| Standard `txn`, `scope`, `tctx`, and `req_wl` claims | Implemented and live-verified in the isolated strict inner profile; optional `rctx` is intentionally omitted and runtime wiring remains legacy |
 | Dedicated `Txn-Token` HTTP header | Not implemented; internal calls currently use bearer-token transport |
 | Fail closed on the legacy token shape after migration | Not implemented; required before claiming profile conformance |
+
+A separately addressed, default-off non-signing protocol adapter now
+implements the exact outer request/response translation that PingFederate
+13.1 cannot provide. Its isolated SPIFFE mTLS deployment gate passes for the
+approved agent and rejects the wrong workload. It does not make the running
+system conformant: the normal workbench remains legacy and the adapter must be
+cut over atomically with strict `Txn-Token` Call Chain transport. See ADR 0010
+and [`docs/implementation-notes-task-38.md`](docs/implementation-notes-task-38.md).
 
 The SPIRE actor token is a deliberate agent integration in addition to the
 base Transaction Tokens request. It keeps the user subject and requesting AI
@@ -69,6 +77,14 @@ shape once the new profile is enabled.
 The version-pinned requirement matrix, product capability blockers,
 trust-boundary analysis, conformance tests, and phased migration backlog are in
 [`docs/transaction-tokens-alignment-plan.md`](docs/transaction-tokens-alignment-plan.md).
+
+The isolated PingFederate 13.1 capability gate confirmed that a configured
+trust-domain audience resolves, but the Transaction Token requested type is
+rejected with `invalid_request` and the bearer ATM path remains fixed to OAuth
+access-token response semantics. Run `make pf-probe-txn-profile` to reproduce
+the sanitized result without touching the normal workbench. Detailed evidence
+is in
+[`docs/implementation-notes-task-34.md`](docs/implementation-notes-task-34.md).
 
 ## Non-goals for MVP
 
@@ -229,6 +245,19 @@ gateway, MCP server, and API. It also verifies
 that forged logical identity, wrong audience, expired-token mode, an
 unapproved MCP target, and a direct agent-to-API call are rejected without raw
 tokens appearing in captured output.
+
+## Optional Kubernetes and GitOps deployment
+
+The isolated strict Transaction Token call chain has an optional Helm chart in
+`deploy/helm/wai-strict` and review-required Argo CD examples in
+`deploy/argocd`. Kubernetes remains outside the local MVP: PingFederate, SPIRE,
+the SPIFFE CSI Driver, image publication, and secret delivery are external
+prerequisites.
+
+The chart uses separate ServiceAccounts and exact SPIFFE identities for the
+adapter, gateway, MCP server, and API. It references existing Secrets, disables
+Kubernetes API token mounting, and applies restricted container and network
+defaults. See `deploy/helm/wai-strict/README.md` before rendering or deploying.
 
 ## Trusted MCP authorization policy
 

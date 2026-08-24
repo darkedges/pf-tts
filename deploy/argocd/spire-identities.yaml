@@ -1,0 +1,53 @@
+# Review the installed SPIRE Controller Manager CRD version before applying.
+# These cluster-scoped resources are intentionally excluded from the AppProject.
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: wai-tts-adapter
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-tts-adapter" }}spiffe://example.org/tts/adapter{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: adapter
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: wai-strict-gateway
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-gateway" }}spiffe://example.org/gateway/mcp-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: gateway
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: wai-strict-mcp
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-mcp" }}spiffe://example.org/mcp/demo-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: mcp
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: wai-strict-api
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-api" }}spiffe://example.org/api/demo-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict

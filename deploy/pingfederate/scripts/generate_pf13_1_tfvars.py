@@ -27,7 +27,8 @@ atm_field_names = {
     for field in ((atm.get("configDescriptor") or {}).get("fields") or [])
 }
 required_trusted_fields = {
-    "Agent Bindings", "Transaction Purpose"
+    "Agent Bindings", "Transaction Purpose", "Token Profile",
+    "Transaction Target", "Transaction Tool", "Transaction Scope"
 }
 missing_trusted_fields = sorted(required_trusted_fields - atm_field_names)
 if missing_trusted_fields:
@@ -112,6 +113,10 @@ payload = {
         {"name": "Token Lifetime Seconds", "value": "20"},
         {"name": "Agent Bindings", "value": "\n".join(f"{workload}={agent}" for workload, agent in agent_bindings.items())},
         {"name": "Transaction Purpose", "value": "system.whoami"},
+		{"name": "Token Profile", "value": "legacy-wai-jwt"},
+		{"name": "Transaction Target", "value": "demo"},
+		{"name": "Transaction Tool", "value": "system.whoami"},
+		{"name": "Transaction Scope", "value": "mcp:invoke"},
     ],
     "agent_bindings": agent_bindings,
     "discovery_confirmed": True

@@ -44,14 +44,33 @@ func NewVerifiedTransactionTokenEvidence(raw string, claims transaction.Claims) 
 	return evidence, nil
 }
 
+func NewVerifiedTxnTokenEvidence(raw string, claims transaction.TxnTokenClaims) (*TokenEvidence, error) {
+	if strings.TrimSpace(raw) == "" || strings.TrimSpace(claims.Issuer) == "" || strings.TrimSpace(claims.Audience) == "" || claims.IssuedAt.IsZero() || claims.ExpiresAt.IsZero() || !claims.ExpiresAt.After(claims.IssuedAt) {
+		return nil, errors.New("invalid verified transaction token evidence")
+	}
+	digest := sha256.Sum256([]byte(raw))
+	evidence := &TokenEvidence{
+		Kind: "txn_token", Fingerprint: "sha256:" + hex.EncodeToString(digest[:]), Issuer: claims.Issuer,
+		Audience: []string{claims.Audience}, Scope: append([]string(nil), claims.Scope...), JWTID: claims.JWTID,
+		AgentInstanceID: claims.TransactionContext.WAI.Agent.InstanceID, IssuedAt: claims.IssuedAt.UTC(), ExpiresAt: claims.ExpiresAt.UTC(),
+	}
+	if validateTokenEvidence(evidence, 64<<10) != nil {
+		return nil, errors.New("invalid verified transaction token evidence")
+	}
+	return evidence, nil
+}
+
 func validateTokenEvidence(evidence *TokenEvidence, maximumFieldBytes int) error {
 	if evidence == nil {
 		return nil
 	}
-	if evidence.Kind != "transaction_jwt" || !tokenFingerprintPattern.MatchString(evidence.Fingerprint) || strings.TrimSpace(evidence.Issuer) == "" || len(evidence.Audience) == 0 || strings.TrimSpace(evidence.JWTID) == "" || evidence.IssuedAt.IsZero() || evidence.ExpiresAt.IsZero() || !evidence.ExpiresAt.After(evidence.IssuedAt) {
+	if (evidence.Kind != "transaction_jwt" && evidence.Kind != "txn_token") || !tokenFingerprintPattern.MatchString(evidence.Fingerprint) || strings.TrimSpace(evidence.Issuer) == "" || len(evidence.Audience) == 0 || (evidence.Kind == "transaction_jwt" && strings.TrimSpace(evidence.JWTID) == "") || evidence.IssuedAt.IsZero() || evidence.ExpiresAt.IsZero() || !evidence.ExpiresAt.After(evidence.IssuedAt) {
 		return ErrInvalidRecord
 	}
-	fields := []string{evidence.Kind, evidence.Fingerprint, evidence.Issuer, evidence.JWTID, evidence.AgentInstanceID}
+	fields := []string{evidence.Kind, evidence.Fingerprint, evidence.Issuer, evidence.AgentInstanceID}
+	if evidence.JWTID != "" {
+		fields = append(fields, evidence.JWTID)
+	}
 	fields = append(fields, evidence.Audience...)
 	fields = append(fields, evidence.Scope...)
 	for _, value := range fields {

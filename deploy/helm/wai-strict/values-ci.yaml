@@ -1,0 +1,13 @@
+global:
+  pingFederate:
+    issuer: https://pf.example.test
+    jwksURL: https://pf.example.test/pf/JWKS
+    caSecretName: pf-ca
+images:
+  ttsAdapter: {repository: example.invalid/tts-adapter, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+  gateway: {repository: example.invalid/gateway, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+  mcpServer: {repository: example.invalid/mcp, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+  api: {repository: example.invalid/api, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+ttsAdapter:
+  tokenEndpoint: https://pf.example.test/as/token.oauth2
+  oauthSecretName: pf-client

@@ -1,4 +1,4 @@
-.PHONY: test spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test helm-lint spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -8,6 +8,12 @@ endif
 
 test:
 	go test ./...
+
+helm-lint:
+	helm lint deploy/helm/wai-strict -f deploy/helm/wai-strict/values-ci.yaml
+
+vault-import-local:
+	pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1
 
 spire-up:
 	bash scripts/spire-lab-up.sh
@@ -48,6 +54,18 @@ pf-profile-export:
 
 pf-clean-bootstrap:
 	pwsh -NoProfile -File scripts/test-pingfederate-clean-bootstrap.ps1
+
+pf-probe-txn-profile:
+	pwsh -NoProfile -File scripts/test-pingfederate-clean-bootstrap.ps1 -ProbeTransactionTokens
+
+pf-test-txn-inner:
+	pwsh -NoProfile -File scripts/test-pingfederate-clean-bootstrap.ps1 -TestTransactionTokensInnerProfile
+
+pf-test-tts-adapter:
+	pwsh -NoProfile -File scripts/test-pingfederate-clean-bootstrap.ps1 -TestTTSAdapter
+
+pf-test-strict-call-chain:
+	pwsh -NoProfile -File scripts/test-pingfederate-clean-bootstrap.ps1 -TestStrictCallChain
 
 pf-local-up: pf-profile
 	docker compose --env-file .env.local -f deploy/pingfederate/compose.yaml up -d

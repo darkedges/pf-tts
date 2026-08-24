@@ -10,6 +10,51 @@ variable "trust_domain" {
   default     = "example.org"
 }
 
+variable "enable_transaction_tokens_capability_probe" {
+  description = "Create an isolated-only trust-domain audience selector for Task 34 capability testing. Never enable in the normal workbench state."
+  type        = bool
+  default     = false
+}
+
+variable "enable_transaction_tokens_inner_profile" {
+  description = "Enable the isolated-only strict draft-11 inner JWT profile. Keep false in normal workbench state."
+  type        = bool
+  default     = false
+}
+
+variable "transaction_tokens_scope" {
+  description = "Fixed narrow scope used only by the isolated strict inner Transaction Token profile."
+  type        = string
+  default     = "mcp.system.whoami"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", var.transaction_tokens_scope))
+    error_message = "The strict Transaction Token scope must be one bounded scope token."
+  }
+}
+
+variable "transaction_tokens_target" {
+  description = "Fixed trusted target used only by the isolated strict inner Transaction Token profile."
+  type        = string
+  default     = "demo"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", var.transaction_tokens_target))
+    error_message = "The strict Transaction Token target must be a bounded identifier."
+  }
+}
+
+variable "transaction_tokens_tool" {
+  description = "Fixed trusted tool used only by the isolated strict inner Transaction Token profile."
+  type        = string
+  default     = "system.whoami"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", var.transaction_tokens_tool))
+    error_message = "The strict Transaction Token tool must be a bounded identifier."
+  }
+}
+
 variable "actor_audience" {
   description = "Audience requested in the agent JWT-SVID and accepted by PingFederate."
   type        = string

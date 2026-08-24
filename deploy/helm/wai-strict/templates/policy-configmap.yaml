@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "wai-strict.fullname" . }}-policy
+  labels:
+    {{- include "wai-strict.labels" . | nindent 4 }}
+data:
+  authorization.rego: |
+{{ .Files.Get "files/authorization-strict.rego" | indent 4 }}

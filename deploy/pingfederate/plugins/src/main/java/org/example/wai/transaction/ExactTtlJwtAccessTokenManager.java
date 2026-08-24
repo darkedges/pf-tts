@@ -34,11 +34,16 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
   static final String LIFETIME = "Token Lifetime Seconds";
   static final String AGENT_BINDINGS = "Agent Bindings";
   static final String PURPOSE = "Transaction Purpose";
+	static final String TOKEN_PROFILE = "Token Profile";
+	static final String TRANSACTION_TARGET = "Transaction Target";
+	static final String TRANSACTION_TOOL = "Transaction Tool";
+	static final String TRANSACTION_SCOPE = "Transaction Scope";
   private static final Set<String> CONTRACT = Set.of("sub", "agent_id", "agent_instance_id",
       "workload_id", "transaction_id", "transaction_purpose", "scope", "aud");
   private volatile TransactionJwtIssuer issuer;
   private volatile JwtConsumer validator;
   private volatile TrustedTransactionMetadata metadata;
+	private volatile TokenProfile profile;
 
   @Override public void configure(Configuration configuration) {
     String alias = required(configuration.getFieldValue(CERTIFICATE), CERTIFICATE);
@@ -49,14 +54,23 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
     String issuerName = required(configuration.getFieldValue(ISSUER), ISSUER);
     String audience = required(configuration.getFieldValue(AUDIENCE), AUDIENCE);
     int lifetime = configuration.getIntFieldValue(LIFETIME);
-    issuer = new TransactionJwtIssuer(cert.getPrivateKey(), configuration.getFieldValue(KEY_ID),
-        issuerName, audience, lifetime, Clock.systemUTC());
+	TokenProfile selectedProfile = TokenProfile.parse(required(configuration.getFieldValue(TOKEN_PROFILE), TOKEN_PROFILE));
+	if (selectedProfile == TokenProfile.TRANSACTION_TOKEN_V11 && !isTrustDomain(audience)) {
+	  throw new IllegalArgumentException("strict transaction-token Audience must be an exact Trust Domain");
+	}
+	issuer = new TransactionJwtIssuer(cert.getPrivateKey(), configuration.getFieldValue(KEY_ID),
+			issuerName, audience, lifetime, Clock.systemUTC(), selectedProfile,
+			configuration.getFieldValue(TRANSACTION_TARGET), configuration.getFieldValue(TRANSACTION_TOOL),
+			configuration.getFieldValue(TRANSACTION_SCOPE));
+	profile = selectedProfile;
     metadata = new TrustedTransactionMetadata(TrustedTransactionMetadata.parseBindings(
         configuration.getFieldValue(AGENT_BINDINGS)),
         configuration.getFieldValue(PURPOSE),
         () -> UUID.randomUUID().toString());
     validator = new JwtConsumerBuilder().setRequireExpirationTime().setRequireIssuedAt().setRequireSubject()
-        .setExpectedIssuer(issuerName).setExpectedAudience(audience).setVerificationKey(cert.getX509Certificate().getPublicKey())
+		.setExpectedIssuer(issuerName).setExpectedAudience(audience)
+		.setExpectedType(true, selectedProfile == TokenProfile.TRANSACTION_TOKEN_V11 ? "txntoken+jwt" : "at+jwt")
+		.setVerificationKey(cert.getX509Certificate().getPublicKey())
         .setJwsAlgorithmConstraints(new AlgorithmConstraints(AlgorithmConstraints.ConstraintType.PERMIT,
             AlgorithmIdentifiers.RSA_USING_SHA256)).build();
   }
@@ -101,6 +115,10 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
     gui.addField(requiredField(LIFETIME, "Exact lifetime in seconds; allowed range 1 through 60."));
     gui.addField(requiredField(AGENT_BINDINGS, "Newline-separated exact SPIFFEID=AgentID trusted bindings."));
     gui.addField(requiredField(PURPOSE, "Allowlisted purpose minted into transaction tokens."));
+	gui.addField(requiredField(TOKEN_PROFILE, "Explicit legacy-wai-jwt or ietf-txn-token-v11 profile; no auto-detection."));
+	gui.addField(requiredField(TRANSACTION_TARGET, "Fixed trusted target used only by the strict transaction-token profile."));
+	gui.addField(requiredField(TRANSACTION_TOOL, "Fixed trusted tool used only by the strict transaction-token profile."));
+	gui.addField(requiredField(TRANSACTION_SCOPE, "Fixed narrow scope; strict mode rejects a different requested scope."));
     PluginDescriptor descriptor = new PluginDescriptor("WAI Exact-TTL JWT Access Token Manager", this, gui, "1.0.0");
     descriptor.setAttributeContractSet(CONTRACT); descriptor.setSupportsExtendedContract(true);
     return descriptor;
@@ -114,4 +132,9 @@ public final class ExactTtlJwtAccessTokenManager implements BearerAccessTokenMan
     if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " is required");
     return value;
   }
+	private static boolean isTrustDomain(String value) {
+	return value.equals(value.toLowerCase(java.util.Locale.ROOT))
+		&& value.matches("[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?")
+		&& value.contains(".");
+	}
 }

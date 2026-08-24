@@ -65,7 +65,9 @@ func NewClient(endpoint, clientID, clientSecret string, httpClient *http.Client)
 	if httpClient == nil || httpClient.Timeout <= 0 {
 		return nil, fmt.Errorf("%w: HTTP client with explicit timeout is required", ErrInvalidExchange)
 	}
-	return &Client{endpoint: parsed.String(), clientID: clientID, clientSecret: clientSecret, httpClient: httpClient}, nil
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &Client{endpoint: parsed.String(), clientID: clientID, clientSecret: clientSecret, httpClient: &client}, nil
 }
 
 func (c *Client) Exchange(ctx context.Context, request ExchangeRequest) (ExchangeResponse, error) {
@@ -92,8 +94,8 @@ func (c *Client) Exchange(ctx context.Context, request ExchangeRequest) (Exchang
 		return ExchangeResponse{}, fmt.Errorf("%w: endpoint request failed", ErrExchangeFailed)
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil {
+	body, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
+	if err != nil || len(body) > 1<<20 {
 		return ExchangeResponse{}, fmt.Errorf("%w: read response", ErrExchangeFailed)
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -115,10 +117,54 @@ func (c *Client) Exchange(ctx context.Context, request ExchangeRequest) (Exchang
 		ExpiresIn       int64  `json:"expires_in"`
 		Scope           string `json:"scope"`
 	}
+	fields, err := uniqueJSONObjectFields(body)
+	if err != nil {
+		return ExchangeResponse{}, fmt.Errorf("%w: invalid success response", ErrExchangeFailed)
+	}
+	allowed := map[string]struct{}{"access_token": {}, "issued_token_type": {}, "token_type": {}, "expires_in": {}, "scope": {}}
+	for name := range fields {
+		if _, ok := allowed[name]; !ok {
+			return ExchangeResponse{}, fmt.Errorf("%w: invalid success response", ErrExchangeFailed)
+		}
+	}
 	if err := json.Unmarshal(body, &result); err != nil || result.AccessToken == "" || result.TokenType == "" {
 		return ExchangeResponse{}, fmt.Errorf("%w: invalid success response", ErrExchangeFailed)
 	}
 	return ExchangeResponse{AccessToken: result.AccessToken, IssuedTokenType: result.IssuedTokenType, TokenType: result.TokenType, ExpiresIn: result.ExpiresIn, Scope: result.Scope}, nil
+}
+
+func uniqueJSONObjectFields(body []byte) (map[string]struct{}, error) {
+	decoder := json.NewDecoder(strings.NewReader(string(body)))
+	token, err := decoder.Token()
+	if err != nil || token != json.Delim('{') {
+		return nil, errors.New("response is not an object")
+	}
+	fields := map[string]struct{}{}
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return nil, errors.New("invalid object key")
+		}
+		if _, exists := fields[key]; exists {
+			return nil, errors.New("duplicate object key")
+		}
+		fields[key] = struct{}{}
+		var value json.RawMessage
+		if err := decoder.Decode(&value); err != nil {
+			return nil, err
+		}
+	}
+	if _, err := decoder.Token(); err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		return nil, errors.New("trailing JSON value")
+	}
+	return fields, nil
 }
 
 func validateExchangeRequest(r ExchangeRequest) error {

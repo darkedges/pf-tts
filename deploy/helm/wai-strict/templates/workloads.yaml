@@ -1,0 +1,103 @@
+{{- $name := include "wai-strict.fullname" . -}}
+{{- $root := . -}}
+{{- $components := dict
+  "api" (dict "port" 8545 "image" .Values.images.api "serviceAccount" .Values.serviceAccounts.api)
+  "mcp" (dict "port" 8544 "image" .Values.images.mcpServer "serviceAccount" .Values.serviceAccounts.mcpServer)
+  "gateway" (dict "port" 8543 "image" .Values.images.gateway "serviceAccount" .Values.serviceAccounts.gateway)
+  "adapter" (dict "port" 8448 "image" .Values.images.ttsAdapter "serviceAccount" .Values.serviceAccounts.adapter)
+-}}
+{{- range $component, $cfg := $components }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "wai-strict.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "wai-strict.name" $root }}
+      app.kubernetes.io/instance: {{ $root.Release.Name }}
+      app.kubernetes.io/component: {{ $component }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "wai-strict.name" $root }}
+        app.kubernetes.io/instance: {{ $root.Release.Name }}
+        app.kubernetes.io/component: {{ $component }}
+    spec:
+      serviceAccountName: {{ $cfg.serviceAccount }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "wai-strict.podSecurityContext" $root | nindent 8 }}
+      containers:
+        - name: {{ $component }}
+          image: {{ include "wai-strict.image" (list $cfg.image) | quote }}
+          imagePullPolicy: {{ $root.Values.global.imagePullPolicy }}
+          securityContext:
+            {{- include "wai-strict.containerSecurityContext" $root | nindent 12 }}
+          ports:
+            - name: https
+              containerPort: {{ $cfg.port }}
+          env:
+            {{- include "wai-strict.commonEnv" $root | nindent 12 }}
+            {{- if eq $component "adapter" }}
+            - name: TTS_ADAPTER_LISTEN
+              value: :8448
+            - name: PF_TOKEN_ENDPOINT
+              value: {{ required "ttsAdapter.tokenEndpoint is required" $root.Values.ttsAdapter.tokenEndpoint | quote }}
+            - name: PF_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "ttsAdapter.oauthSecretName is required" $root.Values.ttsAdapter.oauthSecretName }}
+                  key: {{ $root.Values.ttsAdapter.clientIDKey }}
+            - name: PF_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $root.Values.ttsAdapter.oauthSecretName }}
+                  key: {{ $root.Values.ttsAdapter.clientSecretKey }}
+            {{- else if eq $component "gateway" }}
+            - name: STRICT_MCP_SERVER_URL
+              value: https://{{ $name }}-mcp:8544
+            {{- else if eq $component "mcp" }}
+            - name: STRICT_DEMO_API_URL
+              value: https://{{ $name }}-api:8545
+            {{- end }}
+          resources:
+            {{- toYaml $root.Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "wai-strict.commonMounts" $root | nindent 12 }}
+            {{- if eq $component "gateway" }}
+            - name: policy
+              mountPath: /run/wai/authorization.rego
+              subPath: authorization.rego
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- include "wai-strict.commonVolumes" $root | nindent 8 }}
+        {{- if eq $component "gateway" }}
+        - name: policy
+          configMap:
+            name: {{ $name }}-policy
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-{{ $component }}
+  labels:
+    {{- include "wai-strict.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  selector:
+    app.kubernetes.io/name: {{ include "wai-strict.name" $root }}
+    app.kubernetes.io/instance: {{ $root.Release.Name }}
+    app.kubernetes.io/component: {{ $component }}
+  ports:
+    - name: https
+      port: {{ $cfg.port }}
+      targetPort: https
+{{- end }}

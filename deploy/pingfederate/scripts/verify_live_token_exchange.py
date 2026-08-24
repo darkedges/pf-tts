@@ -21,6 +21,9 @@ GRANT = "urn:ietf:params:oauth:grant-type:token-exchange"
 ACCESS_TOKEN = "urn:ietf:params:oauth:token-type:access_token"
 JWT = "urn:ietf:params:oauth:token-type:jwt"
 ACTOR_AUDIENCE = "urn:pingfederate:wai:token-exchange"
+STRICT_INNER_PROFILE = os.getenv("PF_EXPECT_TRANSACTION_TOKEN_INNER_PROFILE", "false").lower() == "true"
+TRANSACTION_SCOPE = "mcp.system.whoami" if STRICT_INNER_PROFILE else "mcp:invoke"
+TRANSACTION_AUDIENCE = "example.org" if STRICT_INNER_PROFILE else "mcp-gateway"
 
 
 def required(name: str) -> str:
@@ -66,8 +69,7 @@ if ca_file:
 else:
     context = ssl.create_default_context()
 if os.getenv("PF_ADMIN_INSECURE", "false").lower() == "true":
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    raise SystemExit("Live token exchange verification refuses disabled TLS validation.")
 
 
 def post_form(form: dict[str, str], client_id: str, client_secret: str) -> tuple[int, dict]:
@@ -109,7 +111,7 @@ subject_status, subject_payload = post_form(
         "grant_type": "password",
         "username": os.getenv("TF_VAR_lab_user_name", "demo-user"),
         "password": required("TF_VAR_lab_user_password"),
-        "scope": "mcp:invoke",
+        "scope": TRANSACTION_SCOPE,
     },
     os.getenv("TF_VAR_lab_user_client_id", "wai-lab-user"),
     required("TF_VAR_lab_user_client_secret"),
@@ -156,8 +158,8 @@ exchange_form = {
     "actor_token": actor_token,
     "actor_token_type": JWT,
     "requested_token_type": ACCESS_TOKEN,
-    "audience": "mcp-gateway",
-    "scope": "mcp:invoke",
+    "audience": TRANSACTION_AUDIENCE,
+    "scope": TRANSACTION_SCOPE,
 }
 exchange_client = os.getenv("TF_VAR_token_exchange_client_id", "wai-agent-token-exchange")
 exchange_secret = required("TF_VAR_token_exchange_client_secret")
@@ -185,7 +187,8 @@ try:
     claims = json.loads(b64decode(encoded_claims))
 except (ValueError, json.JSONDecodeError):
     raise SystemExit("Transaction token is not a well-formed JWT.")
-if header.get("alg") != "RS256" or header.get("typ") != "at+jwt":
+expected_type = "txntoken+jwt" if STRICT_INNER_PROFILE else "at+jwt"
+if header.get("alg") != "RS256" or header.get("typ") != expected_type:
     raise SystemExit("Transaction token algorithm or type is not allowlisted.")
 kid = header.get("kid")
 if kid != "wai-transaction-signing":
@@ -211,28 +214,53 @@ except (KeyError, ValueError):
     raise SystemExit("Transaction JWT signature verification failed.")
 
 now = int(time.time())
-expected = {
-    "iss": issuer,
-    "sub": os.getenv("TF_VAR_lab_user_name", "demo-user"),
-    "agent_id": "urn:agent:demo",
-    "workload_id": "spiffe://example.org/agent/demo",
-    "transaction_purpose": "system.whoami",
-    "scope": "mcp:invoke",
-}
+expected = {"iss": issuer, "sub": os.getenv("TF_VAR_lab_user_name", "demo-user"), "scope": TRANSACTION_SCOPE}
+if not STRICT_INNER_PROFILE:
+    expected.update({
+        "agent_id": "urn:agent:demo",
+        "workload_id": "spiffe://example.org/agent/demo",
+        "transaction_purpose": "system.whoami",
+    })
 for name, value in expected.items():
     if claims.get(name) != value:
         raise SystemExit(f"Verified transaction claim {name!r} did not match trusted configuration.")
 audience = claims.get("aud", [])
 if isinstance(audience, str):
     audience = [audience]
-if audience != ["urn:wai:mcp-gateway"]:
-    raise SystemExit("Verified transaction audience did not exactly match urn:wai:mcp-gateway.")
+expected_audience = ["example.org"] if STRICT_INNER_PROFILE else ["urn:wai:mcp-gateway"]
+if audience != expected_audience:
+    raise SystemExit("Verified transaction audience did not exactly match trusted configuration.")
 if not isinstance(claims.get("iat"), (int, float)) or not isinstance(claims.get("exp"), (int, float)):
     raise SystemExit("Verified transaction token is missing numeric time claims.")
 if claims["iat"] > now + 5 or claims["exp"] <= now or claims["exp"] - claims["iat"] != 20:
     raise SystemExit("Verified transaction token time bounds are invalid.")
-for name in ("jti", "transaction_id", "agent_instance_id"):
+required_ids = ("jti", "txn") if STRICT_INNER_PROFILE else ("jti", "transaction_id", "agent_instance_id")
+for name in required_ids:
     if not isinstance(claims.get(name), str) or not claims[name]:
         raise SystemExit(f"Verified transaction token is missing {name!r}.")
 
-print("PASS: tampered actor rejected; live RFC 8693 exchange issued a verified 20-second transaction JWT with trusted user, agent, workload, audience, scope, and purpose bindings.")
+if STRICT_INNER_PROFILE:
+    expected_claim_names = {"iss", "sub", "aud", "iat", "exp", "jti", "txn", "scope", "req_wl", "tctx"}
+    if set(claims) != expected_claim_names:
+        raise SystemExit("Strict Transaction Token claim set was not exact.")
+    legacy_claims = {"agent_id", "agent_instance_id", "workload_id", "transaction_id", "transaction_purpose"}
+    if legacy_claims.intersection(claims):
+        raise SystemExit("Strict Transaction Token leaked legacy profile claims.")
+    if claims.get("req_wl") != "spiffe://example.org/agent/demo":
+        raise SystemExit("Strict Transaction Token requesting workload mismatch.")
+    tctx = claims.get("tctx")
+    if not isinstance(tctx, dict) or set(tctx) != {"wai"} or not isinstance(tctx.get("wai"), dict):
+        raise SystemExit("Strict Transaction Token context schema mismatch.")
+    wai = tctx["wai"]
+    if set(wai) != {"version", "agent", "target", "tool"} or wai.get("version") != 1:
+        raise SystemExit("Strict Transaction Token WAI profile mismatch.")
+    agent = wai.get("agent")
+    if not isinstance(agent, dict) or set(agent) != {"id", "instance_id", "workload_id"}:
+        raise SystemExit("Strict Transaction Token agent context schema mismatch.")
+    if agent.get("id") != "urn:agent:demo" or agent.get("workload_id") != claims["req_wl"] or not isinstance(agent.get("instance_id"), str) or not agent["instance_id"]:
+        raise SystemExit("Strict Transaction Token trusted agent binding mismatch.")
+    if wai.get("target") != "demo" or wai.get("tool") != "system.whoami":
+        raise SystemExit("Strict Transaction Token target or tool mismatch.")
+
+profile = "strict inner Transaction Token" if STRICT_INNER_PROFILE else "legacy transaction JWT"
+print(f"PASS: tampered actor rejected; live RFC 8693 exchange issued a verified 20-second {profile} with trusted user, agent, workload, audience, scope, and context bindings.")
