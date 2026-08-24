@@ -182,11 +182,14 @@ func TestBakedRuntimeImageUsesPinnedOfficialProfileAndSecretFreeContext(t *testi
 		"SERVER_PROFILE_URL=\"https://github.com/pingidentity/pingidentity-server-profiles.git\"",
 		"SERVER_PROFILE_PATH=\"getting-started/pingfederate\"", "SERVER_PROFILE_BRANCH=\"2606\"",
 		"COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar",
-		"PING_IDENTITY_PASSWORD=\"\"", "SECURITY_CHECKS_STRICT=\"true\"", "chmod 0550 /opt/in/instance",
+		"PING_IDENTITY_PASSWORD=\"\"", "SECURITY_CHECKS_STRICT=\"true\"",
 	} {
 		if !strings.Contains(dockerfile, required) {
 			t.Errorf("baked runtime Dockerfile missing control %q", required)
 		}
+	}
+	if strings.Contains(dockerfile, "RUN ") {
+		t.Fatal("runtime image must not execute target-platform shell layers; cross-platform publication must remain native-build independent")
 	}
 	for _, forbidden := range []string{"COPY .", "env_vars", "client_secret", "PRIVATE KEY", ":latest", ":edge"} {
 		if strings.Contains(dockerfile, forbidden) {

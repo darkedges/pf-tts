@@ -14,4 +14,3 @@ ENV SERVER_PROFILE_URL="https://github.com/pingidentity/pingidentity-server-prof
     SECURITY_CHECKS_STRICT="true"
 
 COPY --chown=9031:0 --chmod=0444 wai-pingfederate-spiffe-plugins.jar /opt/in/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar
-RUN chmod 0550 /opt/in/instance /opt/in/instance/server /opt/in/instance/server/default /opt/in/instance/server/default/deploy
