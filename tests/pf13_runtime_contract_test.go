@@ -37,7 +37,7 @@ func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
 		"docker.io/darkedges/pf-tts-pingfederate@sha256:c0871f8ccfcf4b4ef28200d2ce9a1b65a979b83a35e2654669b19383b38c0bd9",
-		"PING_IDENTITY_ACCEPT_EULA", "ORCHESTRATION_TYPE", `PF_ADMIN_API_AUTHENTICATION, value: "BASIC"`, "valueFrom: {secretKeyRef:",
+		"PING_IDENTITY_ACCEPT_EULA", "ORCHESTRATION_TYPE", `PF_ADMIN_API_AUTHENTICATION, value: "native"`, "valueFrom: {secretKeyRef:",
 		"cp -R /opt/staging/. /writable-staging/", "mountPath: /etc/motd, subPath: motd",
 		"secretName: wai-pf13-runtime-ca, defaultMode: 256", "wai-pingfederate-vault-auth",
 	} {
@@ -51,6 +51,7 @@ func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 		"method: appRole", "automountServiceAccountToken: true", "privileged: true", "hostPath:",
 		"forgerock-vault-tls", "tls.key", "fetch-profile", "assemble-profile", "crane@sha256", "mountPath: /opt/in",
 		`PF_ADMIN_API_AUTHENTICATION, value: ""`, `PF_ADMIN_API_AUTHENTICATION, value: "NONE"`,
+		`PF_ADMIN_API_AUTHENTICATION, value: "BASIC"`,
 	} {
 		if strings.Contains(chart, forbidden) {
 			t.Errorf("isolated runtime crosses a security boundary with %q", forbidden)

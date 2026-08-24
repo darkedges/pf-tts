@@ -43,7 +43,7 @@ spec:
           env:
             - {name: PING_IDENTITY_ACCEPT_EULA, value: "YES"}
             - {name: ORCHESTRATION_TYPE, value: "kubernetes"}
-            - {name: PF_ADMIN_API_AUTHENTICATION, value: "BASIC"}
+            - {name: PF_ADMIN_API_AUTHENTICATION, value: "native"}
             - {name: SERVER_PROFILE_BRANCH, value: {{ .Values.profile.branch | quote }}}
             - name: PING_IDENTITY_DEVOPS_USER
               valueFrom: {secretKeyRef: {name: wai-pf13-devops, key: username}}
