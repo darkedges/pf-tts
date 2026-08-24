@@ -44,6 +44,7 @@
       "operationType": "SAVE",
       "items": [
         {
+          "password": "${PING_IDENTITY_PASSWORD}",
           "roles": [
             "EXPRESSION_ADMINISTRATOR",
             "USER_ADMINISTRATOR",

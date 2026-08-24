@@ -439,7 +439,10 @@ func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T)
 			t.Fatalf("repository bulk profile must preserve the exact vendor-created account: missing %q", required)
 		}
 	}
-	for _, forbidden := range []string{"PING_IDENTITY_PASSWORD", `"username": "Administrator"`} {
+	if !strings.Contains(profile, `"password": "${PING_IDENTITY_PASSWORD}"`) {
+		t.Fatal("repository administrative account must source its required password from the Vault-backed environment")
+	}
+	for _, forbidden := range []string{`"username": "Administrator"`} {
 		if strings.Contains(profile, forbidden) {
 			t.Fatalf("repository bulk profile must not import administrator credentials: found %q", forbidden)
 		}
@@ -458,8 +461,8 @@ func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T)
 			if len(operation.Items) != 1 {
 				t.Fatal("repository profile must preserve exactly one administrative account")
 			}
-			if _, present := operation.Items[0]["password"]; present {
-				t.Fatal("repository administrative account must not contain password material")
+			if password, present := operation.Items[0]["password"]; !present || password != "${PING_IDENTITY_PASSWORD}" {
+				t.Fatal("repository administrative account must contain only the reviewed environment placeholder")
 			}
 		}
 	}

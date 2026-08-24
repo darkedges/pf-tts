@@ -43,6 +43,7 @@ spec:
           env:
             - {name: PING_IDENTITY_ACCEPT_EULA, value: "YES"}
             - {name: ORCHESTRATION_TYPE, value: "kubernetes"}
+            - {name: PF_ADMIN_API_AUTHENTICATION, value: "BASIC"}
             - {name: SERVER_PROFILE_BRANCH, value: {{ .Values.profile.branch | quote }}}
             - name: PING_IDENTITY_DEVOPS_USER
               valueFrom: {secretKeyRef: {name: wai-pf13-devops, key: username}}
@@ -69,7 +70,7 @@ spec:
           resources: {{- toYaml .Values.resources | nindent 12 }}
           securityContext: *restricted
           volumeMounts:
-            - {name: out-pf13-preserved-admin, mountPath: /opt/out}
+            - {name: out-pf13-basic-admin, mountPath: /opt/out}
             - {name: writable-staging, mountPath: /opt/staging}
             - {name: writable-etc, mountPath: /etc/motd, subPath: motd}
             - {name: tmp, mountPath: /tmp}
@@ -83,7 +84,7 @@ spec:
         - name: runtime-ca
           secret: {secretName: wai-pf13-runtime-ca, defaultMode: 256}
   volumeClaimTemplates:
-    - metadata: {name: out-pf13-preserved-admin}
+    - metadata: {name: out-pf13-basic-admin}
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: {{ .Values.storage.storageClassName }}

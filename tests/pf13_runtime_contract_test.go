@@ -32,12 +32,12 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-preserved-admin", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-basic-admin", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
 		"docker.io/darkedges/pf-tts-pingfederate@sha256:c0871f8ccfcf4b4ef28200d2ce9a1b65a979b83a35e2654669b19383b38c0bd9",
-		"PING_IDENTITY_ACCEPT_EULA", "ORCHESTRATION_TYPE", "valueFrom: {secretKeyRef:",
+		"PING_IDENTITY_ACCEPT_EULA", "ORCHESTRATION_TYPE", `PF_ADMIN_API_AUTHENTICATION, value: "BASIC"`, "valueFrom: {secretKeyRef:",
 		"cp -R /opt/staging/. /writable-staging/", "mountPath: /etc/motd, subPath: motd",
 		"secretName: wai-pf13-runtime-ca, defaultMode: 256", "wai-pingfederate-vault-auth",
 	} {
@@ -50,6 +50,7 @@ func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 		"id.ping.darkedges.com", "skipTLSVerify: true", "kind: Secret", "stringData:", "vaultToken",
 		"method: appRole", "automountServiceAccountToken: true", "privileged: true", "hostPath:",
 		"forgerock-vault-tls", "tls.key", "fetch-profile", "assemble-profile", "crane@sha256", "mountPath: /opt/in",
+		`PF_ADMIN_API_AUTHENTICATION, value: ""`, `PF_ADMIN_API_AUTHENTICATION, value: "NONE"`,
 	} {
 		if strings.Contains(chart, forbidden) {
 			t.Errorf("isolated runtime crosses a security boundary with %q", forbidden)
@@ -111,7 +112,7 @@ func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
 		t.Fatal(err)
 	}
 	content := string(b)
-	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"username": "administrator"`, `"resourceType": "/administrativeAccounts"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/keyPairs/sslServer/settings"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
+	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"username": "administrator"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"resourceType": "/administrativeAccounts"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/keyPairs/sslServer/settings"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
 		if !strings.Contains(content, required) {
 			t.Errorf("administrator bootstrap profile missing %q", required)
 		}
@@ -119,7 +120,7 @@ func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
 	if strings.Count(content, `"resourceType":`) != 4 {
 		t.Fatal("bootstrap must contain exactly the four required resource types")
 	}
-	for _, forbidden := range []string{"2FederateM0re", "secretpass", "PING_IDENTITY_PASSWORD", `"username": "Administrator"`, "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
+	for _, forbidden := range []string{"2FederateM0re", "secretpass", `"username": "Administrator"`, "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("administrator bootstrap contains forbidden input %q", forbidden)
 		}
@@ -138,8 +139,8 @@ func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
 			if len(operation.Items) != 1 {
 				t.Fatal("bootstrap must preserve exactly one vendor-created administrator")
 			}
-			if _, present := operation.Items[0]["password"]; present {
-				t.Fatal("administrator preservation resource must not replace the Vault-backed password")
+			if password, present := operation.Items[0]["password"]; !present || password != "${PING_IDENTITY_PASSWORD}" {
+				t.Fatal("administrator resource must use only the reviewed Vault-backed placeholder")
 			}
 		}
 	}
