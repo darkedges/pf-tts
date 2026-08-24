@@ -79,7 +79,7 @@ spec:
           resources: {{- toYaml .Values.resources | nindent 12 }}
           securityContext: *restricted
           volumeMounts:
-            - {name: out-pf13-runtime, mountPath: /opt/out}
+            - {name: out-pf13-repository, mountPath: /opt/out}
             - {name: writable-staging, mountPath: /opt/staging}
             - {name: writable-etc, mountPath: /etc/motd, subPath: motd}
             - {name: tmp, mountPath: /tmp}
@@ -93,7 +93,7 @@ spec:
         - name: runtime-ca
           secret: {secretName: wai-pf13-runtime-ca, defaultMode: 256}
   volumeClaimTemplates:
-    - metadata: {name: out-pf13-runtime}
+    - metadata: {name: out-pf13-repository}
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: {{ .Values.storage.storageClassName }}

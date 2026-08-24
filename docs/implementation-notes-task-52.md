@@ -28,8 +28,8 @@ from VSO-created Secrets; a missing key fails Pod creation, and `envFrom` is
 forbidden. Runtime CA material is mounted read-only with mode `0400`. Secret
 values are absent from Helm values, command arguments, logs, and manifests.
 
-The StatefulSet owns `out-pf13-runtime-wai-pingfederate-0` in namespace
-`wai-pingfederate`. It does not mount the earlier partial PVC. Both Services are
+The StatefulSet owns `out-pf13-repository-wai-pingfederate-0` in namespace
+`wai-pingfederate`. It does not mount either earlier partial PVC. Both Services are
 `ClusterIP`; no Ingress exists. Administrator access remains a bounded local
 port-forward. The shared `pingfed` namespace and 12.3 resources are not selected.
 
