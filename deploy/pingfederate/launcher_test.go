@@ -454,7 +454,7 @@ func TestKubernetesBootstrapIsTwoPhasePrivateAndFailClosed(t *testing.T) {
 	script := string(b)
 	for _, required := range []string{
 		"Refusing to bootstrap over existing PVC", "adminApi.bootstrapNewInstance=true",
-		"<user-name>administrator</user-name>", "within five minutes", "adminApi.bootstrapNewInstance=false",
+		":user-name[^>]*>administrator", "within five minutes", "adminApi.bootstrapNewInstance=false",
 		"PF_ADMIN_API_AUTHENTICATION", "$mode -ne 'native'", "--address", "127.0.0.1",
 		"PF_ADMIN_INSECURE = 'false'", "discover_pf_plugins.py", "Stop-Process",
 	} {

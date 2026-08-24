@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Unauthenticated bootstrap phase failed.' }
 
 $accountCreated = $false
 for ($attempt = 0; $attempt -lt 60; $attempt++) {
-    kubectl -n $Namespace exec $Pod -- sh -ceu 'test "$(grep -c ''<user-name>administrator</user-name>'' /opt/out/instance/server/default/data/pingfederate-admin-user.xml)" -eq 1' *> $null
+    kubectl -n $Namespace exec $Pod -- sh -ceu 'test "$(grep -Ec '':user-name[^>]*>administrator</[^:>]*:user-name>'' /opt/out/instance/server/default/data/pingfederate-admin-user.xml)" -eq 1' *> $null
     if ($LASTEXITCODE -eq 0) {
         $accountCreated = $true
         break
