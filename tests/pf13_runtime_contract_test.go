@@ -104,21 +104,21 @@ func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
 	}
 }
 
-func TestRepositoryProfileOnlyParameterizesAdministratorBootstrap(t *testing.T) {
+func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
 	b, err := os.ReadFile("../profiles/pingfederate/instance/bulk-config/data.json.subst")
 	if err != nil {
 		t.Fatal(err)
 	}
 	content := string(b)
-	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"username": "Administrator"`, `"resourceType": "/administrativeAccounts"`} {
+	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"username": "Administrator"`, `"resourceType": "/administrativeAccounts"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
 		if !strings.Contains(content, required) {
 			t.Errorf("administrator bootstrap profile missing %q", required)
 		}
 	}
-	if strings.Count(content, `"resourceType":`) != 1 {
-		t.Fatal("administrator bootstrap must contain exactly one resource type")
+	if strings.Count(content, `"resourceType":`) != 3 {
+		t.Fatal("bootstrap must contain exactly the three required resource types")
 	}
-	for _, forbidden := range []string{"2FederateM0re", "secretpass", "/oauth/", "/serverSettings/", "PRIVATE KEY", `"kty"`} {
+	for _, forbidden := range []string{"2FederateM0re", "secretpass", "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("administrator bootstrap contains forbidden input %q", forbidden)
 		}

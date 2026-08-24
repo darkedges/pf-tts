@@ -5,6 +5,33 @@
       "operationType": "SAVE",
       "items": [
         {
+          "password": "${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_password}",
+          "fileData": "${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}",
+          "id": "vtcm75en83g6v1r87ytm7lihi"
+        }
+      ],
+      "resourceType": "/keyPairs/sslServer"
+    },
+    {
+      "operationType": "SAVE",
+      "items": [
+        {
+          "current": {
+            "keyData": "${serverSettings_systemKeys_items_current_keyData}",
+            "creationDate": "2019-03-01T21:13:15.312Z"
+          },
+          "pending": {
+            "keyData": "${serverSettings_systemKeys_items_pending_keyData}",
+            "creationDate": "2019-03-01T21:13:15.314Z"
+          }
+        }
+      ],
+      "resourceType": "/serverSettings/systemKeys"
+    },
+    {
+      "operationType": "SAVE",
+      "items": [
+        {
           "password": "${PING_IDENTITY_PASSWORD}",
           "roles": [
             "EXPRESSION_ADMINISTRATOR",
