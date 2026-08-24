@@ -13,3 +13,9 @@ fi
 install -d -m 0750 "${deploy_dir}"
 install -m 0444 "${source_jar}" "${target_jar}"
 chmod 0550 "${deploy_dir}"
+
+if [ -z "${CONTAINER_ENV:-}" ] || [ ! -f "${CONTAINER_ENV}" ] || [ -L "${CONTAINER_ENV}" ]; then
+    echo "PingFederate container environment file is missing or unsafe." >&2
+    exit 1
+fi
+printf '%s\n' 'export PING_IDENTITY_PASSWORD="${PING_IDENTITY_PASSWORD:?PING_IDENTITY_PASSWORD is required}"' >> "${CONTAINER_ENV}"

@@ -31,7 +31,7 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-profile", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-admin-profile", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
@@ -89,16 +89,39 @@ func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
 	for _, required := range []string{
 		"/opt/staging/wai-pingfederate-spiffe-plugins.jar", "/opt/staging/instance/server/default/deploy",
 		`[ ! -f "${source_jar}" ]`, `[ -L "${source_jar}" ]`, `install -d -m 0750`, `install -m 0444`, `chmod 0550`,
+		`[ ! -f "${CONTAINER_ENV}" ]`, `[ -L "${CONTAINER_ENV}" ]`, `'export PING_IDENTITY_PASSWORD="${PING_IDENTITY_PASSWORD:?PING_IDENTITY_PASSWORD is required}"'`,
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("repository profile missing fail-closed staging control %q", required)
 		}
 	}
 	for _, forbidden := range []string{
-		"env_vars", "bulk-config", "curl ", "wget ", "-----BEGIN", "2FederateM0re", "secretpass",
+		"bulk-config", "curl ", "wget ", "-----BEGIN", "2FederateM0re", "secretpass",
 	} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("repository profile contains forbidden input %q", forbidden)
+		}
+	}
+}
+
+func TestPrivateAdminTrustBootstrapRejectsAmbiguityAndTLSBypass(t *testing.T) {
+	script, err := os.ReadFile("../scripts/export-pf13-kubernetes-admin-ca.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(script)
+	for _, required := range []string{
+		"$Namespace -ne 'wai-pingfederate'", "$Pod -ne 'wai-pingfederate-0'", "$matches.Count -ne 1",
+		"MatchesHostname('localhost'", "CertificateAuthority", "$cert.Subject -ne $cert.Issuer",
+		"pf13-kubernetes-admin-ca.pem", "GetCertHashString('SHA256')",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("private admin trust bootstrap missing control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"-k ", "--insecure", "SkipCertificateCheck", "TrustAll", "tls.key", "kubectl get secret"} {
+		if strings.Contains(content, forbidden) {
+			t.Errorf("private admin trust bootstrap weakens boundary with %q", forbidden)
 		}
 	}
 }
