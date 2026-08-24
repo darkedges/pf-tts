@@ -7,6 +7,11 @@ resource "pingfederate_oauth_access_token_manager" "transaction" {
       ])
       error_message = "The transaction ATM requires exact trusted workload-to-AgentID bindings and an allowlisted purpose field."
     }
+
+    precondition {
+      condition     = !var.enable_transaction_tokens_inner_profile || var.enable_transaction_tokens_capability_probe
+      error_message = "The strict inner Transaction Token profile may run only with the isolated capability gate enabled."
+    }
   }
 
   manager_id = "waiTransactionToken"
@@ -35,12 +40,37 @@ resource "pingfederate_oauth_access_token_manager" "transaction" {
       {
         name  = "Key ID"
         value = pingfederate_keypairs_signing_key.transaction.key_id
+      },
+      {
+        name  = "Token Profile"
+        value = local.transaction_token_profile
+      },
+      {
+        name  = "Audience"
+        value = local.effective_transaction_audience
+      },
+      {
+        name  = "Transaction Target"
+        value = var.transaction_tokens_target
+      },
+      {
+        name  = "Transaction Tool"
+        value = var.transaction_tokens_tool
+      },
+      {
+        name  = "Transaction Scope"
+        value = local.effective_transaction_scope
       }
-    ], var.transaction_atm_configuration_fields)
+      ], [for field in var.transaction_atm_configuration_fields : field if !contains([
+        "Token Profile", "Audience", "Transaction Target", "Transaction Tool", "Transaction Scope"
+    ], field.name)])
   }
 
   selection_settings = {
     resource_uris = [
+      # PingFederate requires an absolute URI here. The strict Trust Domain is
+      # selected by its isolated OAuth resource client and is still minted as
+      # the signed JWT audience; it is not valid in this product-specific field.
       var.transaction_audience
     ]
   }
@@ -91,7 +121,7 @@ resource "pingfederate_oauth_access_token_mapping" "transaction" {
       source = {
         type = "TEXT"
       }
-      value = var.transaction_audience
+      value = local.effective_transaction_audience
     }
 
     # These remain NO_MAPPING until a trusted server-side transaction

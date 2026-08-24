@@ -77,6 +77,33 @@ func Verifier() (*pingfederate.JWTVerifier, error) {
 	})
 }
 
+func StrictTxnVerifier() (*transaction.TxnTokenVerifier, error) {
+	issuer, err := Required("PF_TRANSACTION_ISSUER")
+	if err != nil {
+		return nil, err
+	}
+	jwksURL, err := Required("PF_JWKS_URL")
+	if err != nil {
+		return nil, err
+	}
+	client, err := PFHTTPClient()
+	if err != nil {
+		return nil, err
+	}
+	keys, err := pingfederate.NewJWKSKeyResolver(jwksURL, client, 1<<20)
+	if err != nil {
+		return nil, err
+	}
+	return transaction.NewTxnTokenVerifier(transaction.TxnTokenVerifierConfig{
+		Mode: transaction.ProfileTxnTokenV11, Issuer: issuer, TrustDomain: "example.org",
+		Algorithms: []jose.SignatureAlgorithm{jose.RS256}, ClockSkew: 5 * time.Second,
+		MaximumLifetime: 60 * time.Second, MaximumTokenBytes: 16 << 10, MaximumPayloadBytes: 8 << 10,
+		MaximumIdentifierBytes: 256, MaximumContextBytes: 2 << 10, MaximumScopes: 1,
+		AllowedScopes:         map[string]struct{}{"mcp.system.whoami": {}},
+		WorkloadAgentBindings: map[string]string{"spiffe://example.org/agent/demo": "urn:agent:demo"}, Keys: keys,
+	})
+}
+
 func PFHTTPClient() (*http.Client, error) {
 	caFile := strings.TrimSpace(os.Getenv("PF_CA_FILE"))
 	pool, err := x509.SystemCertPool()

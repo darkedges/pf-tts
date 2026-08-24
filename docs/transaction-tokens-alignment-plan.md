@@ -237,6 +237,15 @@ Evidence must be a reproducible request against the pinned local image,
 discovered plugin/SDK descriptors, or exact Ping documentation. A guessed
 configuration is not evidence.
 
+Task 34 resolved the primary blocker against the pinned 13.1 image. With an
+isolated `example.org` audience selector, access-token output succeeded for
+both the existing and trust-domain audiences, while the Txn-Token requested
+type returned HTTP 400 `invalid_request` for both. The bearer ATM SDK also
+publishes a fixed `Bearer` token type. Native outer-wire conformance is
+therefore unsupported by the tested ATM path. See
+[`implementation-notes-task-34.md`](implementation-notes-task-34.md) for the
+sanitized evidence and remaining token-generator questions.
+
 ### Safe fallback if PingFederate cannot emit the outer profile
 
 Preferred outcomes, in order:
@@ -511,6 +520,13 @@ Objective: model draft 11 independently of transport and PingFederate.
 
 Rollback: configuration remains legacy; new code is unreachable in normal flow.
 
+Task 35 implements this offline boundary. It adds explicit non-autodetecting
+profile modes, typed draft-11 claims and local context, strict JOSE/schema/time/
+scope/binding validation, copied trusted policy inputs, and product-neutral
+key resolution. It intentionally does not connect the verifier to running
+middleware or issuance. See
+[`implementation-notes-task-35.md`](implementation-notes-task-35.md).
+
 ### Phase C: PingFederate inner token profile
 
 Objective: have the existing PingFederate signer emit the exact inner JWT.
@@ -524,6 +540,13 @@ Objective: have the existing PingFederate signer emit the exact inner JWT.
 
 Rollback: deploy the previous versioned plugin and Terraform profile as one
 unit. Never accept both JWT shapes in the same strict mode.
+
+Task 36 implements and live-verifies this phase behind a default-off isolated
+gate. PingFederate emits the exact strict inner JWT from its existing managed
+signer using fixed trusted target, tool, and narrow scope configuration. The
+normal workbench remains legacy, and the outer OAuth response remains the
+documented Task 34 non-conformance. See
+[`implementation-notes-task-36.md`](implementation-notes-task-36.md).
 
 ### Phase D: exact TTS wire response
 
@@ -539,6 +562,19 @@ mutual requester authentication requirements.
 
 Blocker: stop here if exact behavior requires a custom signer, token rewriting,
 or weakened PingFederate validation.
+
+Task 37 selects and implements the separately reviewed narrow non-signing
+adapter boundary from ADR 0010. It translates only outer protocol metadata,
+independently verifies the unchanged PingFederate-signed strict JWT, and binds
+signed `req_wl` to the authenticated SPIFFE requester. Task 38 passes the
+isolated mTLS deployment gate: a fresh strict PingFederate profile and
+separately addressed adapter accepted the approved agent, rejected the wrong
+workload at mTLS, returned exact outer semantics, and passed token-leak and
+exact-resource cleanup checks. The adapter remains default-off and outside the
+normal workbench pending the atomic Phase E migration. See
+[`implementation-notes-task-37.md`](implementation-notes-task-37.md).
+Live deployment evidence is in
+[`implementation-notes-task-38.md`](implementation-notes-task-38.md).
 
 ### Phase E: atomic Call Chain transport and policy cutover
 

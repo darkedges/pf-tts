@@ -14,6 +14,71 @@ x-app: &app
   networks: [wai-app]
 
 services:
+  tts-adapter:
+    <<: *app
+    profiles: ["txn-token-gate", "txn-token-call-chain"]
+    build:
+      context: ../..
+      args: {COMMAND: tts-adapter}
+    labels: {wai.workload: tts-adapter}
+    environment:
+      <<: *common-env
+      TTS_ADAPTER_LISTEN: :8448
+      PF_TOKEN_ENDPOINT: ${PF_TOKEN_ENDPOINT:?Set PF_TOKEN_ENDPOINT outside Compose}
+      PF_CLIENT_ID: ${PF_CLIENT_ID:-wai-agent-token-exchange}
+      PF_CLIENT_SECRET: ${PF_CLIENT_SECRET:?Set PF_CLIENT_SECRET outside Compose}
+
+  strict-mcp-gateway:
+    <<: *app
+    profiles: ["txn-token-call-chain"]
+    build:
+      context: ../..
+      args: {COMMAND: strict-mcp-gateway}
+    labels: {wai.workload: strict-mcp-gateway}
+    environment:
+      <<: *common-env
+      STRICT_MCP_SERVER_URL: https://strict-demo-mcp-server:8544
+    volumes:
+      - spire-agent-socket:/run/spire/sockets:ro
+      - ../pingfederate/generated/local-runtime-ca.pem:/run/pingfederate/ca.pem:ro
+      - ../../config/authorization-strict.rego:/run/wai/authorization.rego:ro
+    depends_on: [strict-demo-mcp-server]
+
+  strict-demo-mcp-server:
+    <<: *app
+    profiles: ["txn-token-call-chain"]
+    build:
+      context: ../..
+      args: {COMMAND: strict-demo-mcp-server}
+    labels: {wai.workload: strict-demo-mcp-server}
+    environment:
+      <<: *common-env
+      STRICT_DEMO_API_URL: https://strict-demo-api:8545
+    depends_on: [strict-demo-api]
+
+  strict-demo-api:
+    <<: *app
+    profiles: ["txn-token-call-chain"]
+    build:
+      context: ../..
+      args: {COMMAND: strict-demo-api}
+    labels: {wai.workload: strict-demo-api}
+
+  strict-demo-agent:
+    <<: *app
+    profiles: ["txn-token-call-chain"]
+    restart: "no"
+    build:
+      context: ../..
+      args: {COMMAND: strict-demo-agent}
+    labels: {wai.workload: demo-agent}
+    environment:
+      <<: *common-env
+      TTS_ADAPTER_URL: https://tts-adapter:8448/as/token.oauth2
+      STRICT_MCP_GATEWAY_URL: https://strict-mcp-gateway:8543
+      USER_ACCESS_TOKEN: ${USER_ACCESS_TOKEN:?Set USER_ACCESS_TOKEN outside Compose}
+    depends_on: [tts-adapter, strict-mcp-gateway]
+
   mcp-gateway:
     <<: *app
     build:

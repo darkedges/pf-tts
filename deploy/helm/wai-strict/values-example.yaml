@@ -1,0 +1,21 @@
+global:
+  pingFederate:
+    issuer: https://pingfederate.example.com
+    jwksURL: https://pingfederate.example.com/pf/JWKS
+    caSecretName: pingfederate-runtime-ca
+
+images:
+  ttsAdapter: {repository: ghcr.io/darkedges/pf-tts/tts-adapter, digest: sha256:REPLACE}
+  gateway: {repository: ghcr.io/darkedges/pf-tts/strict-mcp-gateway, digest: sha256:REPLACE}
+  mcpServer: {repository: ghcr.io/darkedges/pf-tts/strict-demo-mcp-server, digest: sha256:REPLACE}
+  api: {repository: ghcr.io/darkedges/pf-tts/strict-demo-api, digest: sha256:REPLACE}
+
+ttsAdapter:
+  tokenEndpoint: https://pingfederate.example.com/as/token.oauth2
+  oauthSecretName: pingfederate-token-exchange-client
+
+vault:
+  enabled: true
+  address: https://vault.example.com:8200
+  kubernetesRole: wai-strict
+  caCertSecretRef: vault-server-ca

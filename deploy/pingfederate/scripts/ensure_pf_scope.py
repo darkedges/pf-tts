@@ -12,7 +12,10 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-SCOPE_NAME = "mcp:invoke"
+ALLOWED_SCOPES = {"mcp:invoke", "mcp.system.whoami"}
+SCOPE_NAME = os.getenv("PF_TRANSACTION_SCOPE", "mcp:invoke")
+if SCOPE_NAME not in ALLOWED_SCOPES:
+    raise SystemExit("PF_TRANSACTION_SCOPE is not an approved fixed transaction scope.")
 SCOPE_DESCRIPTION = "Invoke an approved MCP target through the WAI transaction flow."
 
 
@@ -38,8 +41,7 @@ if not username or not password:
 
 context = ssl.create_default_context()
 if os.getenv("PF_ADMIN_INSECURE", "false").lower() == "true":
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+	raise SystemExit("Scope provisioning refuses disabled TLS validation.")
 
 authorization = base64.b64encode(f"{username}:{password}".encode()).decode()
 headers = {

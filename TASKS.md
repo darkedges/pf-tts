@@ -815,3 +815,472 @@ Definition of done:
   non-conformances, and the evidence needed to resolve product-dependent
   unknowns.
 - No runtime or infrastructure behavior changes as part of Task 33.
+
+## Task 34 — Isolated PingFederate Transaction Tokens capability gate
+
+Goal: determine, with reproducible sanitized evidence from the pinned
+PingFederate 13.1 image, which draft-11 Transaction Tokens request, response,
+and JWT-profile requirements PingFederate can support natively before any
+runtime migration begins.
+
+Acceptance criteria:
+
+- Run only inside the random, script-owned clean-bootstrap container, volume,
+  ports, certificate, and Terraform state. Never probe or change the normal
+  workbench instance.
+- Apply the existing trusted PingFederate configuration and prove the current
+  subject-token, actor-token, and tampered-actor validation before running the
+  capability probes.
+- Send bounded form-encoded probes that independently test the Transaction
+  Token requested type, trust-domain audience, `request_context`, and
+  `request_details` while retaining the verified subject and SPIRE actor
+  inputs. Do not weaken either token processor to obtain a successful result.
+- Record only HTTP status, bounded OAuth error code, response token metadata,
+  allowlisted JOSE header metadata, claim names, and presence/absence flags.
+  Never record or print subject tokens, actor tokens, issued tokens, client
+  secrets, passwords, authorization headers, response descriptions, raw
+  response bodies, private material, or sensitive context values.
+- Validate TLS with the exact isolated runtime certificate, use bounded network
+  and subprocess timeouts, cap response size, require exact JSON object
+  responses, and reject redirects, duplicate JSON keys, symlinked trust files,
+  ambiguous SPIRE identities, and unexpected algorithms or key IDs.
+- Treat rejection as capability evidence, not as a reason to relax validation.
+  Distinguish unsupported requested type, unresolved audience, ignored context,
+  malformed response, and inconclusive product behavior.
+- Add failure tests for insecure TLS, normal-workbench targeting, token output,
+  unbounded response handling, response-description logging, mutable shared
+  state, broad cleanup, and a probe that omits the actor token.
+- Produce `docs/implementation-notes-task-34.md` containing the exact pinned
+  image, probe matrix, sanitized results, capability decision, trust boundaries,
+  remaining unknowns, and recommendation for native support, product
+  enhancement/documented non-conformance, a separately reviewed narrow
+  non-signing adapter, or stopping the migration.
+- Do not change application token issuance, verification, transport,
+  PingAuthorize/OPA policy, or normal workbench configuration in Task 34.
+
+## Task 35 — Strict Transaction Token domain model and verifier
+
+Goal: model and verify the draft-11 inner Transaction Token JWT independently
+of PingFederate and HTTP transport while the running application remains in
+legacy mode.
+
+Acceptance criteria:
+
+- Add explicit `legacy-wai-jwt` and `ietf-txn-token-v11` profile modes and
+  reject empty or unknown modes. Do not auto-detect token formats.
+- Add a typed Transaction Token claim model for `iss`, `sub`, `aud`, `iat`,
+  `exp`, `txn`, `scope`, `req_wl`, the bounded local `tctx.wai` profile, an
+  optional bounded `rctx`, and optional `jti`. Keep user, logical agent, agent
+  instance, requesting workload, and transaction identities distinct.
+- Require a protected `typ=txntoken+jwt`, an explicitly allowlisted algorithm,
+  exactly one non-empty `kid`, one compact JWS signature, and no unprotected
+  JOSE fields.
+- Require an allowlisted issuer, exact Trust Domain audience, bounded clock
+  skew and lifetime, non-empty unique transaction and subject identifiers,
+  allowlisted narrow scopes, exact requesting-workload/local-agent agreement,
+  and a trusted SPIFFE workload-to-agent binding.
+- Ignore unknown top-level claims, but strictly reject unknown or duplicate
+  fields inside the local `tctx.wai` and `rctx` profiles. Bound the compact
+  token, decoded payload, identifiers, scope count, and context values before
+  returning typed claims.
+- Resolve verification keys through an injected product-neutral boundary.
+  Reject unknown or ambiguous key IDs and never select an algorithm from the
+  token header outside the configured allowlist.
+- Add failure tests for wrong or unprotected `typ`, disallowed algorithm,
+  missing/unknown key ID, bad signature, issuer/audience/time/lifetime errors,
+  duplicate JSON keys, malformed/oversized context, unknown local-profile
+  fields, scope expansion, workload/agent conflict, and invalid profile mode.
+- Do not connect the new verifier to middleware, issuance, transport,
+  PingAuthorize, OPA, Terraform, or the normal workbench in Task 35.
+
+## Task 36 — PingFederate strict inner Transaction Token profile
+
+Goal: make the existing PingFederate-managed signer capable of emitting the
+exact draft-11 inner JWT profile in an explicitly isolated mode without
+claiming or changing the unsupported outer OAuth response semantics.
+
+Acceptance criteria:
+
+- Add an explicit plugin profile setting with only `legacy-wai-jwt` and
+  `ietf-txn-token-v11`; reject missing or unknown values and never auto-detect.
+- Preserve the existing legacy claim shape and `typ=at+jwt` when legacy mode
+  is selected.
+- In strict mode emit protected `typ=txntoken+jwt`, configured HTTPS `iss`,
+  exact Trust Domain `aud`, numeric `iat`/`exp`, unique `txn`, bounded `sub`,
+  fixed allowlisted narrow `scope`, verified actor workload as `req_wl`, and a
+  bounded `tctx.wai` containing the trusted logical agent binding, minted agent
+  instance, matching workload, fixed target, and fixed tool.
+- Continue using only the PingFederate-managed signing key. Do not add another
+  signer, rewrite a signed token, or copy untrusted request context/details.
+- In strict mode derive target, tool, scope, AgentID, agent instance, and
+  transaction ID from plugin configuration or trusted verified inputs. Reject
+  a requested scope that does not exactly match the fixed configured scope.
+- Add an isolated-only Terraform switch defaulting false. Normal state must
+  continue to select the legacy profile, logical-resource audience, and
+  current scope. Strict mode must select the Trust Domain and fixed narrow
+  transaction context as one configuration unit.
+- Add Java and repository failure tests for unknown profile, wrong scope,
+  missing verified workload/subject, forged AgentID/workload conflicts,
+  malformed context configuration, wrong JOSE type or audience, legacy-shape
+  leakage into strict output, and accidental strict enablement in normal
+  Terraform state.
+- Extend the clean-bootstrap harness with a separate strict-inner-profile gate
+  that independently verifies the signature and exact claim/header shape. Do
+  not weaken the Task 34 capability conclusion: the outer response remains a
+  bearer OAuth access-token response and is a documented non-conformance.
+- Do not change application verification, `Authorization` transport,
+  PingAuthorize/OPA input, or normal workbench runtime in Task 36.
+
+## Task 37 — Narrow non-signing Transaction Token protocol adapter
+
+Goal: provide the exact draft-11 outer token-exchange request and response
+semantics that PingFederate 13.1 cannot expose natively, without adding a
+signer, rewriting a token, or changing normal runtime wiring.
+
+Acceptance criteria:
+
+- Implement a separately wired HTTP handler only; do not add it to the normal
+  application stack in this task.
+- Require an authenticated SPIFFE mTLS requester through an injected verified
+  peer-identity boundary. Reject absent, ambiguous, or invalid caller identity.
+- Accept only POST, no query/cookie/Authorization credentials, exact
+  form-encoded media type, bounded body, exact allowlisted fields, and exactly
+  one value per field. Reject duplicates, unknown fields, empty values, and
+  oversized subject or actor tokens.
+- Require the RFC 8693 grant, access-token subject type, JWT actor type,
+  Transaction Token requested type, exact Trust Domain audience, and one exact
+  configured narrow scope.
+- Translate only the unsupported outer requested type when calling the fixed
+  injected PingFederate exchanger. Preserve subject and actor tokens in memory
+  and never place them in URLs, logs, errors, or responses.
+- Require PingFederate to return its known Bearer access-token response, then
+  independently verify the returned strict inner JWT using Task 35. Require
+  `req_wl` to equal the authenticated mTLS caller and require exact scope and
+  Trust Domain agreement.
+- Return the original compact PingFederate-signed token byte-for-byte with
+  Transaction Token issued type, `token_type=N_A`, bounded positive expiry,
+  `Cache-Control: no-store`, and no refresh token or response scope. Never
+  sign, decode-and-resign, mutate, or derive another token.
+- Return only allowlisted OAuth error codes without descriptions, upstream
+  bodies, credentials, tokens, signing material, or verifier details.
+- Add failure tests for method/media/query/cookie/Authorization misuse,
+  duplicate or unknown form fields, missing actor, wrong token types/audience/
+  scope, oversized input, failed upstream exchange, malformed outer response,
+  invalid strict JWT, wrong requester workload, expiry inconsistency, token
+  mutation, redirect-style behavior, and credential leakage.
+- Add an ADR and threat-boundary notes. Keep the Task 34 native-product
+  non-conformance explicit and do not claim end-to-end conformance until the
+  adapter is deployed in an isolated SPIFFE mTLS stack and the Call Chain is
+  atomically migrated.
+
+## Task 38 — Isolated SPIFFE mTLS TTS adapter deployment gate
+
+Goal: wire Task 37 as a separately addressed SPIFFE workload and prove the
+exact outer protocol against the Task 36 isolated PingFederate profile before
+any Call Chain migration.
+
+Acceptance criteria:
+
+- Add a dedicated adapter command with SPIFFE ID
+  `spiffe://example.org/tts/adapter`; never reuse an agent, gateway, MCP, API,
+  or audit identity.
+- Obtain rotating X.509-SVID material only through the configured Workload API
+  endpoint and require exact allowlisted requester SPIFFE IDs at TLS setup.
+- Extract caller identity only after SPIFFE mTLS verification and pass it to
+  the Task 37 handler. Do not trust forwarded identity headers.
+- Add a bounded fixed-HTTPS PingFederate JWKS key resolver that rejects
+  redirects, non-200 responses, oversized or duplicate-key JSON, missing or
+  ambiguous `kid`, and empty key sets.
+- Wire the fixed PingFederate exchanger, Task 35 strict verifier, exact Trust
+  Domain, narrow scope, bounded timeouts/body/token/expiry, and no-store
+  protocol handler through constructor validation and environment parsing.
+- Add the distinct SPIRE Docker selector registration and an isolated-only
+  container/service definition. Do not add the adapter to normal app-only or
+  local-lab startup profiles.
+- Add failure tests for missing/invalid configuration, wrong Workload API
+  identity, untrusted TLS caller, rogue caller/actor mismatch, JWKS redirect,
+  duplicate/oversized/ambiguous JWKS, unavailable PingFederate, exact outer
+  response mismatch, token leakage, and broad/permissive peer policy.
+- Add an isolated test that starts the strict PingFederate profile and adapter,
+  makes a SPIFFE mTLS request from the approved demo-agent workload, verifies
+  exact Transaction Token outer semantics and signature, then proves a wrong
+  workload is rejected. Capture output and assert no raw token appears.
+- Clean up only exact randomly named adapter/PingFederate containers, volumes,
+  certificates, networks, and state. Keep normal workbench state unchanged.
+- Do not begin `Txn-Token` Call Chain transport or policy migration in Task 38.
+
+## Task 39 — Strict Txn-Token HTTP transport boundary
+
+Goal: define the exact product-neutral HTTP field boundary used by the Phase E
+Call Chain migration without enabling dual legacy/strict runtime parsing.
+
+Acceptance criteria:
+
+- Add a dedicated `Txn-Token` extractor that requires exactly one field value,
+  a configured positive size bound, and one non-empty compact JWS value.
+- Reject any request containing `Authorization`, including empty or duplicate
+  values, when strict Transaction Token transport is selected.
+- Reject missing, duplicate, comma-folded, whitespace/control-containing,
+  malformed, and oversized `Txn-Token` values before verification.
+- Add a propagation helper that writes exactly one `Txn-Token` value only to a
+  clean destination header. Reject existing `Txn-Token` or `Authorization`
+  fields rather than replacing or appending them.
+- Return only a generic transport error and never include the token or header
+  contents in errors.
+- Add table-driven positive and failure tests, including legacy Bearer
+  coexistence, duplicate values, proxy-style comma folding, malformed compact
+  values, oversize, and propagation into a credential-bearing request.
+- Document the trust boundary and rollback rule. Do not wire this boundary into
+  the agent, gateway, MCP server, API, web application, policy adapters, or
+  normal Compose profiles in Task 39.
+
+## Task 40 — Strict Txn-Token verification middleware
+
+Goal: convert one strict transported Transaction Token into typed verified
+identity and signed route context while independently authenticating the
+immediate SPIFFE caller.
+
+Acceptance criteria:
+
+- Add a separate constructor-built middleware that uses only the Task 39
+  `Txn-Token` extractor and Task 35 strict verifier. Never fall back to or
+  auto-detect the legacy Bearer middleware.
+- Require an exact non-empty allowlist of immediate caller SPIFFE IDs and copy
+  it during construction so later caller mutation cannot widen trust.
+- Extract immediate caller identity only from verified TLS state, or from the
+  existing explicitly configured SPIFFE-mTLS-already-verified boundary.
+- Convert verified subject, logical agent, agent instance, requesting
+  workload, transaction, and scopes into the existing typed identity context
+  without collapsing them. Preserve a separately typed copy of the signed
+  target and tool for policy enforcement.
+- Put the immutable compact token into trusted context only after all token,
+  identity, and caller checks pass.
+- Produce only non-replayable token evidence for audit and fail closed if a
+  configured verification-success audit sink cannot write.
+- Add failure tests for Bearer transport, bad signature, missing/ambiguous/
+  wrong caller, invalid typed identity, caller-allowlist mutation, audit
+  failure, and any rejected request receiving token or signed-route context.
+- Do not wire commands, policy adapters, downstream propagation, Compose, or
+  normal workbench runtime in Task 40.
+
+## Task 41 — Signed route enforcement and strict propagation
+
+Goal: prevent a verified Transaction Token from being used for a different MCP
+target/tool and propagate it downstream only through the strict HTTP field.
+
+Acceptance criteria:
+
+- Add an MCP authorizer decorator that requires the Task 40 signed route and
+  exact target/tool agreement before invoking the configured OPA or
+  PingAuthorize adapter.
+- Reject missing signed route, empty route inputs, target mismatch, tool
+  mismatch, and a missing underlying authorizer with a single generic denial.
+- Preserve request cancellation and pass the existing typed verified identity
+  unchanged to the underlying authorizer only after route agreement.
+- Add a downstream propagation helper that obtains the immutable token only
+  from trusted middleware context and writes it using the Task 39 strict
+  `Txn-Token` helper.
+- Require an existing signed route in the same trusted context before
+  propagation. Reject nil requests, unverified tokens, existing Authorization
+  or `Txn-Token` fields, malformed tokens, and non-positive bounds without
+  mutating request headers.
+- Never copy a token from an inbound header directly and never include token
+  material in errors.
+- Add table-driven failure tests for missing/mismatched route, underlying
+  denial, cancellation, missing trusted token, credential-bearing destination,
+  mutation on failure, and token leakage.
+- Do not change gateway/server/API commands or normal Compose wiring in Task 41.
+
+## Task 42 — Strict MCP gateway integration
+
+Goal: integrate Tasks 39–41 through a separate gateway constructor without
+changing the legacy gateway or any running command.
+
+Acceptance criteria:
+
+- Add a strict gateway constructor requiring an authorizer, audit sink, and
+  positive token-size bound. Wrap authorization with signed target/tool
+  enforcement so callers cannot omit it.
+- Require verified identity, signed route, and immutable token context before
+  forwarding. Reject any legacy Authorization field even if middleware was
+  accidentally bypassed.
+- Build downstream requests without generically copying Authorization,
+  `Txn-Token`, Proxy-Authorization, or connection credentials.
+- Propagate exactly one verified `Txn-Token` using Task 41 only after route and
+  policy authorization succeeds.
+- Keep the existing legacy constructors and Bearer behavior unchanged. Do not
+  add auto-detection or a runtime mode switch.
+- Add failure tests for route mismatch, policy denial, missing trusted context,
+  legacy Authorization coexistence, invalid size bound, downstream not called
+  on failure, and no credential/token leakage in errors.
+- Add a positive test proving the downstream receives one unchanged
+  `Txn-Token`, no Authorization field, and the expected MCP routing metadata.
+- Do not wire commands, MCP server/API handlers, Compose, or the normal
+  workbench in Task 42.
+
+## Task 43 — Strict MCP server and protected API handlers
+
+Goal: complete the unwired strict handler chain after the Task 42 gateway while
+preserving exact signed route and immutable-token semantics.
+
+Acceptance criteria:
+
+- Add a separate strict demo MCP server constructor requiring the fixed HTTPS
+  API client, endpoint, and positive token-size bound.
+- Require exact signed target/tool agreement inside each MCP tool handler even
+  when gateway authorization has already passed.
+- Propagate the immutable token to the API only with Task 41 and never set or
+  copy Authorization/Bearer credentials.
+- Add a separate strict protected API handler requiring exact configured
+  signed target/tool values, verified typed identity, verified immutable token,
+  and no Authorization field.
+- Return only safe transaction correlation data and never expose the compact
+  token or signed context object.
+- Reject missing/mismatched signed route, missing verified identity/token,
+  legacy Authorization coexistence, unsafe downstream endpoint/client/bound,
+  downstream rejection, and correlation mismatch.
+- Prove downstream receives exactly one unchanged `Txn-Token` and no
+  Authorization field; prove failures do not mutate headers or leak tokens.
+- Keep legacy constructors and commands unchanged. Do not add Compose or
+  runtime wiring in Task 43.
+
+## Task 44 — Separately addressed strict Call Chain commands
+
+Goal: assemble the strict gateway, MCP server, and API as separate command
+targets without changing normal workbench identities, listeners, or startup.
+
+Acceptance criteria:
+
+- Add dedicated strict identities `spiffe://example.org/gateway/mcp-strict`,
+  `spiffe://example.org/mcp/demo-strict`, and
+  `spiffe://example.org/api/demo-strict`; do not reuse legacy service IDs.
+- Add one strict verifier factory using the fixed PingFederate issuer/JWKS,
+  explicit RS256 allowlist, Trust Domain `example.org`, narrow
+  `mcp.system.whoami` scope, and trusted demo-agent workload binding.
+- Construct every server with Task 40 middleware and an exact immediate-caller
+  allowlist matching only the preceding strict hop.
+- Construct every SPIFFE TLS server/client with the same exact peer ID as its
+  middleware or downstream target. Never use trust-domain-wide or permissive
+  authorization.
+- Use distinct default listeners 8543, 8544, and 8545 and fixed HTTPS endpoint
+  environment variables for the strict stack.
+- Build the strict gateway only with Task 42, the strict MCP server only with
+  Task 43, and the strict API only with Task 43.
+- Add factory failure tests and repository tests proving distinct identities,
+  exact peers, strict constructors, and absence from normal Compose profiles.
+- Do not add Compose services, SPIRE registrations, an agent issuer client, or
+  live startup in Task 44.
+
+## Task 45 — Isolated strict Call Chain profile and agent
+
+Goal: make the complete strict stack startable only through an isolated Compose
+profile and provide an agent that obtains its token through the TTS adapter.
+
+Acceptance criteria:
+
+- Add exact SPIRE registrations and distinct Docker selectors for the three
+  strict service identities. Reuse the existing demo-agent identity only for
+  the same approved logical agent workload.
+- Add an isolated `txn-token-call-chain` Compose profile containing the TTS
+  adapter, strict gateway, strict MCP server, strict API, and strict demo agent.
+  Do not add any strict service to `app-only` or `local-lab`.
+- Mount a separate read-only strict OPA policy requiring the signed strict
+  purpose, target, tool, workload, AgentID, and `mcp.system.whoami` scope.
+- Add a strict demo agent that accepts an externally supplied user access token,
+  obtains its actor JWT-SVID, calls only the fixed HTTPS TTS adapter with exact
+  Transaction Token semantics, independently verifies the returned strict
+  token, and calls only the strict gateway over exact SPIFFE mTLS.
+- Send the gateway token only with one `Txn-Token` field. Never send
+  Authorization, print response bodies, or log subject, actor, or transaction
+  tokens.
+- Bound all clients, bodies, responses, and token values; reject redirects,
+  wrong adapter outer semantics, wrong signed requesting workload/route, and
+  non-success gateway responses.
+- Add unit/repository tests for missing token, malformed adapter response,
+  wrong outer type, wrong strict claims, Bearer leakage, profile isolation,
+  writable policy mounts, identity/selector mismatch, and embedded secrets.
+- Do not run the live profile or change normal workbench state in Task 45.
+
+## Task 46 — Live atomic strict Call Chain gate
+
+Goal: prove the complete strict path against a fresh strict PingFederate profile
+without changing or reusing normal workbench containers or state.
+
+Acceptance criteria:
+
+- Extend the exact-cleanup bootstrap harness with a distinct strict Call Chain
+  switch that implies the Task 36 strict issuer and Task 38 adapter gates.
+- Start the strict gateway, MCP server, and API on one randomly named isolated
+  bridge network with exact randomly named containers and images.
+- Exercise agent → adapter → gateway → MCP server → API using one unchanged
+  PingFederate-signed Transaction Token and exact SPIFFE mTLS at every hop.
+- Verify successful MCP/API transaction correlation without printing response
+  bodies or any raw subject, actor, or transaction token.
+- Prove the strict gateway rejects legacy Bearer transport and rejects a wrong
+  SPIFFE workload during mTLS authentication.
+- Capture strict service/probe output and reject JWT-shaped values, known
+  credentials, Authorization values, or client secrets.
+- Bound readiness, requests, responses, logs, and cleanup. Remove only exact
+  random containers, images, network, certificate, Terraform work, and state.
+- Record sanitized live evidence and confirm normal workbench containers and
+  state are unchanged.
+
+## Task 47 — Version-pinned Transaction Tokens conformance evidence
+
+Goal: state precisely what the completed strict Call Chain implements against
+the reviewed Transaction Tokens drafts without overstating interoperability or
+PingFederate native support.
+
+Acceptance criteria:
+
+- Publish a concise conformance report pinned to
+  `draft-ietf-oauth-transaction-tokens-11` and the separately evaluated
+  `draft-oauth-transaction-tokens-for-agents-06`.
+- Distinguish base-profile requirements, the local WAI agent extension,
+  implementation hardening, and known product deviations.
+- Link each implemented claim to repository code or repeatable test evidence.
+- Explicitly record that PingFederate signs the inner token while the narrow
+  adapter supplies the unsupported outer Transaction Token response semantics.
+- State that the result is a closest-safe alignment profile, not native
+  PingFederate support, IETF conformance certification, or Tokenetes
+  compatibility.
+- Add a repository test that fails if the report omits the pinned drafts,
+  immutable `Txn-Token` transport, independent SPIFFE caller authentication,
+  adapter deviation, or the non-conformance disclaimer.
+- Do not implement the optional agent `act` extension, early invalidation,
+  replacement tokens, replay infrastructure, proof of possession, or a normal
+  workbench cutover in Task 47.
+
+## Task 48 — Optional Helm and Argo CD deployment support
+
+Goal: package the isolated strict Call Chain for Kubernetes GitOps deployment
+without making Kubernetes a dependency of the local MVP.
+
+Acceptance criteria:
+
+- Add a Helm chart for the adapter, strict gateway, strict MCP server, and
+  strict API with separate ServiceAccounts and Services.
+- Obtain X.509-SVIDs only through the read-only SPIFFE CSI Workload API socket;
+  do not mount Kubernetes API credentials into application pods.
+- Reference existing PingFederate CA and OAuth credential Secrets without
+  rendering or committing secret values.
+- Optionally synchronize PingFederate CA, token-exchange client, and workbench
+  OAuth values from HashiCorp Vault through Vault Secrets Operator using a
+  namespace- and ServiceAccount-bound Kubernetes auth role. Never store a
+  Vault token, AppRole secret, or application secret in Git or Helm values.
+- Use non-root, read-only, no-capability containers, resource bounds, immutable
+  image digest support, read-only policy configuration, and default-deny
+  network policy.
+- Provide exact SPIRE Controller Manager identity examples binding namespace,
+  component, and actual Pod ServiceAccount. A mismatched ServiceAccount must
+  not receive any application-accepted SPIFFE ID.
+- Add a namespaced, least-privilege Argo CD project and a review-required
+  Application template with no cluster-scoped or Secret permissions.
+- Expose only the existing workbench Service at
+  `workbench.ping.darkedges.com` for Cloudflare-terminated browser traffic.
+  Keep the adapter, gateway, MCP server, and API free of public Ingress routes.
+- Add tests and Helm rendering validation for missing configuration, embedded
+  secrets, service-account token mounts, permissive pod security, mutable
+  latest images, writable policy, and missing ServiceAccount identity binding.
+- Do not deploy to a cluster, install CRDs, create Secrets, publish images, or
+  change the local Docker workbench in Task 48.

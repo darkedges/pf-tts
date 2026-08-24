@@ -1,0 +1,7 @@
+apiVersion: v2
+name: wai-strict
+description: Strict Transaction Token call chain for the WAI reference implementation
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"

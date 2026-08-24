@@ -25,7 +25,7 @@ resource "pingfederate_oauth_client" "token_exchange" {
 
   restrict_scopes = true
   restricted_scopes = [
-    var.transaction_scope,
+    local.effective_transaction_scope,
   ]
 
   token_exchange_processor_policy_ref = {

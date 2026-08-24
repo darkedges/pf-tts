@@ -12,6 +12,7 @@ import (
 	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/identity"
 	"example.com/workload-agent-identity/pkg/middleware"
+	"example.com/workload-agent-identity/pkg/transaction"
 )
 
 var ErrRouteDenied = errors.New("MCP route denied")
@@ -22,12 +23,14 @@ type Target struct {
 	Tools map[string]struct{}
 }
 type Gateway struct {
-	client  *http.Client
-	targets map[string]Target
-	byTool  map[string]Target
-	sole    *Target
-	authz   Authorizer
-	audit   audit.Sink
+	client        *http.Client
+	targets       map[string]Target
+	byTool        map[string]Target
+	sole          *Target
+	authz         Authorizer
+	audit         audit.Sink
+	strict        bool
+	maxTokenBytes int
 }
 
 type Authorizer interface {
@@ -47,6 +50,24 @@ func NewGatewayWithAuthorizer(client *http.Client, targets []Target, authorizer 
 		gateway.audit = sink
 	}
 	return gateway, err
+}
+
+func NewStrictGatewayWithAuthorizer(client *http.Client, targets []Target, authorizer Authorizer, sink audit.Sink, maximumTokenBytes int) (*Gateway, error) {
+	if authorizer == nil || sink == nil || maximumTokenBytes <= 0 {
+		return nil, errors.New("strict MCP authorizer, audit sink, and token bound are required")
+	}
+	strictAuthorizer, err := NewSignedRouteAuthorizer(authorizer)
+	if err != nil {
+		return nil, err
+	}
+	gateway, err := newGateway(client, targets, strictAuthorizer)
+	if err != nil {
+		return nil, err
+	}
+	gateway.audit = sink
+	gateway.strict = true
+	gateway.maxTokenBytes = maximumTokenBytes
+	return gateway, nil
 }
 
 func newGateway(client *http.Client, targets []Target, authorizer Authorizer) (*Gateway, error) {
@@ -98,6 +119,10 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "route denied", http.StatusForbidden)
 		return
 	}
+	if g.strict && headerExists(r.Header, "Authorization") {
+		http.Error(w, "authorization denied", http.StatusForbidden)
+		return
+	}
 	if g.authz != nil {
 		value, verified := identity.FromContext(r.Context())
 		if !verified {
@@ -130,7 +155,15 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "gateway failure", http.StatusBadGateway)
 		return
 	}
-	copyHeaders(out.Header, r.Header)
+	if g.strict {
+		copyStrictHeaders(out.Header, r.Header)
+		if err := PropagateVerifiedTxnToken(r.Context(), out, g.maxTokenBytes); err != nil {
+			http.Error(w, "gateway failure", http.StatusBadGateway)
+			return
+		}
+	} else {
+		copyHeaders(out.Header, r.Header)
+	}
 	response, err := g.client.Do(out)
 	if err != nil {
 		http.Error(w, "gateway failure", http.StatusBadGateway)
@@ -141,6 +174,26 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-WAI-Response-Source", "downstream")
 	w.WriteHeader(response.StatusCode)
 	_, _ = io.Copy(w, io.LimitReader(response.Body, 8<<20))
+}
+
+func copyStrictHeaders(dst, src http.Header) {
+	for key, values := range src {
+		if strings.EqualFold(key, "Connection") || strings.EqualFold(key, "Proxy-Authorization") || strings.EqualFold(key, "Authorization") || strings.EqualFold(key, transaction.TxnTokenHeader) {
+			continue
+		}
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
+func headerExists(header http.Header, name string) bool {
+	for key := range header {
+		if strings.EqualFold(key, name) {
+			return true
+		}
+	}
+	return false
 }
 func copyHeaders(dst, src http.Header) {
 	for key, values := range src {

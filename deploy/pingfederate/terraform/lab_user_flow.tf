@@ -82,7 +82,7 @@ resource "pingfederate_oauth_client" "lab_user" {
 
   restrict_scopes = true
   restricted_scopes = [
-    var.transaction_scope,
+    local.effective_transaction_scope,
   ]
 
   default_access_token_manager_ref = {

@@ -27,13 +27,17 @@ func TestLabUsesDistinctExternallyAttestedWorkloadSelectors(t *testing.T) {
 		`"spiffe://example.org/api/demo"`, `"docker:label:wai.workload:demo-api"`,
 		`"spiffe://example.org/agent/web-app"`, `"docker:label:wai.workload:web-app"`,
 		`"spiffe://example.org/audit/collector"`, `"docker:label:wai.workload:audit-collector"`,
+		`"spiffe://example.org/tts/adapter"`, `"docker:label:wai.workload:tts-adapter"`,
+		`"spiffe://example.org/gateway/mcp-strict"`, `"docker:label:wai.workload:strict-mcp-gateway"`,
+		`"spiffe://example.org/mcp/demo-strict"`, `"docker:label:wai.workload:strict-demo-mcp-server"`,
+		`"spiffe://example.org/api/demo-strict"`, `"docker:label:wai.workload:strict-demo-api"`,
 	}
 	for _, value := range want {
 		if !strings.Contains(script, value) {
 			t.Errorf("registration is missing %s", value)
 		}
 	}
-	if strings.Count(script, "docker:label:wai.workload:") != 6 {
+	if strings.Count(script, "docker:label:wai.workload:") != 10 {
 		t.Fatal("each lab workload must have one distinct Docker-attested selector")
 	}
 }
@@ -50,8 +54,8 @@ func TestMakeTargetsInvokeBashPortably(t *testing.T) {
 func TestRegistrationRejectsSharedWorkloadIdentityConfiguration(t *testing.T) {
 	script := readRepoFile(t, "scripts", "spire-register.sh")
 	matches := regexp.MustCompile(`create_entry "([^"]+)"\s+\\?\s*\n?\s*"([^"]+)"`).FindAllStringSubmatch(script, -1)
-	if len(matches) != 6 {
-		t.Fatalf("expected exactly six workload registrations, got %d", len(matches))
+	if len(matches) != 10 {
+		t.Fatalf("expected exactly ten workload registrations, got %d", len(matches))
 	}
 	spiffeIDs := make(map[string]struct{}, len(matches))
 	selectors := make(map[string]struct{}, len(matches))

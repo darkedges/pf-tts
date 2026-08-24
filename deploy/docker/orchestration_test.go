@@ -12,7 +12,7 @@ func TestComposeProfilesAndIdentityIsolation(t *testing.T) {
 		t.Fatal(err)
 	}
 	compose := string(b)
-	for _, required := range []string{`profiles: ["app-only", "local-lab"]`, `profiles: ["local-lab"]`, "wai.workload: mcp-gateway", "wai.workload: demo-mcp-server", "wai.workload: demo-api", "wai.workload: demo-agent", "wai.workload: web-app", "wai.workload: audit-collector"} {
+	for _, required := range []string{`profiles: ["app-only", "local-lab"]`, `profiles: ["local-lab"]`, `profiles: ["txn-token-gate", "txn-token-call-chain"]`, `profiles: ["txn-token-call-chain"]`, "wai.workload: tts-adapter", "wai.workload: strict-mcp-gateway", "wai.workload: strict-demo-mcp-server", "wai.workload: strict-demo-api", "wai.workload: mcp-gateway", "wai.workload: demo-mcp-server", "wai.workload: demo-api", "wai.workload: demo-agent", "wai.workload: web-app", "wai.workload: audit-collector"} {
 		if !strings.Contains(compose, required) {
 			t.Fatalf("orchestration missing %q", required)
 		}
@@ -20,8 +20,16 @@ func TestComposeProfilesAndIdentityIsolation(t *testing.T) {
 	if !strings.Contains(compose, "${SPIRE_SOCKET_VOLUME:-spire_spire-agent-socket}") {
 		t.Fatal("application profile must default to the repository SPIRE Compose socket volume")
 	}
-	if strings.Count(compose, "wai.workload:") != 6 {
-		t.Fatal("each demo workload must have exactly one distinct attested label")
+	if strings.Count(compose, "wai.workload:") != 11 {
+		t.Fatal("Compose must contain the reviewed normal and isolated workload labels")
+	}
+	for _, required := range []string{"authorization-strict.rego:/run/wai/authorization.rego:ro", "USER_ACCESS_TOKEN: ${USER_ACCESS_TOKEN:?", "TTS_ADAPTER_URL: https://tts-adapter:8448/as/token.oauth2", "STRICT_MCP_GATEWAY_URL: https://strict-mcp-gateway:8543"} {
+		if !strings.Contains(compose, required) {
+			t.Fatalf("strict isolated profile missing %q", required)
+		}
+	}
+	if strings.Contains(strings.Split(compose, "services:")[0], "tts-adapter") {
+		t.Fatal("TTS adapter must not be part of the shared normal application profile")
 	}
 }
 

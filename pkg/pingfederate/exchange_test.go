@@ -81,3 +81,38 @@ func TestNewClientRequiresHTTPSAndTimeout(t *testing.T) {
 		}
 	}
 }
+
+func TestExchangeRejectsRedirectDuplicateAndRefreshResponses(t *testing.T) {
+	tests := map[string]http.HandlerFunc{
+		"redirect": func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "https://evil.example/token")
+			w.WriteHeader(http.StatusFound)
+		},
+		"duplicate": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"access_token":"first","access_token":"second","issued_token_type":"urn:ietf:params:oauth:token-type:access_token","token_type":"Bearer","expires_in":20}`))
+		},
+		"refresh": func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte(`{"access_token":"transaction-secret","issued_token_type":"urn:ietf:params:oauth:token-type:access_token","token_type":"Bearer","expires_in":20,"refresh_token":"prohibited"}`))
+		},
+	}
+	for name, handler := range tests {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewTLSServer(handler)
+			defer server.Close()
+			server.Client().Timeout = time.Second
+			client, err := NewClient(server.URL, "client", "client-secret", server.Client())
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.Exchange(context.Background(), ExchangeRequest{SubjectToken: "subject-secret", ActorToken: "actor-secret", SubjectTokenType: AccessTokenType, ActorTokenType: JWTTokenType, Audience: "example.org", Scope: []string{"mcp.system.whoami"}})
+			if !errors.Is(err, ErrExchangeFailed) {
+				t.Fatalf("unsafe response accepted: %v", err)
+			}
+			for _, secret := range []string{"subject-secret", "actor-secret", "client-secret", "transaction-secret", "prohibited"} {
+				if strings.Contains(err.Error(), secret) {
+					t.Fatalf("error leaked %q", secret)
+				}
+			}
+		})
+	}
+}

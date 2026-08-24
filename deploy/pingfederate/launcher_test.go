@@ -610,7 +610,7 @@ func TestTerraformUsesOnlyDiscoveredProcessorContracts(t *testing.T) {
 			t.Fatalf("transaction ATM missing trusted configuration precondition %q", trustedField)
 		}
 	}
-	if !strings.Contains(managerConfig, "resource_uris = [\n      var.transaction_audience") {
+	if !strings.Contains(managerConfig, "resource_uris = [\n      # PingFederate requires an absolute URI here.") || !strings.Contains(managerConfig, "var.transaction_audience") {
 		t.Fatal("transaction ATM selector must exactly match the validated transaction audience")
 	}
 }
@@ -622,7 +622,7 @@ func TestScopeProvisioningPreservesGlobalSettingsAndRejectsAmbiguity(t *testing.
 	}
 	script := string(b)
 	for _, required := range []string{
-		`SCOPE_NAME = "mcp:invoke"`,
+		`ALLOWED_SCOPES = {"mcp:invoke", "mcp.system.whoami"}`,
 		`request("GET", "/oauth/authServerSettings")`,
 		`request("PUT", "/oauth/authServerSettings", settings)`,
 		`if len(matches) > 1:`,
@@ -778,5 +778,206 @@ func TestPingFederateGuideKeepsTrustedIdentityBoundary(t *testing.T) {
 		if !strings.Contains(guide, required) {
 			t.Fatalf("PingFederate guide missing security boundary or failure case %q", required)
 		}
+	}
+}
+
+func TestTransactionTokensCapabilityProbeIsIsolatedBoundedAndRedacted(t *testing.T) {
+	probeBytes, err := os.ReadFile("scripts/probe_transaction_tokens_capabilities.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	probe := string(probeBytes)
+	for _, required := range []string{
+		`CONTAINER_PATTERN = re.compile(r"^wai-pf-clean-[0-9a-f]{16}$")`,
+		`["docker", "port", container, "9031/tcp"]`,
+		`parsed_endpoint.hostname != "localhost"`,
+		`PF_ADMIN_INSECURE`,
+		`MAXIMUM_RESPONSE_BYTES + 1`,
+		`object_pairs_hook=unique_object`,
+		`NoRedirect()`,
+		`"actor_token": actor_token`,
+		`del missing_actor["actor_token"]`,
+		`"missing_actor_rejected"`,
+		`"requested_token_type"] = TXN_TOKEN`,
+		`("access_type_trust_domain", access_trust_domain)`,
+		`"audience"] = "example.org"`,
+		`"request_context"`,
+		`"request_details"`,
+		`"jwt_signature_verified": True`,
+	} {
+		if !strings.Contains(probe, required) {
+			t.Fatalf("Transaction Tokens capability probe missing security control %q", required)
+		}
+	}
+	for _, forbidden := range []string{
+		"CERT_NONE", "check_hostname = False", "error_description", "print(subject_token)",
+		"print(actor_token)", "print(token)", "response.read()", "wai-pingfederate-13-1",
+	} {
+		if strings.Contains(probe, forbidden) {
+			t.Fatalf("Transaction Tokens capability probe contains unsafe behavior %q", forbidden)
+		}
+	}
+
+	harnessBytes, err := os.ReadFile("../../scripts/test-pingfederate-clean-bootstrap.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness := string(harnessBytes)
+	for _, required := range []string{
+		"[switch]$ProbeTransactionTokens", "$env:PF_CAPABILITY_ISOLATED_CONTAINER = $containerName",
+		"probe_transaction_tokens_capabilities.py", "if (-not $exchangeVerified)",
+		"-var=enable_transaction_tokens_capability_probe=true",
+	} {
+		if !strings.Contains(harness, required) {
+			t.Fatalf("clean-bootstrap harness missing capability gate %q", required)
+		}
+	}
+
+	terraformBytes, err := os.ReadFile("terraform/transaction_tokens_capability_probe.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	terraform := string(terraformBytes)
+	for _, required := range []string{
+		"count = var.enable_transaction_tokens_capability_probe || var.enable_transaction_tokens_inner_profile ? 1 : 0",
+		"client_id   = var.trust_domain",
+		"pingfederate_oauth_access_token_manager.transaction.manager_id",
+	} {
+		if !strings.Contains(terraform, required) {
+			t.Fatalf("isolated trust-domain selector missing safety gate %q", required)
+		}
+	}
+}
+
+func TestStrictInnerTransactionTokenProfileIsExplicitIsolatedAndFailClosed(t *testing.T) {
+	issuerBytes, err := os.ReadFile("plugins/src/main/java/org/example/wai/transaction/TransactionJwtIssuer.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	issuer := string(issuerBytes)
+	for _, required := range []string{
+		`"txntoken+jwt"`, `claims.setStringClaim("txn"`, `claims.setStringClaim("req_wl"`,
+		`claims.setClaim("tctx"`, `"workload_id", attributes.get("workload_id")`,
+		`configuredScope.equals(scope)`, `TokenProfile.TRANSACTION_TOKEN_V11`,
+	} {
+		if !strings.Contains(issuer, required) {
+			t.Fatalf("strict inner issuer missing security behavior %q", required)
+		}
+	}
+
+	profileBytes, err := os.ReadFile("plugins/src/main/java/org/example/wai/transaction/TokenProfile.java")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := string(profileBytes)
+	for _, forbidden := range []string{"AUTO", "detect", "fallback"} {
+		if strings.Contains(profile, forbidden) {
+			t.Fatalf("strict profile must not auto-detect or fall back: %q", forbidden)
+		}
+	}
+
+	terraformBytes, err := os.ReadFile("terraform/access_token_manager.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	terraform := string(terraformBytes)
+	for _, required := range []string{
+		`!var.enable_transaction_tokens_inner_profile || var.enable_transaction_tokens_capability_probe`,
+		`value = local.transaction_token_profile`, `value = local.effective_transaction_audience`,
+		`value = local.effective_transaction_scope`,
+	} {
+		if !strings.Contains(terraform, required) {
+			t.Fatalf("Terraform strict profile gate missing %q", required)
+		}
+	}
+
+	variablesBytes, err := os.ReadFile("terraform/variables.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	variables := string(variablesBytes)
+	if !strings.Contains(variables, `variable "enable_transaction_tokens_inner_profile"`) || !strings.Contains(variables, "default     = false") {
+		t.Fatal("strict inner profile must be an explicit default-off Terraform switch")
+	}
+
+	verifyBytes, err := os.ReadFile("scripts/verify_live_token_exchange.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	verify := string(verifyBytes)
+	for _, required := range []string{
+		`PF_EXPECT_TRANSACTION_TOKEN_INNER_PROFILE`, `expected_claim_names`,
+		`Strict Transaction Token leaked legacy profile claims`, `set(tctx) != {"wai"}`,
+		`raise SystemExit("Live token exchange verification refuses disabled TLS validation.")`,
+	} {
+		if !strings.Contains(verify, required) {
+			t.Fatalf("strict live verification missing %q", required)
+		}
+	}
+
+	harnessBytes, err := os.ReadFile("../../scripts/test-pingfederate-clean-bootstrap.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness := string(harnessBytes)
+	for _, required := range []string{
+		`[switch]$TestTransactionTokensInnerProfile`,
+		`-var=enable_transaction_tokens_inner_profile=true`,
+		`$env:PF_EXPECT_TRANSACTION_TOKEN_INNER_PROFILE = 'true'`,
+	} {
+		if !strings.Contains(harness, required) {
+			t.Fatalf("isolated strict inner harness missing %q", required)
+		}
+	}
+}
+
+func TestTTSAdapterDeploymentGateIsIsolatedBoundedAndFailClosed(t *testing.T) {
+	harnessBytes, err := os.ReadFile("../../scripts/test-pingfederate-clean-bootstrap.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness := string(harnessBytes)
+	for _, required := range []string{
+		`[switch]$TestTTSAdapter`, `-var=enable_transaction_tokens_inner_profile=true`,
+		`--label', 'wai.workload=tts-adapter`, `spiffe://example.org/agent/demo`,
+		`spiffe://example.org/gateway/mcp`, `EXPECT_REJECTION=true`,
+		`eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.`,
+		`^wai-tts-adapter-[0-9a-f]{16}$`, `^wai-pf-clean-[0-9a-f]{16}$`,
+		`docker rm -f $adapterContainer`, `docker volume rm $volumeName`,
+	} {
+		if !strings.Contains(harness, required) {
+			t.Fatalf("isolated TTS adapter gate missing security control %q", required)
+		}
+	}
+	for _, forbidden := range []string{`AuthorizeAny`, `--network host`, `docker system prune`} {
+		if strings.Contains(harness, forbidden) {
+			t.Fatalf("isolated TTS adapter gate contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
+func TestStrictCallChainGateProvesTransportAndWorkloadFailures(t *testing.T) {
+	harnessBytes, err := os.ReadFile("../../scripts/test-pingfederate-clean-bootstrap.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	harness := string(harnessBytes)
+	for _, required := range []string{
+		`[switch]$TestStrictCallChain`, `wai-tts-chain-$suffix`,
+		`EXPECT_STRICT_BEARER_REJECTION=true`, `EXPECT_STRICT_TLS_REJECTION=true`,
+		`wai.workload=strict-demo-mcp-server`, `spiffe://example.org/mcp/demo-strict`,
+		`Authorization\s*[:=]`, `docker network rm $strictNetwork`,
+		`^wai-strict-(gateway|mcp|api)-[0-9a-f]{16}$`,
+	} {
+		if !strings.Contains(harness, required) {
+			t.Fatalf("strict Call Chain gate missing security control %q", required)
+		}
+	}
+	makefileBytes, err := os.ReadFile("../../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(makefileBytes), "pf-test-strict-call-chain:") {
+		t.Fatal("strict Call Chain gate has no explicit launcher")
 	}
 }
