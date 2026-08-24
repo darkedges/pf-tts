@@ -34,8 +34,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not remove the isolated pod.' }
 helm upgrade $Release $chartPath --namespace $Namespace --set adminApi.bootstrapNewInstance=true --wait --timeout $timeout
 if ($LASTEXITCODE -ne 0) { throw 'Unauthenticated bootstrap phase failed.' }
 
-kubectl -n $Namespace exec $Pod -- sh -ceu "test \"`$(grep -c '<user-name>administrator</user-name>' /opt/out/instance/server/default/data/pingfederate-admin-user.xml)\" -eq 1"
-if ($LASTEXITCODE -ne 0) { throw 'Vendor bootstrap did not create exactly one expected administrator account.' }
+$accountCreated = $false
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    kubectl -n $Namespace exec $Pod -- sh -ceu 'test "$(grep -c ''<user-name>administrator</user-name>'' /opt/out/instance/server/default/data/pingfederate-admin-user.xml)" -eq 1' *> $null
+    if ($LASTEXITCODE -eq 0) {
+        $accountCreated = $true
+        break
+    }
+    Start-Sleep -Seconds 5
+}
+if (-not $accountCreated) { throw 'Vendor bootstrap did not create exactly one expected administrator account within five minutes.' }
 
 helm upgrade $Release $chartPath --namespace $Namespace --set adminApi.bootstrapNewInstance=false --wait --timeout $timeout
 if ($LASTEXITCODE -ne 0) { throw 'Native-authentication transition failed.' }

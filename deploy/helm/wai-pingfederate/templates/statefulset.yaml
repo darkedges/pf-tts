@@ -45,6 +45,8 @@ spec:
             - {name: ORCHESTRATION_TYPE, value: "kubernetes"}
             {{- if not .Values.adminApi.bootstrapNewInstance }}
             - {name: PF_ADMIN_API_AUTHENTICATION, value: "native"}
+            {{- else }}
+            - {name: CREATE_INITIAL_ADMIN_USER, value: "true"}
             {{- end }}
             - {name: SERVER_PROFILE_BRANCH, value: {{ .Values.profile.branch | quote }}}
             - name: PING_IDENTITY_DEVOPS_USER
