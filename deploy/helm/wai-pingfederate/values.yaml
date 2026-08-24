@@ -1,6 +1,6 @@
 namespace: wai-pingfederate
 images:
-  runtime: docker.io/darkedges/pf-tts-pingfederate@sha256:7a983488c5ccfc1decf0c1869d95ddd910581b099f9a805b4c393c8dd8bd554e
+  runtime: docker.io/darkedges/pf-tts-pingfederate@sha256:c0871f8ccfcf4b4ef28200d2ce9a1b65a979b83a35e2654669b19383b38c0bd9
 profile:
   branch: feature/kubernetes-pf13
 storage:
