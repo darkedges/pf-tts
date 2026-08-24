@@ -1,4 +1,12 @@
-.PHONY: test helm-lint spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
+
+REGISTRY_HOST ?= docker.io
+REGISTRY_USER ?= darkedges
+IMAGE_REGISTRY ?= $(REGISTRY_HOST)/$(REGISTRY_USER)
+IMAGE_PREFIX ?= pf-tts-
+IMAGE_TAG ?= $(shell git rev-parse --short=12 HEAD)
+IMAGE_PLATFORMS ?= linux/amd64,linux/arm64
+STRICT_IMAGES := tts-adapter strict-mcp-gateway strict-demo-mcp-server strict-demo-api
 
 ifeq ($(OS),Windows_NT)
 PYTHON_RUN ?= powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-python.ps1
@@ -11,6 +19,29 @@ test:
 
 helm-lint:
 	helm lint deploy/helm/wai-strict -f deploy/helm/wai-strict/values-ci.yaml
+
+registry-login:
+ifeq ($(OS),Windows_NT)
+	@pwsh -NoProfile -Command "if ([string]::IsNullOrWhiteSpace($$env:DOCKER_TOKEN)) { throw 'DOCKER_TOKEN is required.' }; $$env:DOCKER_TOKEN | docker login '$(REGISTRY_HOST)' -u '$(REGISTRY_USER)' --password-stdin"
+else
+	@test -n "$$DOCKER_TOKEN" || (echo 'DOCKER_TOKEN is required.' >&2; exit 1)
+	@printf '%s' "$$DOCKER_TOKEN" | docker login "$(REGISTRY_HOST)" -u "$(REGISTRY_USER)" --password-stdin
+endif
+
+images-push: $(addprefix image-push-,$(STRICT_IMAGES))
+
+image-source-check:
+ifeq ($(OS),Windows_NT)
+	@pwsh -NoProfile -Command "if (git status --porcelain) { throw 'Refusing to publish images from a dirty Git tree. Commit the reviewed source first.' }"
+else
+	@test -z "$$(git status --porcelain)" || (echo 'Refusing to publish images from a dirty Git tree. Commit the reviewed source first.' >&2; exit 1)
+endif
+
+image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app: image-source-check
+	docker buildx build --platform $(IMAGE_PLATFORMS) --build-arg COMMAND=$(patsubst image-push-%,%,$@) --tag $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(patsubst image-push-%,%,$@):$(IMAGE_TAG) --push .
+
+images-inspect:
+	@$(foreach image,$(STRICT_IMAGES),docker buildx imagetools inspect $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(image):$(IMAGE_TAG)$(if $(filter $(image),$(lastword $(STRICT_IMAGES))),, &&) )
 
 vault-import-local:
 	pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1
