@@ -32,7 +32,7 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-basic-admin", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-native-admin", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
