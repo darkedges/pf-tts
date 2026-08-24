@@ -446,6 +446,29 @@ func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T)
 	}
 }
 
+func TestKubernetesBootstrapIsTwoPhasePrivateAndFailClosed(t *testing.T) {
+	b, err := os.ReadFile("../../scripts/bootstrap-pf13-kubernetes.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{
+		"Refusing to bootstrap over existing PVC", "adminApi.bootstrapNewInstance=true",
+		"<user-name>administrator</user-name>", "adminApi.bootstrapNewInstance=false",
+		"PF_ADMIN_API_AUTHENTICATION", "$mode -ne 'native'", "--address", "127.0.0.1",
+		"PF_ADMIN_INSECURE = 'false'", "discover_pf_plugins.py", "Stop-Process",
+	} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("Kubernetes bootstrap gate missing fail-closed control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"--insecure", "SkipCertificateCheck", "0.0.0.0", "Write-Output $password", "kubectl delete pvc"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("Kubernetes bootstrap gate weakens the trust boundary with %q", forbidden)
+		}
+	}
+}
+
 func TestUserAndTransactionAccessTokenManagersAreDistinct(t *testing.T) {
 	user, err := os.ReadFile("terraform/user_access_token_manager.tf")
 	if err != nil {

@@ -24,6 +24,12 @@ this local cluster. A separately bootstrapped Secret named
 `ca.crt`; the chart never copies or renders the Vault TLS private key. Render
 and validate before installation:
 
+For a brand-new `out-pf13-two-phase-wai-pingfederate-0` volume, run
+`make pf13-k8s-bootstrap`. The gate temporarily omits Admin API authentication
+while namespace ingress remains default-denied, verifies the vendor-created
+account, immediately switches to `native`, and performs authenticated TLS and
+descriptor attestation. It refuses to run over an existing target PVC.
+
 ```text
 helm lint deploy/helm/wai-pingfederate
 helm template wai-pingfederate deploy/helm/wai-pingfederate --namespace wai-pingfederate --validate

@@ -1,4 +1,4 @@
-.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect pf-profile-artifact pf-profile-artifact-push spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf13-k8s-export-admin-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate vault-import-pf13-privileged
+.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect pf-profile-artifact pf-profile-artifact-push spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf13-k8s-bootstrap pf13-k8s-export-admin-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate vault-import-pf13-privileged
 
 REGISTRY_HOST ?= docker.io
 REGISTRY_USER ?= darkedges
@@ -144,6 +144,9 @@ pf-export-ca:
 
 pf13-k8s-export-admin-ca:
 	pwsh -NoProfile -File scripts/export-pf13-kubernetes-admin-ca.ps1
+
+pf13-k8s-bootstrap:
+	pwsh -NoProfile -File scripts/bootstrap-pf13-kubernetes.ps1
 
 pf-trust-local:
 	pwsh -NoProfile -File scripts/export-pf-local-ca.ps1 -Trust
