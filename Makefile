@@ -1,6 +1,9 @@
 .PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app images-inspect spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate
 
-IMAGE_REGISTRY ?= ghcr.io/darkedges/pf-tts
+REGISTRY_HOST ?= docker.io
+REGISTRY_USER ?= darkedges
+IMAGE_REGISTRY ?= $(REGISTRY_HOST)/$(REGISTRY_USER)
+IMAGE_PREFIX ?= pf-tts-
 IMAGE_TAG ?= $(shell git rev-parse --short=12 HEAD)
 IMAGE_PLATFORMS ?= linux/amd64,linux/arm64
 STRICT_IMAGES := tts-adapter strict-mcp-gateway strict-demo-mcp-server strict-demo-api
@@ -19,10 +22,10 @@ helm-lint:
 
 registry-login:
 ifeq ($(OS),Windows_NT)
-	@pwsh -NoProfile -Command "if ([string]::IsNullOrWhiteSpace($$env:GHCR_TOKEN)) { throw 'GHCR_TOKEN is required.' }; $$registryUser = if ([string]::IsNullOrWhiteSpace($$env:GHCR_USER)) { 'darkedges' } else { $$env:GHCR_USER }; $$env:GHCR_TOKEN | docker login ghcr.io -u $$registryUser --password-stdin"
+	@pwsh -NoProfile -Command "if ([string]::IsNullOrWhiteSpace($$env:DOCKER_TOKEN)) { throw 'DOCKER_TOKEN is required.' }; $$env:DOCKER_TOKEN | docker login '$(REGISTRY_HOST)' -u '$(REGISTRY_USER)' --password-stdin"
 else
-	@test -n "$$GHCR_TOKEN" || (echo 'GHCR_TOKEN is required.' >&2; exit 1)
-	@printf '%s' "$$GHCR_TOKEN" | docker login ghcr.io -u "$${GHCR_USER:-darkedges}" --password-stdin
+	@test -n "$$DOCKER_TOKEN" || (echo 'DOCKER_TOKEN is required.' >&2; exit 1)
+	@printf '%s' "$$DOCKER_TOKEN" | docker login "$(REGISTRY_HOST)" -u "$(REGISTRY_USER)" --password-stdin
 endif
 
 images-push: $(addprefix image-push-,$(STRICT_IMAGES))
@@ -35,10 +38,10 @@ else
 endif
 
 image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app: image-source-check
-	docker buildx build --platform $(IMAGE_PLATFORMS) --build-arg COMMAND=$(patsubst image-push-%,%,$@) --tag $(IMAGE_REGISTRY)/$(patsubst image-push-%,%,$@):$(IMAGE_TAG) --push .
+	docker buildx build --platform $(IMAGE_PLATFORMS) --build-arg COMMAND=$(patsubst image-push-%,%,$@) --tag $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(patsubst image-push-%,%,$@):$(IMAGE_TAG) --push .
 
 images-inspect:
-	@$(foreach image,$(STRICT_IMAGES),docker buildx imagetools inspect $(IMAGE_REGISTRY)/$(image):$(IMAGE_TAG)$(if $(filter $(image),$(lastword $(STRICT_IMAGES))),, &&) )
+	@$(foreach image,$(STRICT_IMAGES),docker buildx imagetools inspect $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(image):$(IMAGE_TAG)$(if $(filter $(image),$(lastword $(STRICT_IMAGES))),, &&) )
 
 vault-import-local:
 	pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1

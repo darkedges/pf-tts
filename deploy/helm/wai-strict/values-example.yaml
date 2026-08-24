@@ -5,10 +5,10 @@ global:
     caSecretName: pingfederate-runtime-ca
 
 images:
-  ttsAdapter: {repository: ghcr.io/darkedges/pf-tts/tts-adapter, digest: sha256:REPLACE}
-  gateway: {repository: ghcr.io/darkedges/pf-tts/strict-mcp-gateway, digest: sha256:REPLACE}
-  mcpServer: {repository: ghcr.io/darkedges/pf-tts/strict-demo-mcp-server, digest: sha256:REPLACE}
-  api: {repository: ghcr.io/darkedges/pf-tts/strict-demo-api, digest: sha256:REPLACE}
+  ttsAdapter: {repository: docker.io/darkedges/pf-tts-tts-adapter, digest: sha256:REPLACE}
+  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: sha256:REPLACE}
+  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: sha256:REPLACE}
+  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: sha256:REPLACE}
 
 ttsAdapter:
   tokenEndpoint: https://pingfederate.example.com/as/token.oauth2

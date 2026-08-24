@@ -135,7 +135,7 @@ func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
 	}
 	makeContent := string(makefile)
 	for _, required := range []string{
-		"docker login ghcr.io", "--password-stdin", "docker buildx build",
+		"REGISTRY_HOST ?= docker.io", "IMAGE_PREFIX ?= pf-tts-", "docker login '$(REGISTRY_HOST)'", "--password-stdin", "docker buildx build",
 		"--build-arg COMMAND=", "--push", "docker buildx imagetools inspect",
 		"Refusing to publish images from a dirty Git tree",
 	} {
@@ -143,7 +143,7 @@ func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
 			t.Errorf("Makefile container publication missing %q", required)
 		}
 	}
-	if strings.Contains(makeContent, "GHCR_TOKEN=") {
+	if strings.Contains(makeContent, "DOCKER_TOKEN=") {
 		t.Fatal("Makefile must not contain or default a registry token")
 	}
 
