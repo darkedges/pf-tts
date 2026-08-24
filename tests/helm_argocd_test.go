@@ -112,3 +112,49 @@ func TestVaultImporterIsNarrowAndFailClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
+	dockerignore, err := os.ReadFile("../.dockerignore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(dockerignore)
+	for _, required := range []string{
+		".env.*", "deploy/pingfederate/generated", "deploy/pingfederate/discovered",
+		"deploy/pingfederate/terraform/*.tfvars", "deploy/pingauthorize/generated",
+		"deploy/spire/generated", "deploy/web/generated", "**/*.pem", "**/*.key",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("Docker build context does not exclude sensitive path %q", required)
+		}
+	}
+
+	makefile, err := os.ReadFile("../Makefile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	makeContent := string(makefile)
+	for _, required := range []string{
+		"docker login ghcr.io", "--password-stdin", "docker buildx build",
+		"--build-arg COMMAND=", "--push", "docker buildx imagetools inspect",
+		"Refusing to publish images from a dirty Git tree",
+	} {
+		if !strings.Contains(makeContent, required) {
+			t.Errorf("Makefile container publication missing %q", required)
+		}
+	}
+	if strings.Contains(makeContent, "GHCR_TOKEN=") {
+		t.Fatal("Makefile must not contain or default a registry token")
+	}
+
+	dockerfile, err := os.ReadFile("../Dockerfile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerContent := string(dockerfile)
+	for _, required := range []string{"--platform=$BUILDPLATFORM", "ARG TARGETOS", "ARG TARGETARCH", `GOOS="$TARGETOS" GOARCH="$TARGETARCH"`} {
+		if !strings.Contains(dockerContent, required) {
+			t.Errorf("Dockerfile cross-compilation missing %q", required)
+		}
+	}
+}
