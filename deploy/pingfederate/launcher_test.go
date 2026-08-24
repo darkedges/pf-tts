@@ -1,6 +1,7 @@
 package pingfederate
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -433,9 +434,33 @@ func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T)
 		t.Fatal(err)
 	}
 	profile := string(b)
-	for _, forbidden := range []string{"/administrativeAccounts", "PING_IDENTITY_PASSWORD", `"username"`} {
+	for _, required := range []string{`"resourceType": "/administrativeAccounts"`, `"username": "administrator"`} {
+		if !strings.Contains(profile, required) {
+			t.Fatalf("repository bulk profile must preserve the exact vendor-created account: missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"PING_IDENTITY_PASSWORD", `"username": "Administrator"`} {
 		if strings.Contains(profile, forbidden) {
 			t.Fatalf("repository bulk profile must not import administrator credentials: found %q", forbidden)
+		}
+	}
+	var document struct {
+		Operations []struct {
+			ResourceType string           `json:"resourceType"`
+			Items        []map[string]any `json:"items"`
+		} `json:"operations"`
+	}
+	if err := json.Unmarshal(b, &document); err != nil {
+		t.Fatal(err)
+	}
+	for _, operation := range document.Operations {
+		if operation.ResourceType == "/administrativeAccounts" {
+			if len(operation.Items) != 1 {
+				t.Fatal("repository profile must preserve exactly one administrative account")
+			}
+			if _, present := operation.Items[0]["password"]; present {
+				t.Fatal("repository administrative account must not contain password material")
+			}
 		}
 	}
 
