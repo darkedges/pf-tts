@@ -1,7 +1,6 @@
 package pingfederate
 
 import (
-	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -429,42 +428,12 @@ func TestBootstrapMaterialIsStrongGeneratedAndIgnored(t *testing.T) {
 }
 
 func TestRepositoryProfileLeavesAdministratorBootstrapToVendorHook(t *testing.T) {
-	b, err := os.ReadFile("../../profiles/pingfederate/instance/bulk-config/data.json.subst")
-	if err != nil {
+	bulkPath := "../../profiles/pingfederate/instance/bulk-config/data.json.subst"
+	if _, err := os.Stat(bulkPath); !os.IsNotExist(err) {
+		if err == nil {
+			t.Fatal("repository startup profile must not bulk-import or replace the vendor-created administrator")
+		}
 		t.Fatal(err)
-	}
-	profile := string(b)
-	for _, required := range []string{`"resourceType": "/administrativeAccounts"`, `"username": "administrator"`} {
-		if !strings.Contains(profile, required) {
-			t.Fatalf("repository bulk profile must preserve the exact vendor-created account: missing %q", required)
-		}
-	}
-	if !strings.Contains(profile, `"password": "${PING_IDENTITY_PASSWORD}"`) {
-		t.Fatal("repository administrative account must source its required password from the Vault-backed environment")
-	}
-	for _, forbidden := range []string{`"username": "Administrator"`} {
-		if strings.Contains(profile, forbidden) {
-			t.Fatalf("repository bulk profile must not import administrator credentials: found %q", forbidden)
-		}
-	}
-	var document struct {
-		Operations []struct {
-			ResourceType string           `json:"resourceType"`
-			Items        []map[string]any `json:"items"`
-		} `json:"operations"`
-	}
-	if err := json.Unmarshal(b, &document); err != nil {
-		t.Fatal(err)
-	}
-	for _, operation := range document.Operations {
-		if operation.ResourceType == "/administrativeAccounts" {
-			if len(operation.Items) != 1 {
-				t.Fatal("repository profile must preserve exactly one administrative account")
-			}
-			if password, present := operation.Items[0]["password"]; !present || password != "${PING_IDENTITY_PASSWORD}" {
-				t.Fatal("repository administrative account must contain only the reviewed environment placeholder")
-			}
-		}
 	}
 
 	hookBytes, err := os.ReadFile("../../profiles/pingfederate/hooks/02-get-remote-server-profile.sh.post")

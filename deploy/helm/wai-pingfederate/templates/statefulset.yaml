@@ -51,16 +51,6 @@ spec:
               valueFrom: {secretKeyRef: {name: wai-pf13-devops, key: key}}
             - name: PING_IDENTITY_PASSWORD
               valueFrom: {secretKeyRef: {name: wai-pf13-administrator, key: password}}
-            - name: dataStores_items_ProvisionerDS_ProvisionerDS_password
-              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: provisioner-password}}
-            - name: keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData
-              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: ssl-file-data}}
-            - name: keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_password
-              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: ssl-password}}
-            - name: serverSettings_systemKeys_items_current_keyData
-              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: current-system-key}}
-            - name: serverSettings_systemKeys_items_pending_keyData
-              valueFrom: {secretKeyRef: {name: wai-pf13-bootstrap-system, key: pending-system-key}}
           ports:
             - {name: admin-https, containerPort: 9999}
             - {name: engine-https, containerPort: 9031}
@@ -70,7 +60,7 @@ spec:
           resources: {{- toYaml .Values.resources | nindent 12 }}
           securityContext: *restricted
           volumeMounts:
-            - {name: out-pf13-native-admin, mountPath: /opt/out}
+            - {name: out-pf13-native-bootstrap, mountPath: /opt/out}
             - {name: writable-staging, mountPath: /opt/staging}
             - {name: writable-etc, mountPath: /etc/motd, subPath: motd}
             - {name: tmp, mountPath: /tmp}
@@ -84,7 +74,7 @@ spec:
         - name: runtime-ca
           secret: {secretName: wai-pf13-runtime-ca, defaultMode: 256}
   volumeClaimTemplates:
-    - metadata: {name: out-pf13-native-admin}
+    - metadata: {name: out-pf13-native-bootstrap}
       spec:
         accessModes: ["ReadWriteOnce"]
         storageClassName: {{ .Values.storage.storageClassName }}

@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,7 +31,7 @@ func pf13Chart(t *testing.T) string {
 func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	chart := pf13Chart(t)
 	for _, required := range []string{
-		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-native-admin", "mountPath: /opt/out",
+		"kind: StatefulSet", "volumeClaimTemplates:", "name: out-pf13-native-bootstrap", "mountPath: /opt/out",
 		"kind: PodDisruptionBudget", "kind: NetworkPolicy", "podSelector: {}", "type: ClusterIP",
 		"automountServiceAccountToken: false", "runAsNonRoot: true", "allowPrivilegeEscalation: false",
 		`capabilities: {drop: ["ALL"]}`, "readOnlyRootFilesystem: true", "startupProbe:", "readinessProbe:", "livenessProbe:",
@@ -64,9 +63,9 @@ func TestPingFederate13RuntimeRejectsMutableOrWritableSecretInputs(t *testing.T)
 	if strings.Count(chart, "images.runtime") != 2 {
 		t.Fatalf("expected the same baked runtime for init and product containers")
 	}
-	for _, key := range []string{"provisioner-password", "ssl-file-data", "ssl-password", "current-system-key", "pending-system-key"} {
-		if !strings.Contains(chart, "key: "+key) {
-			t.Errorf("missing exact fail-closed bootstrap key %q", key)
+	for _, key := range []string{"wai-pf13-bootstrap-system", "provisioner-password", "ssl-file-data", "ssl-password", "current-system-key", "pending-system-key"} {
+		if strings.Contains(chart, key) {
+			t.Errorf("pre-attestation runtime must not inject unused product bootstrap secret %q", key)
 		}
 	}
 	if strings.Contains(chart, "envFrom:") {
@@ -108,42 +107,12 @@ func TestRepositoryPingFederateProfileStagesOnlyBakedPlugin(t *testing.T) {
 }
 
 func TestRepositoryProfileOnlyParameterizesRequiredBootstrap(t *testing.T) {
-	b, err := os.ReadFile("../profiles/pingfederate/instance/bulk-config/data.json.subst")
-	if err != nil {
+	bulkPath := "../profiles/pingfederate/instance/bulk-config/data.json.subst"
+	if _, err := os.Stat(bulkPath); !os.IsNotExist(err) {
+		if err == nil {
+			t.Fatal("repository startup profile must not bulk-import credentials or pre-attestation product configuration")
+		}
 		t.Fatal(err)
-	}
-	content := string(b)
-	for _, required := range []string{`"pfVersion": "13.1.0.5"`, `"username": "administrator"`, `"password": "${PING_IDENTITY_PASSWORD}"`, `"resourceType": "/administrativeAccounts"`, `"resourceType": "/keyPairs/sslServer"`, `"resourceType": "/keyPairs/sslServer/settings"`, `"resourceType": "/serverSettings/systemKeys"`, `${keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_fileData}`, `${serverSettings_systemKeys_items_current_keyData}`} {
-		if !strings.Contains(content, required) {
-			t.Errorf("administrator bootstrap profile missing %q", required)
-		}
-	}
-	if strings.Count(content, `"resourceType":`) != 4 {
-		t.Fatal("bootstrap must contain exactly the four required resource types")
-	}
-	for _, forbidden := range []string{"2FederateM0re", "secretpass", `"username": "Administrator"`, "/oauth/", "/dataStores", "PRIVATE KEY", `"kty"`} {
-		if strings.Contains(content, forbidden) {
-			t.Errorf("administrator bootstrap contains forbidden input %q", forbidden)
-		}
-	}
-	var document struct {
-		Operations []struct {
-			ResourceType string           `json:"resourceType"`
-			Items        []map[string]any `json:"items"`
-		} `json:"operations"`
-	}
-	if err := json.Unmarshal(b, &document); err != nil {
-		t.Fatal(err)
-	}
-	for _, operation := range document.Operations {
-		if operation.ResourceType == "/administrativeAccounts" {
-			if len(operation.Items) != 1 {
-				t.Fatal("bootstrap must preserve exactly one vendor-created administrator")
-			}
-			if password, present := operation.Items[0]["password"]; !present || password != "${PING_IDENTITY_PASSWORD}" {
-				t.Fatal("administrator resource must use only the reviewed Vault-backed placeholder")
-			}
-		}
 	}
 }
 
