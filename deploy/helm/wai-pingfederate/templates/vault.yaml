@@ -22,7 +22,7 @@ spec:
     serviceAccount: {{ .Values.vault.authServiceAccount }}
     audiences: [{{ .Values.vault.audience | quote }}]
 ---
-{{- $records := dict "administrator" "wai-pf13-administrator" "devops" "wai-pf13-devops" "runtime-ca" "wai-pf13-runtime-ca" }}
+{{- $records := dict "administrator" "wai-pf13-administrator" "devops" "wai-pf13-devops" "oauth/token-exchange" "wai-pf13-oauth-token-exchange" "oauth/browser" "wai-pf13-oauth-browser" "oauth/lab-user" "wai-pf13-oauth-lab-user" "oauth/mcp-gateway" "wai-pf13-oauth-mcp-gateway" "runtime-ca" "wai-pf13-runtime-ca" }}
 {{- range $path, $destination := $records }}
 apiVersion: secrets.hashicorp.com/v1beta1
 kind: VaultStaticSecret

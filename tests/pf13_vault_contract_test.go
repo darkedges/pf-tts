@@ -79,3 +79,31 @@ func TestPingFederate13VaultPolicyAndRoleAreExact(t *testing.T) {
 		t.Fatal("Vault Kubernetes role must not contain wildcard or alternate broad binding")
 	}
 }
+
+func TestPingFederate13ChartSyncsExactTerraformSecretsWithoutInjectingThem(t *testing.T) {
+	vaultBytes, err := os.ReadFile("../deploy/helm/wai-pingfederate/templates/vault.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vault := string(vaultBytes)
+	for _, binding := range []string{
+		`"oauth/token-exchange" "wai-pf13-oauth-token-exchange"`,
+		`"oauth/browser" "wai-pf13-oauth-browser"`,
+		`"oauth/lab-user" "wai-pf13-oauth-lab-user"`,
+		`"oauth/mcp-gateway" "wai-pf13-oauth-mcp-gateway"`,
+	} {
+		if !strings.Contains(vault, binding) {
+			t.Fatalf("chart is missing exact Terraform secret binding %q", binding)
+		}
+	}
+	statefulBytes, err := os.ReadFile("../deploy/helm/wai-pingfederate/templates/statefulset.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateful := string(statefulBytes)
+	for _, secret := range []string{"wai-pf13-oauth-token-exchange", "wai-pf13-oauth-browser", "wai-pf13-oauth-lab-user", "wai-pf13-oauth-mcp-gateway"} {
+		if strings.Contains(stateful, secret) {
+			t.Fatalf("Terraform-only secret must not be injected into the PingFederate runtime: %q", secret)
+		}
+	}
+}
