@@ -11,6 +11,10 @@
         "pluginJarSHA256": {"const": "dac3b52715d74e59c595500a24fa16db6b6b0dca7edf37ac79b0974c26974582"}
       }
     },
+    "engineIngressNamespaces": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"enum": ["wai-strict", "ingress-nginx"]}
+    },
     "profile": {
       "type": "object", "required": ["branch"],
       "properties": {"branch": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"}}

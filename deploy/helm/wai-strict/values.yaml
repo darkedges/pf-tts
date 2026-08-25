@@ -52,6 +52,12 @@ workbench:
   tlsCertKey: tls.crt
   tlsPrivateKeyKey: tls.key
 
+# The isolated PingFederate engine that strict workloads call directly for the
+# token exchange, the authorization code exchange, and JWKS.
+pingFederateEngine:
+  namespace: wai-pingfederate
+  port: 9031
+
 serviceAccounts:
   adapter: wai-tts-adapter
   gateway: wai-strict-gateway

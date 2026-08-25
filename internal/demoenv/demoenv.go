@@ -123,17 +123,34 @@ func StrictTxnVerifierForBindings(bindings map[string]string) (*transaction.TxnT
 	})
 }
 
+// PFHTTPClient creates the bounded HTTPS client used for every backchannel call
+// to PingFederate: the token exchange, the authorization code exchange, and JWKS
+// retrieval.
+//
+// When PF_CA_FILE is configured, it is the ONLY trust anchor. Adding it to the
+// system pool instead would mean any public certificate authority could satisfy
+// this client, so a caller pointed at a public address would happily complete the
+// RFC 8693 exchange against whatever terminated that TLS -- carrying the user's
+// access token and the agent's JWT-SVID. Pinning makes reaching PingFederate
+// through an edge a connection failure rather than a silent disclosure.
+//
+// The system pool is used only when no PF_CA_FILE is configured, which is the
+// case for deployments fronted by a publicly trusted certificate.
 func PFHTTPClient() (*http.Client, error) {
 	caFile := strings.TrimSpace(os.Getenv("PF_CA_FILE"))
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("load system certificate pool: %w", err)
-	}
-	if caFile != "" {
+	var pool *x509.CertPool
+	if caFile == "" {
+		system, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, fmt.Errorf("load system certificate pool: %w", err)
+		}
+		pool = system
+	} else {
 		pem, err := os.ReadFile(caFile)
 		if err != nil {
 			return nil, fmt.Errorf("read PF_CA_FILE: %w", err)
 		}
+		pool = x509.NewCertPool()
 		if !pool.AppendCertsFromPEM(pem) {
 			return nil, errors.New("PF_CA_FILE contains no valid PEM certificates")
 		}

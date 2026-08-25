@@ -15,6 +15,32 @@ variable "manage_local_admin_tls" {
   default     = true
 }
 
+variable "runtime_server_dns_names" {
+  description = "Exact DNS names the PingFederate engine is addressed by. The first entry becomes the common name. Empty leaves the bootstrap certificate in place, which is correct for the Docker harness."
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for name in var.runtime_server_dns_names :
+      can(regex("^[a-z0-9]([a-z0-9-]*[a-z0-9])?([.][a-z0-9]([a-z0-9-]*[a-z0-9])?)*$", name))
+    ]) && length(var.runtime_server_dns_names) == length(distinct(var.runtime_server_dns_names))
+    error_message = "runtime_server_dns_names must be distinct lowercase DNS names with no wildcard, scheme, port, or path."
+  }
+}
+
+variable "activate_runtime_server_certificate" {
+  description = "Serve the generated runtime certificate. Flip this only after every client trusts the new leaf, because activation swaps the engine's TLS identity immediately."
+  type        = bool
+  default     = false
+}
+
+variable "admin_console_key_id" {
+  description = "Key pair the administrator console keeps serving. It is reached only through a bounded loopback port-forward, so it is not rotated alongside the engine."
+  type        = string
+  default     = "wai-local-runtime-tls"
+}
+
 variable "trust_domain" {
   description = "SPIFFE trust domain used by the local SPIRE lab."
   type        = string

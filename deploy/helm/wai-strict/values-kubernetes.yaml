@@ -1,11 +1,14 @@
 # Reviewed deployment input for source revision 36d0eb0c2f1b.
+# Backchannel calls address the isolated engine Service directly. The issuer
+# stays the browser-facing origin because it identifies the token, not a
+# location to fetch from.
 # Images are pinned to registry manifest-list digests verified for linux/amd64
 # and linux/arm64. Secrets remain external to this file and are delivered by
 # Vault Secrets Operator.
 global:
   pingFederate:
     issuer: https://workbench.ping.darkedges.com
-    jwksURL: https://workbench.ping.darkedges.com/pf/JWKS
+    jwksURL: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/pf/JWKS
     caSecretName: wai-pf13-runtime-ca
 
 images:
@@ -17,11 +20,11 @@ images:
   auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"}
 
 ttsAdapter:
-  tokenEndpoint: https://workbench.ping.darkedges.com/as/token.oauth2
+  tokenEndpoint: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/as/token.oauth2
   oauthSecretName: wai-pf13-oauth-token-exchange
 
 workbench:
-  tokenEndpoint: https://workbench.ping.darkedges.com/as/token.oauth2
+  tokenEndpoint: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/as/token.oauth2
   oidcSecretName: wai-web-app-secrets
   tlsSecretName: wai-web-app-secrets
 
@@ -35,3 +38,7 @@ vault:
     pingFederateCA: wai/pingfederate-13-1/runtime-ca
     tokenExchangeClient: wai/pingfederate-13-1/oauth/token-exchange
     workbench: wai/workbench
+
+pingFederateEngine:
+  namespace: wai-pingfederate
+  port: 9031

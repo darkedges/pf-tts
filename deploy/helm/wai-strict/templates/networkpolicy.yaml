@@ -39,9 +39,18 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    - ports:
+    # The isolated PingFederate engine, reached directly by its in-cluster
+    # Service. There is deliberately no blanket egress to TCP 443: a broad rule
+    # is what allowed the RFC 8693 exchange to resolve PingFederate's public
+    # name and travel out through the edge and back, exposing the subject and
+    # actor tokens to whatever terminated that TLS.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.pingFederateEngine.namespace }}
+      ports:
         - protocol: TCP
-          port: 443
+          port: {{ .Values.pingFederateEngine.port }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

@@ -6,6 +6,12 @@ profile:
   branch: feature/kubernetes-pf13
 adminApi:
   bootstrapNewInstance: false
+# Namespaces permitted to reach the engine on 9031. The administrator port is
+# never included.
+engineIngressNamespaces:
+  - wai-strict
+  - ingress-nginx
+
 storage:
   size: 8Gi
   storageClassName: hostpath

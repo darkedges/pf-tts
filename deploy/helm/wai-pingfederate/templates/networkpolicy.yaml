@@ -40,6 +40,9 @@ spec:
       app.kubernetes.io/name: wai-pingfederate
   policyTypes: [Ingress]
   ingress:
+    # The administrator API is reachable only from inside this namespace, which
+    # in practice means a bounded loopback port-forward. It is never opened to
+    # the application namespace or to the ingress controller.
     - from:
         - namespaceSelector:
             matchLabels:
@@ -47,4 +50,16 @@ spec:
       ports:
         - {protocol: TCP, port: 9999}
         - {protocol: TCP, port: 9031}
+    # The engine is reachable by the strict workloads directly, so the token
+    # exchange never has to leave the cluster to reach it, and by the ingress
+    # controller for the browser-facing authorization paths. Neither is granted
+    # port 9999.
+    {{- range .Values.engineIngressNamespaces }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . }}
+      ports:
+        - {protocol: TCP, port: 9031}
+    {{- end }}
 {{- end }}

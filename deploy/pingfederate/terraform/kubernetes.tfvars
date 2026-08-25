@@ -31,3 +31,20 @@ manage_local_admin_tls = false
 # precondition of the inner profile, not an optional diagnostic.
 enable_transaction_tokens_capability_probe = true
 enable_transaction_tokens_inner_profile    = true
+
+# The engine is addressed by its public authorization-server hostname and by the
+# in-cluster Service. Naming both means in-cluster callers can validate the
+# engine directly instead of leaving the cluster to reach it, and nginx can
+# verify its upstream by its real name rather than a pinned "localhost".
+runtime_server_dns_names = [
+  "tst.ping.darkedges.com",
+  "wai-pingfederate-engine.wai-pingfederate.svc.cluster.local",
+  "wai-pingfederate-engine.wai-pingfederate.svc",
+  "wai-pingfederate-engine.wai-pingfederate",
+  "wai-pingfederate-engine",
+  "localhost",
+]
+
+# Activated only after the trust bundle carrying this leaf has reached every
+# client. See docs/implementation-notes-task-58.md.
+activate_runtime_server_certificate = true
