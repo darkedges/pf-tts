@@ -1,4 +1,4 @@
-# Reviewed deployment input for source revision 2dcd497b4102.
+# Reviewed deployment input for source revision 36d0eb0c2f1b.
 # Images are pinned to registry manifest-list digests verified for linux/amd64
 # and linux/arm64. Secrets remain external to this file and are delivered by
 # Vault Secrets Operator.
@@ -10,9 +10,9 @@ global:
 
 images:
   ttsAdapter: {repository: docker.io/darkedges/pf-tts-tts-adapter, digest: "sha256:a675c6fb788c1ab061115ef5d2a426477b3ba6c86e75f10f1575de6b96755f2f"}
-  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:4d74f02929b396369ffe99f3f55b96cd3c01a5f92c7f9304eb803be835d308f4"}
-  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:1a0d4f942fe5e822e4a255a49425c2ea9d944c723b7112ac07b6c56f18e82a3e"}
-  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:a3fad7e22c883f172992deaf79206486a654843980598dc0123adfe5e22943d3"}
+  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:23fcd488b0f4742971ede051b5d8c5de8d54df5dab0089cb95108dc5a14c52ac"}
+  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:dc8f8ba4799e981a8704ccaf5a968a58c48b4edc7f4c5cbc74e310be58f49352"}
+  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:3ec871ccece1766f995a328223602264d2b79af736821860e2aa1a2c56715465"}
   workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:35e624c9aa177ed7b85634d215a3c759e9ed7f3e7fcd3193e37da4518b662383"}
   auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"}
 

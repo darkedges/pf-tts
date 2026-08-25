@@ -264,7 +264,18 @@ func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
 }
 
 func TestReviewedPublicationLockMatchesHelmValues(t *testing.T) {
-	lockBytes, err := os.ReadFile("../deploy/images/strict-2dcd497b4102.json")
+	values, err := os.ReadFile("../deploy/helm/wai-strict/values-kubernetes.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Resolve the publication record from the revision the reviewed values
+	// declare, so republishing cannot leave the values pinned to one record
+	// while this test still checks a stale one.
+	revision := regexp.MustCompile(`(?m)^# Reviewed deployment input for source revision ([0-9a-f]{12})\.`).FindSubmatch(values)
+	if revision == nil {
+		t.Fatal("reviewed values must name the source revision they were published from")
+	}
+	lockBytes, err := os.ReadFile("../deploy/images/strict-" + string(revision[1]) + ".json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -272,9 +283,8 @@ func TestReviewedPublicationLockMatchesHelmValues(t *testing.T) {
 	if err := json.Unmarshal(lockBytes, &lock); err != nil {
 		t.Fatal(err)
 	}
-	values, err := os.ReadFile("../deploy/helm/wai-strict/values-kubernetes.yaml")
-	if err != nil {
-		t.Fatal(err)
+	if lock.SourceRevision != string(revision[1]) {
+		t.Fatalf("publication record names revision %q but the reviewed values name %q", lock.SourceRevision, revision[1])
 	}
 	if err := validatePublicationLock(lock, string(values)); err != nil {
 		t.Fatal(err)

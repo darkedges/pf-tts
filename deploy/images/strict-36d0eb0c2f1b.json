@@ -1,0 +1,20 @@
+{
+  "sourceRevision": "36d0eb0c2f1b",
+  "requiredPlatforms": ["linux/amd64", "linux/arm64"],
+  "note": "Republished only the three workloads changed by 36d0eb0c2f1b. The adapter, workbench, and audit collector are unchanged since 2dcd497b4102 and keep their verified digests.",
+  "images": {
+    "ttsAdapter": "docker.io/darkedges/pf-tts-tts-adapter@sha256:a675c6fb788c1ab061115ef5d2a426477b3ba6c86e75f10f1575de6b96755f2f",
+    "gateway": "docker.io/darkedges/pf-tts-strict-mcp-gateway@sha256:23fcd488b0f4742971ede051b5d8c5de8d54df5dab0089cb95108dc5a14c52ac",
+    "mcpServer": "docker.io/darkedges/pf-tts-strict-demo-mcp-server@sha256:dc8f8ba4799e981a8704ccaf5a968a58c48b4edc7f4c5cbc74e310be58f49352",
+    "api": "docker.io/darkedges/pf-tts-strict-demo-api@sha256:3ec871ccece1766f995a328223602264d2b79af736821860e2aa1a2c56715465",
+    "workbench": "docker.io/darkedges/pf-tts-web-app@sha256:35e624c9aa177ed7b85634d215a3c759e9ed7f3e7fcd3193e37da4518b662383",
+    "auditCollector": "docker.io/darkedges/pf-tts-audit-collector@sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"
+  },
+  "pingFederate": {
+    "runtime": "docker.io/darkedges/pf-tts-pingfederate@sha256:ea1729ba09a440fa61f40f05b88e7de84fce739b27a28aade11859f47c189b1a",
+    "pluginJarSHA256": "dac3b52715d74e59c595500a24fa16db6b6b0dca7edf37ac79b0974c26974582",
+    "profileURL": "https://github.com/darkedges/pf-tts.git",
+    "profilePath": "profiles/pingfederate",
+    "profileBranch": "feature/kubernetes-pf13"
+  }
+}
