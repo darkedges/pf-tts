@@ -1,7 +1,12 @@
 variable "pf_base_url" {
-  description = "Human-readable PingFederate base URL used in outputs/documentation."
+  description = "Authoritative PingFederate runtime base URL. It is the external HTTPS origin the browser reaches, the origin hosted login pages render against, and the issuer of the tokens this logical TTS signs. Consumers must allowlist this exact value."
   type        = string
   default     = "https://localhost:9031"
+
+  validation {
+    condition     = can(regex("^https://[A-Za-z0-9.-]+(:[0-9]+)?$", var.pf_base_url))
+    error_message = "pf_base_url must be an HTTPS origin with no path, query, or fragment."
+  }
 }
 
 variable "manage_local_admin_tls" {
@@ -244,6 +249,22 @@ variable "actor_token_processor_name" {
 variable "actor_token_processor_plugin_id" {
   description = "Plugin descriptor ID for JWT Token Processor 2.0 in the deployed PF release."
   type        = string
+}
+
+variable "spire_jwks" {
+  description = "Exact SPIRE JWT-SVID JWKS the actor token processor trusts. Empty keeps the value supplied in actor_token_processor_configuration_fields, which is correct for the Docker harness. The Kubernetes gate sets this from the in-cluster SPIRE server's own bundle so the isolated logical TTS never trusts another trust domain's signing keys."
+  type        = string
+  default     = ""
+  sensitive   = false
+
+  validation {
+    condition = var.spire_jwks == "" || try(
+      length([for key in jsondecode(var.spire_jwks).keys : key if try(key.kid, "") != ""]) == length(jsondecode(var.spire_jwks).keys)
+      && length(jsondecode(var.spire_jwks).keys) > 0,
+      false
+    )
+    error_message = "spire_jwks must be a JWKS document whose every key carries a non-empty kid."
+  }
 }
 
 variable "actor_token_processor_configuration_fields" {

@@ -27,7 +27,25 @@ spec:
           image: {{ .Values.images.runtime }}
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-ceu"]
-          args: ["cp -R /opt/staging/. /writable-staging/\n: > /writable-etc/motd\n"]
+          args:
+            - |
+              cp -R /opt/staging/. /writable-staging/
+              : > /writable-etc/motd
+              expected={{ required "images.pluginJarSHA256 is required" .Values.images.pluginJarSHA256 | quote }}
+              source=/opt/in/wai-pingfederate-spiffe-plugins.jar
+              target=/writable-staging/instance/server/default/deploy/wai-pingfederate-spiffe-plugins.jar
+              marker=/writable-staging/.wai-plugin-sha256
+              actual="$(sha256sum "$source" | cut -d ' ' -f 1)"
+              [ "$actual" = "$expected" ] || { echo 'Baked plugin JAR digest mismatch.' >&2; exit 1; }
+              install -d -m 0750 "$(dirname "$target")"
+              if [ ! -f "$marker" ] || [ "$(cat "$marker")" != "$expected" ] || [ ! -f "$target" ] || [ "$(sha256sum "$target" | cut -d ' ' -f 1)" != "$expected" ]; then
+                install -m 0444 "$source" "$target.next"
+                mv -f "$target.next" "$target"
+                # The work directory contains generated JVM/plugin cache only.
+                rm -rf -- /writable-staging/work
+                printf '%s' "$expected" > "$marker.next"
+                mv -f "$marker.next" "$marker"
+              fi
           securityContext: &restricted
             allowPrivilegeEscalation: false
             capabilities: {drop: ["ALL"]}

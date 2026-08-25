@@ -5,9 +5,10 @@
   "properties": {
     "namespace": {"const": "wai-pingfederate"},
     "images": {
-      "type": "object", "required": ["runtime"],
+      "type": "object", "required": ["runtime", "pluginJarSHA256"],
       "properties": {
-        "runtime": {"type": "string", "pattern": "^docker.io/darkedges/pf-tts-pingfederate@sha256:[a-f0-9]{64}$"}
+        "runtime": {"type": "string", "pattern": "^docker.io/darkedges/pf-tts-pingfederate@sha256:[a-f0-9]{64}$"},
+        "pluginJarSHA256": {"const": "dac3b52715d74e59c595500a24fa16db6b6b0dca7edf37ac79b0974c26974582"}
       }
     },
     "profile": {

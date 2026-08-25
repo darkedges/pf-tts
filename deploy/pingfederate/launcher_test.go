@@ -552,6 +552,24 @@ func TestTerraformLauncherDoesNotEvaluateOrPersistCredentials(t *testing.T) {
 	}
 }
 
+func TestBrowserRedirectUpdaterIsExactAndDoesNotLeakErrors(t *testing.T) {
+	b, err := os.ReadFile("scripts/update_browser_redirect.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{`CLIENT_ID = "wai-web-app"`, `REDIRECT_URI = "https://workbench.ping.darkedges.com/oauth/callback"`, `client["redirectUris"] = [REDIRECT_URI]`, "refuses disabled TLS validation"} {
+		if !strings.Contains(script, required) {
+			t.Errorf("browser redirect updater missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"print(password", "error.read", "redirectUris.append", "ssl._create_unverified_context"} {
+		if strings.Contains(script, forbidden) {
+			t.Errorf("browser redirect updater contains unsafe behavior %q", forbidden)
+		}
+	}
+}
+
 func TestGatewaySecretGeneratorUsesCSPRNGAndNeverPrintsSecret(t *testing.T) {
 	b, err := os.ReadFile("../../scripts/set-mcp-gateway-local-secret.ps1")
 	if err != nil {

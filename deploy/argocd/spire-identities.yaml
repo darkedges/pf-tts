@@ -21,6 +21,11 @@ metadata:
 spec:
   className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-workbench" }}spiffe://example.org/agent/web-app{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  # This workload is the only one that mints a JWT-SVID as the RFC 8693 actor
+  # token. PingFederate's reviewed actor token processor rejects an actor token
+  # whose lifetime exceeds 300 seconds, so the minted TTL must respect that bound
+  # rather than the bound being relaxed to fit a cluster-wide default.
+  jwtTtl: 300s
   podSelector:
     matchLabels:
       app.kubernetes.io/component: workbench

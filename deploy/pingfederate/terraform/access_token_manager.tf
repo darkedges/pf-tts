@@ -42,6 +42,15 @@ resource "pingfederate_oauth_access_token_manager" "transaction" {
         value = pingfederate_keypairs_signing_key.transaction.key_id
       },
       {
+        # The transaction token issuer is never configured independently of the
+        # runtime base URL. Deriving it here means a consumer that allowlists the
+        # PingFederate origin has allowlisted exactly one issuer, and the isolated
+        # Kubernetes deployment cannot silently share an issuer identifier with
+        # the Docker harness.
+        name  = "Issuer"
+        value = var.pf_base_url
+      },
+      {
         name  = "Token Profile"
         value = local.transaction_token_profile
       },
@@ -62,7 +71,7 @@ resource "pingfederate_oauth_access_token_manager" "transaction" {
         value = local.effective_transaction_scope
       }
       ], [for field in var.transaction_atm_configuration_fields : field if !contains([
-        "Token Profile", "Audience", "Transaction Target", "Transaction Tool", "Transaction Scope"
+        "Issuer", "Token Profile", "Audience", "Transaction Target", "Transaction Tool", "Transaction Scope"
     ], field.name)])
   }
 

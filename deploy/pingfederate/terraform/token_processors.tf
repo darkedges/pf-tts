@@ -63,6 +63,13 @@ resource "pingfederate_idp_token_processor" "spire_actor" {
   }
 
   configuration = {
-    fields = var.actor_token_processor_configuration_fields
+    # The trusted SPIRE JWKS identifies which workload identities this logical
+    # TTS will accept as an actor. It belongs to exactly one SPIRE trust domain,
+    # so a deployment that runs against a different SPIRE server must supply that
+    # server's own keys rather than inherit another environment's.
+    fields = var.spire_jwks == "" ? var.actor_token_processor_configuration_fields : concat(
+      [{ name = "SPIRE JWKS", value = var.spire_jwks }],
+      [for field in var.actor_token_processor_configuration_fields : field if field.name != "SPIRE JWKS"]
+    )
   }
 }
