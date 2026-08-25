@@ -9,10 +9,17 @@ images:
   gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: sha256:REPLACE}
   mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: sha256:REPLACE}
   api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: sha256:REPLACE}
+  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: sha256:REPLACE}
+  auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: sha256:REPLACE}
 
 ttsAdapter:
   tokenEndpoint: https://pingfederate.example.com/as/token.oauth2
   oauthSecretName: pingfederate-token-exchange-client
+
+workbench:
+  tokenEndpoint: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/as/token.oauth2
+  oidcSecretName: wai-web-app-secrets
+  tlsSecretName: wai-web-app-secrets
 
 vault:
   enabled: true

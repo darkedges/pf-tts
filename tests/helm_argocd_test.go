@@ -138,7 +138,7 @@ func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
 	makeContent := string(makefile)
 	for _, required := range []string{
 		"REGISTRY_HOST ?= docker.io", "IMAGE_PREFIX ?= pf-tts-", "docker login '$(REGISTRY_HOST)'", "--password-stdin", "docker buildx build",
-		"--build-arg COMMAND=", "--push", "docker buildx imagetools inspect",
+		"--build-arg COMMAND=", "--push", "docker buildx imagetools inspect", "web-app audit-collector",
 		"Refusing to publish images from a dirty Git tree",
 	} {
 		if !strings.Contains(makeContent, required) {
