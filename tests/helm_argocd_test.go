@@ -1,11 +1,48 @@
 package tests
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
+
+type publicationLock struct {
+	SourceRevision    string            `json:"sourceRevision"`
+	RequiredPlatforms []string          `json:"requiredPlatforms"`
+	Images            map[string]string `json:"images"`
+}
+
+var immutableImage = regexp.MustCompile(`^[^:@[:space:]]+(?:/[^:@[:space:]]+)+@sha256:[a-f0-9]{64}$`)
+
+func validatePublicationLock(lock publicationLock, helmValues string) error {
+	if lock.SourceRevision == "" {
+		return fmt.Errorf("source revision is required")
+	}
+	platforms := strings.Join(lock.RequiredPlatforms, ",")
+	for _, platform := range []string{"linux/amd64", "linux/arm64"} {
+		if !strings.Contains(platforms, platform) {
+			return fmt.Errorf("required platform %s is missing", platform)
+		}
+	}
+	for _, name := range []string{"ttsAdapter", "gateway", "mcpServer", "api", "workbench", "auditCollector"} {
+		image, ok := lock.Images[name]
+		if !ok {
+			return fmt.Errorf("required image %s is missing", name)
+		}
+		if !immutableImage.MatchString(image) {
+			return fmt.Errorf("image %s is not digest pinned", name)
+		}
+		parts := strings.Split(image, "@")
+		if !strings.Contains(helmValues, "repository: "+parts[0]) || !strings.Contains(helmValues, `digest: "`+parts[1]+`"`) {
+			return fmt.Errorf("image %s does not match reviewed Helm values", name)
+		}
+	}
+	return nil
+}
 
 func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 	chartRoot := "../deploy/helm/wai-strict"
@@ -158,5 +195,73 @@ func TestContainerPublicationExcludesLocalSecrets(t *testing.T) {
 		if !strings.Contains(dockerContent, required) {
 			t.Errorf("Dockerfile cross-compilation missing %q", required)
 		}
+	}
+}
+
+func TestReviewedPublicationLockMatchesHelmValues(t *testing.T) {
+	lockBytes, err := os.ReadFile("../deploy/images/strict-2dcd497b4102.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lock publicationLock
+	if err := json.Unmarshal(lockBytes, &lock); err != nil {
+		t.Fatal(err)
+	}
+	values, err := os.ReadFile("../deploy/helm/wai-strict/values-kubernetes.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validatePublicationLock(lock, string(values)); err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"client-secret:", "password:", "private-key:", "dockerconfigjson", ":latest"} {
+		if strings.Contains(strings.ToLower(string(values)), forbidden) {
+			t.Fatalf("reviewed values contain secret or mutable material %q", forbidden)
+		}
+	}
+}
+
+func TestPublicationLockRejectsUnsafeInputs(t *testing.T) {
+	valid := publicationLock{
+		SourceRevision:    "revision",
+		RequiredPlatforms: []string{"linux/amd64", "linux/arm64"},
+		Images:            map[string]string{},
+	}
+	values := ""
+	for _, name := range []string{"ttsAdapter", "gateway", "mcpServer", "api", "workbench", "auditCollector"} {
+		valid.Images[name] = "docker.io/example/" + name + "@sha256:" + strings.Repeat("a", 64)
+		values += "repository: docker.io/example/" + name + "\ndigest: \"sha256:" + strings.Repeat("a", 64) + "\"\n"
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(publicationLock) (publicationLock, string)
+	}{
+		{"missing platform", func(lock publicationLock) (publicationLock, string) {
+			lock.RequiredPlatforms = []string{"linux/amd64"}
+			return lock, values
+		}},
+		{"mutable tag", func(lock publicationLock) (publicationLock, string) {
+			lock.Images["gateway"] = "docker.io/example/gateway:latest"
+			return lock, values
+		}},
+		{"missing image", func(lock publicationLock) (publicationLock, string) { delete(lock.Images, "api"); return lock, values }},
+		{"digest mismatch", func(lock publicationLock) (publicationLock, string) {
+			lock.Images["workbench"] = "docker.io/example/workbench@sha256:" + strings.Repeat("b", 64)
+			return lock, values
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			copyLock := valid
+			copyLock.Images = make(map[string]string, len(valid.Images))
+			for key, value := range valid.Images {
+				copyLock.Images[key] = value
+			}
+			candidate, candidateValues := test.mutate(copyLock)
+			if err := validatePublicationLock(candidate, candidateValues); err == nil {
+				t.Fatal("unsafe publication input was accepted")
+			}
+		})
 	}
 }

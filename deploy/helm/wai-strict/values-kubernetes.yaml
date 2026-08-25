@@ -1,0 +1,37 @@
+# Reviewed deployment input for source revision 2dcd497b4102.
+# Images are pinned to registry manifest-list digests verified for linux/amd64
+# and linux/arm64. Secrets remain external to this file and are delivered by
+# Vault Secrets Operator.
+global:
+  pingFederate:
+    issuer: https://localhost:9031
+    jwksURL: https://workbench.ping.darkedges.com/pf/JWKS
+    caSecretName: wai-pf13-runtime-ca
+
+images:
+  ttsAdapter: {repository: docker.io/darkedges/pf-tts-tts-adapter, digest: "sha256:a675c6fb788c1ab061115ef5d2a426477b3ba6c86e75f10f1575de6b96755f2f"}
+  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:4d74f02929b396369ffe99f3f55b96cd3c01a5f92c7f9304eb803be835d308f4"}
+  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:1a0d4f942fe5e822e4a255a49425c2ea9d944c723b7112ac07b6c56f18e82a3e"}
+  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:a3fad7e22c883f172992deaf79206486a654843980598dc0123adfe5e22943d3"}
+  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:35e624c9aa177ed7b85634d215a3c759e9ed7f3e7fcd3193e37da4518b662383"}
+  auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"}
+
+ttsAdapter:
+  tokenEndpoint: https://workbench.ping.darkedges.com/as/token.oauth2
+  oauthSecretName: wai-pf13-oauth-token-exchange
+
+workbench:
+  tokenEndpoint: https://workbench.ping.darkedges.com/as/token.oauth2
+  oidcSecretName: wai-web-app-secrets
+  tlsSecretName: wai-web-app-secrets
+
+vault:
+  enabled: true
+  address: https://vault.internal.darkedges.com
+  kubernetesRole: wai-strict
+  caCertSecretRef: wai-vault-server-ca
+  kvMount: kv
+  paths:
+    pingFederateCA: wai/pingfederate-13-1/runtime-ca
+    tokenExchangeClient: wai/pingfederate-13-1/oauth/token-exchange
+    workbench: wai/workbench

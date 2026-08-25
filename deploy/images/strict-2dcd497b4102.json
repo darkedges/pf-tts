@@ -1,0 +1,18 @@
+{
+  "sourceRevision": "2dcd497b4102",
+  "requiredPlatforms": ["linux/amd64", "linux/arm64"],
+  "images": {
+    "ttsAdapter": "docker.io/darkedges/pf-tts-tts-adapter@sha256:a675c6fb788c1ab061115ef5d2a426477b3ba6c86e75f10f1575de6b96755f2f",
+    "gateway": "docker.io/darkedges/pf-tts-strict-mcp-gateway@sha256:4d74f02929b396369ffe99f3f55b96cd3c01a5f92c7f9304eb803be835d308f4",
+    "mcpServer": "docker.io/darkedges/pf-tts-strict-demo-mcp-server@sha256:1a0d4f942fe5e822e4a255a49425c2ea9d944c723b7112ac07b6c56f18e82a3e",
+    "api": "docker.io/darkedges/pf-tts-strict-demo-api@sha256:a3fad7e22c883f172992deaf79206486a654843980598dc0123adfe5e22943d3",
+    "workbench": "docker.io/darkedges/pf-tts-web-app@sha256:35e624c9aa177ed7b85634d215a3c759e9ed7f3e7fcd3193e37da4518b662383",
+    "auditCollector": "docker.io/darkedges/pf-tts-audit-collector@sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"
+  },
+  "pingFederate": {
+    "runtime": "docker.io/darkedges/pf-tts-pingfederate@sha256:c0871f8ccfcf4b4ef28200d2ce9a1b65a979b83a35e2654669b19383b38c0bd9",
+    "profileURL": "https://github.com/darkedges/pf-tts.git",
+    "profilePath": "profiles/pingfederate",
+    "profileBranch": "feature/kubernetes-pf13"
+  }
+}

@@ -38,14 +38,16 @@ keys, least-privilege policy, role binding, and bootstrap CA boundary.
 
 ## Render and install
 
-Copy `values-example.yaml` outside source control, replace every image with an
-immutable digest, and set the fixed PingFederate endpoints and existing Secret
-names. Then validate and install:
+`values-kubernetes.yaml` is the reviewed, secret-free input for revision
+`2dcd497b4102`; its application images are pinned to verified multi-platform
+manifest digests. The corresponding publication record is
+`deploy/images/strict-2dcd497b4102.json`. `values-example.yaml` remains a
+template for another environment. Then validate and install:
 
 ```text
-helm lint deploy/helm/wai-strict -f /secure/path/values-production.yaml
-helm template wai-strict deploy/helm/wai-strict -f /secure/path/values-production.yaml
-helm upgrade --install wai-strict deploy/helm/wai-strict --namespace wai-strict --create-namespace -f /secure/path/values-production.yaml
+helm lint deploy/helm/wai-strict -f deploy/helm/wai-strict/values-kubernetes.yaml
+helm template wai-strict deploy/helm/wai-strict -f deploy/helm/wai-strict/values-kubernetes.yaml
+helm upgrade --install wai-strict deploy/helm/wai-strict --namespace wai-strict --create-namespace -f deploy/helm/wai-strict/values-kubernetes.yaml
 ```
 
 The Kubernetes network policy is defense in depth. Exact SPIFFE mTLS identity
