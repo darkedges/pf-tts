@@ -15,12 +15,22 @@ func TestIsolatedPingFederate13ContractFailsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contract := strings.Join(strings.Fields(string(tasks)+"\n"+string(adr)), " ")
+	// The origin split supersedes part of ADR 0011, so the contract these tests
+	// enforce is both documents together. Reading only the older one would let
+	// the superseding decision drift away from what is deployed.
+	origins, err := os.ReadFile("../docs/adr/0012-separate-authorization-server-origin.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contract := strings.Join(strings.Fields(string(tasks)+"\n"+string(adr)+"\n"+string(origins)), " ")
 	for _, required := range []string{
 		"wai-pingfederate",
 		"digest-pinned official PingFederate image",
 		"administrator Service and port 9999 remain cluster-private",
 		"workbench.ping.darkedges.com",
+		"tst.ping.darkedges.com",
+		"a cookie path is not a security boundary",
+		"the only trust anchor",
 		"PingFederate remains the only signer",
 		"workload-to-AgentID mapping",
 		"must not import or mount state from the shared 12.3 release",

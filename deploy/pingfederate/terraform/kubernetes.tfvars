@@ -11,10 +11,16 @@
 # Docker harness state in this directory. Do not apply this file against the
 # Docker harness, and never against the shared PingFederate 12.3 release.
 
-# Browser traffic reaches the isolated engine only through the single reviewed
-# public hostname. The callback is one exact HTTPS URI with no wildcard, query,
-# or fragment.
-pf_base_url          = "https://workbench.ping.darkedges.com"
+# The authorization server has its own origin, separate from the application it
+# authenticates users for. Sharing one hostname made them same-origin to the
+# browser, so PingFederate's session cookie rode on every workbench API call and
+# the workbench's session cookie was sent to the authorization endpoint.
+#
+# This base URL is also the issuer of every token this logical TTS signs, so
+# consumers allowlist exactly this value. The callback stays on the application
+# origin: that is the client, not the authorization server. It remains one exact
+# HTTPS URI with no wildcard, query, or fragment.
+pf_base_url          = "https://tst.ping.darkedges.com"
 browser_redirect_uri = "https://workbench.ping.darkedges.com/oauth/callback"
 
 # The Kubernetes bootstrap already installed the reviewed Vault-backed Admin TLS

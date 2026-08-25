@@ -28,8 +28,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+# The application and the authorization server have separate origins, so the
+# browser treats them as distinct sites and neither one's session cookie reaches
+# the other.
 HOST = "workbench.ping.darkedges.com"
 PUBLIC = f"https://{HOST}"
+PF_HOST = "tst.ping.darkedges.com"
+PF_PUBLIC = f"https://{PF_HOST}"
 CLIENT_ID = "wai-web-app"
 REDIRECT_URI = f"{PUBLIC}/oauth/callback"
 APPROVED_SCOPES = ["mcp:invoke", "openid"]
@@ -65,12 +70,12 @@ jar = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect)
 
 
-def absolute(url: str) -> str:
+def absolute(url: str, base: str = PUBLIC) -> str:
     if url.startswith("/"):
-        return PUBLIC + url
+        return base + url
     parts = urllib.parse.urlsplit(url)
-    if parts.scheme != "https" or parts.netloc != HOST:
-        raise SystemExit(f"Refusing to follow a redirect off the reviewed hostname: {parts.netloc}")
+    if parts.scheme != "https" or parts.netloc not in (HOST, PF_HOST):
+        raise SystemExit(f"Refusing to follow a redirect off the reviewed hostnames: {parts.netloc}")
     return url
 
 
@@ -101,6 +106,11 @@ print("== positive path ==")
 status, headers, _ = call(absolute("/login"))
 record("workbench starts an authorization code flow", status in (302, 303), f"HTTP {status}")
 authorize = headers.get("Location", "")
+record(
+    "the authorization request leaves the application origin",
+    urllib.parse.urlsplit(authorize).netloc == PF_HOST,
+    urllib.parse.urlsplit(authorize).netloc,
+)
 query = urllib.parse.parse_qs(urllib.parse.urlsplit(authorize).query)
 record(
     "authorization request pins PKCE, state, nonce, and the exact callback",
@@ -126,7 +136,7 @@ if not form:
     raise SystemExit("FAIL: the hosted login form is absent.")
 
 credentials = urllib.parse.urlencode({"pf.username": user, "pf.pass": password, "pf.ok": "clicked"}).encode()
-status, headers, body = call(absolute(form.group(1)), data=credentials)
+status, headers, body = call(absolute(form.group(1), PF_PUBLIC), data=credentials)
 location = headers.get("Location")
 if status == 200:
     consent = body.decode("utf-8", "replace")
@@ -138,14 +148,14 @@ if status == 200:
         raise SystemExit("FAIL: credentials did not reach the consent step.")
     fields = [("check-user-approved-scope", "true"), ("cSRFToken", csrf.group(1)), ("pf.oauth.authz.consent", "allow")]
     fields += [("scope", scope) for scope in offered]
-    status, headers, _ = call(absolute(action.group(1)), data=urllib.parse.urlencode(fields).encode())
+    status, headers, _ = call(absolute(action.group(1), PF_PUBLIC), data=urllib.parse.urlencode(fields).encode())
     location = headers.get("Location")
 record("user authenticates and approves the request", status in (302, 303), f"HTTP {status}")
 
 for _ in range(6):
     if location and "/oauth/callback" in location:
         break
-    status, headers, _ = call(absolute(location))
+    status, headers, _ = call(absolute(location, PF_PUBLIC))
     if status not in (302, 303):
         raise SystemExit(f"FAIL: unexpected HTTP {status} before the callback.")
     location = headers["Location"]
@@ -220,7 +230,7 @@ for name, override in (
 ):
     forged = {k: v[0] for k, v in query.items()}
     forged.update(override)
-    status, forged_headers, forged_body = call(absolute("/as/authorization.oauth2?" + urllib.parse.urlencode(forged)))
+    status, forged_headers, forged_body = call(absolute("/as/authorization.oauth2?" + urllib.parse.urlencode(forged), PF_PUBLIC))
     # An unusable redirect URI must fail on PingFederate's own error page, because
     # returning an error to an unverified callback would itself be the leak. A
     # rejected scope is instead an OAuth error delivered to the exact registered
@@ -232,9 +242,17 @@ for name, override in (
         rejected = rejected and forged_headers["Location"].startswith(REDIRECT_URI)
     record(name, rejected, detail)
 
-for path in ("/pf-admin-api/v1/version", "/pf-admin/", "/internal/adapter", "/internal/audit"):
-    status, _, _ = call(absolute(path))
-    record(f"public path {path} stays unreachable", status >= 400, f"HTTP {status}")
+for base, label in ((PUBLIC, "application"), (PF_PUBLIC, "authorization server")):
+    for path in ("/pf-admin-api/v1/version", "/pf-admin/", "/internal/adapter", "/internal/audit"):
+        status, _, _ = call(absolute(path, base))
+        record(f"{label} origin keeps {path} unreachable", status >= 400, f"HTTP {status}")
+
+# The origin split only delivers cookie isolation if the engine really has left
+# the application hostname. While both served it, the browser still treated the
+# authorization server and the application as one origin.
+for path in ("/pf/JWKS", "/idp/startSSO.ping"):
+    status, _, _ = call(absolute(path, PUBLIC))
+    record(f"engine path {path} no longer answers on the application origin", status >= 400, f"HTTP {status}")
 
 print("\n== evidence ==")
 
@@ -261,7 +279,7 @@ for evidence in (r.get("verified_transaction_token") for r in chain):
         "transaction evidence pins the strict audience, scope, and issuer",
         evidence.get("audience") == [TRUST_DOMAIN]
         and evidence.get("scope") == [STRICT_SCOPE]
-        and evidence.get("issuer") == PUBLIC
+        and evidence.get("issuer") == PF_PUBLIC
         and evidence.get("kind") == "txn_token",
     )
     break

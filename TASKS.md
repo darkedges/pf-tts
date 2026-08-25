@@ -1427,6 +1427,9 @@ Goal: expose only the browser-required surface through Cloudflare and nginx.
 Acceptance criteria:
 
 - Keep `workbench.ping.darkedges.com` as the only new public hostname.
+  Superseded by ADR 0012 and Task 58: the authorization server moves to its own
+  origin, `tst.ping.darkedges.com`, because one shared hostname made it
+  same-origin with the application it authenticates for.
 - Route application paths to workbench and an explicit allowlist of required
   `/as`, `/pf`, and `/idp` engine paths to the isolated engine Service.
 - Deny admin API/console paths and keep adapter, gateway, MCP, API, audit, Vault,
@@ -1454,3 +1457,31 @@ Acceptance criteria:
   readiness observations, and exact rollback commands.
 - Rollback must remove only the isolated WAI releases/resources and must not
   mutate or interrupt the existing PingFederate 12.3 deployment.
+
+## Task 58 — Separate authorization server origin and in-cluster backchannel
+
+Goal: stop the authorization server from sharing an origin with the application
+it authenticates for, and stop backchannel traffic from leaving the cluster.
+
+Acceptance criteria:
+
+- Record the decision in ADR 0012 and mark the superseded part of ADR 0011 and
+  Task 56 rather than rewriting them.
+- Publish the authorization server at `tst.ping.darkedges.com` with the same
+  reviewed `/as/`, `/pf/`, `/idp/` prefix allowlist, and remove those prefixes
+  from the application hostname so the two are distinct browser origins.
+- Keep the redirect URI on the application origin; it identifies the client.
+- Make PingFederate's runtime base URL, and therefore the issuer, the
+  authorization server's own origin, and re-pin every consumer to it.
+- Serve an engine certificate naming the public hostname and the in-cluster
+  Service in each resolvable form. Generate and activate as separate steps, and
+  publish a trust bundle carrying both leaves before activating.
+- Address the token exchange, the code exchange, and JWKS at the engine Service.
+  Treat `PF_CA_FILE` as the only trust anchor when configured, and replace the
+  blanket TCP 443 egress with an explicit rule to the engine.
+- Add failure tests for a shared origin, engine paths still answering on the
+  application hostname, admin paths on either hostname, an unapproved Host
+  header, and a public certificate authority satisfying the backchannel client.
+- Do not change PingFederate's base URL until the new hostname resolves, or the
+  hosted login page renders a base href the browser cannot reach.
+

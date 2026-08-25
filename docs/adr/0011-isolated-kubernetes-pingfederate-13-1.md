@@ -5,6 +5,13 @@
 Accepted for phased implementation. No application deployment is authorized
 until each preceding gate in Tasks 49–57 passes.
 
+The single-hostname decision below is superseded by
+[ADR 0012](0012-separate-authorization-server-origin.md). Running the deployment
+showed that sharing one hostname made the authorization server and the
+application same-origin to the browser, so their session cookies reached each
+other, and that the requirement for workloads to use the internal engine Service
+was not being met. Everything else in this ADR stands.
+
 ## Context
 
 The existing Kubernetes PingFederate deployment at `id.ping.darkedges.com` is

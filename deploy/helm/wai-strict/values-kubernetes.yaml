@@ -7,7 +7,7 @@
 # Vault Secrets Operator.
 global:
   pingFederate:
-    issuer: https://workbench.ping.darkedges.com
+    issuer: https://tst.ping.darkedges.com
     jwksURL: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/pf/JWKS
     caSecretName: wai-pf13-runtime-ca
 
@@ -42,3 +42,14 @@ vault:
 pingFederateEngine:
   namespace: wai-pingfederate
   port: 9031
+
+ingress:
+  enabled: true
+  className: nginx
+  host: workbench.ping.darkedges.com
+  pingFederateHost: tst.ping.darkedges.com
+  workbenchServiceName: wai-web-app
+  workbenchServicePort: 8446
+  pingFederateEngineServiceName: wai-pingfederate-engine-route
+  pingFederateEngineExternalName: wai-pingfederate-engine.wai-pingfederate.svc.cluster.local
+  pingFederateEngineServicePort: 9031

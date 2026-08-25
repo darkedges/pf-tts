@@ -70,7 +70,7 @@ func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 		"allowPrivilegeEscalation: false", "readOnlyRootFilesystem: true",
 		"secretKeyRef:", "authorization.rego", "readOnly: true",
 		`nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"`,
-		"workbench.ping.darkedges.com", "workbenchServiceName",
+		"workbench.ping.darkedges.com", "workbenchServiceName", "tst.ping.darkedges.com", "pingFederateHost",
 		"kind: VaultConnection", "kind: VaultAuth", "kind: VaultStaticSecret",
 		"method: kubernetes", "skipTLSVerify: false", "hmacSecretData: true",
 		"wai-strict-workbench", "wai-strict-audit", "TTS_ADAPTER_URL", "AUDIT_COLLECTOR_URL",

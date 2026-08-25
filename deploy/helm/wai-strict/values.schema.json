@@ -56,7 +56,7 @@
       "type": "object", "additionalProperties": false,
       "required": ["authorizationEndpoint", "tokenEndpoint", "redirectURI", "publicOrigin", "oidcSecretName", "clientIDKey", "clientSecretKey", "tlsSecretName", "tlsCertKey", "tlsPrivateKeyKey"],
       "properties": {
-        "authorizationEndpoint": {"const": "https://workbench.ping.darkedges.com/as/authorization.oauth2"},
+        "authorizationEndpoint": {"const": "https://tst.ping.darkedges.com/as/authorization.oauth2"},
         "tokenEndpoint": {"type": "string", "pattern": "^https://[^?#]+/as/token\\.oauth2$"},
         "redirectURI": {"const": "https://workbench.ping.darkedges.com/oauth/callback"},
         "publicOrigin": {"const": "https://workbench.ping.darkedges.com"},
@@ -79,11 +79,12 @@
     "networkPolicy": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}}},
     "ingress": {
       "type": "object", "additionalProperties": false,
-      "required": ["enabled", "className", "host", "workbenchServiceName", "workbenchServicePort", "pingFederateEngineServiceName", "pingFederateEngineExternalName", "pingFederateEngineServicePort"],
+      "required": ["enabled", "className", "host", "pingFederateHost", "workbenchServiceName", "workbenchServicePort", "pingFederateEngineServiceName", "pingFederateEngineExternalName", "pingFederateEngineServicePort"],
       "properties": {
         "enabled": {"type": "boolean"},
         "className": {"type": "string", "minLength": 1},
         "host": {"const": "workbench.ping.darkedges.com"},
+        "pingFederateHost": {"const": "tst.ping.darkedges.com"},
         "workbenchServiceName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
         "workbenchServicePort": {"const": 8446},
         "pingFederateEngineServiceName": {"const": "wai-pingfederate-engine-route"},

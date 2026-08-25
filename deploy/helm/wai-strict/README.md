@@ -55,9 +55,17 @@ and strict Transaction Token verification remain the authorization boundaries.
 
 ## Cloudflare-terminated workbench ingress
 
-The chart publishes only `workbench.ping.darkedges.com`, routing to the
-chart-owned workbench HTTPS Service on port 8446. The schema fixes the reviewed
-public hostname, callback URI, and authorization endpoint.
+The chart publishes two hostnames. `workbench.ping.darkedges.com` serves only
+the application, routing to the chart-owned workbench HTTPS Service on port
+8446. `tst.ping.darkedges.com` serves only the authorization server's
+browser-required engine paths. They are deliberately separate browser origins:
+while both lived on one hostname, PingFederate's session cookie was attached to
+every workbench API call and the workbench's session cookie was sent to the
+authorization endpoint, because a cookie `Path` is not a security boundary. See
+ADR 0012.
+
+The schema fixes both reviewed hostnames, the callback URI, and the
+authorization endpoint.
 
 Cloudflare terminates browser TLS. Configure the Tunnel public hostname to use
 the in-cluster ingress-nginx HTTP Service, for example
@@ -75,10 +83,15 @@ termination cannot preserve the caller's SPIFFE TLS session. Forwarded
 certificate or identity headers are not trusted as workload identity.
 
 Only `/as/`, `/pf/`, and `/idp/` are routed to the isolated PingFederate engine
-Service. Kubernetes element-aware `Prefix` matching means `/pf-admin-api` and
-`/pf-admin` do not match `/pf/`; all non-allowlisted paths remain on the
-workbench backend. The PingFederate administrator Service and port 9999 are
-never referenced by either ingress.
+Service, and only on `tst.ping.darkedges.com`. Kubernetes element-aware `Prefix`
+matching means `/pf-admin-api` and `/pf-admin` do not match `/pf/`. The
+PingFederate administrator Service and port 9999 are never referenced by either
+ingress.
+
+Backchannel traffic does not use either ingress. The token exchange, the
+authorization code exchange, and JWKS retrieval address
+`wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031` directly, and
+`PF_CA_FILE` is the only trust anchor those clients accept.
 
 After deployment and Cloudflare Tunnel configuration, run
 `make verify-workbench-public-surface`. The live gate requires JWKS to succeed

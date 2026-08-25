@@ -43,6 +43,14 @@ spec:
       port: {{ .Values.ingress.pingFederateEngineServicePort }}
       targetPort: {{ .Values.ingress.pingFederateEngineServicePort }}
 ---
+# The authorization server has its own origin. Sharing one hostname with the
+# application made them same-origin to the browser, so PingFederate's session
+# cookie was attached to every workbench API call and the workbench's session
+# cookie was sent to the authorization endpoint. Path is not a security
+# boundary; a separate origin is.
+#
+# Only the browser-required engine paths are published. Every in-cluster caller
+# reaches the engine through its Service, not through this route.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -55,11 +63,11 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-ssl-secret: {{ printf "%s/%s" .Release.Namespace .Values.global.pingFederate.caSecretName | quote }}
     nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
     nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-name: "localhost"
+    nginx.ingress.kubernetes.io/proxy-ssl-name: {{ .Values.ingress.pingFederateHost | quote }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
-    - host: {{ .Values.ingress.host | quote }}
+    - host: {{ .Values.ingress.pingFederateHost | quote }}
       http:
         paths:
           {{- range $path := list "/as/" "/pf/" "/idp/" }}

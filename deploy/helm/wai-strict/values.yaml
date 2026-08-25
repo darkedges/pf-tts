@@ -41,7 +41,7 @@ ttsAdapter:
   clientSecretKey: client-secret
 
 workbench:
-  authorizationEndpoint: https://workbench.ping.darkedges.com/as/authorization.oauth2
+  authorizationEndpoint: https://tst.ping.darkedges.com/as/authorization.oauth2
   tokenEndpoint: ""
   redirectURI: https://workbench.ping.darkedges.com/oauth/callback
   publicOrigin: https://workbench.ping.darkedges.com
@@ -81,6 +81,7 @@ ingress:
   enabled: true
   className: nginx
   host: workbench.ping.darkedges.com
+  pingFederateHost: tst.ping.darkedges.com
   workbenchServiceName: wai-web-app
   workbenchServicePort: 8446
   pingFederateEngineServiceName: wai-pingfederate-engine-route
