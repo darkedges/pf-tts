@@ -63,10 +63,28 @@ Cloudflare terminates browser TLS. Configure the Tunnel public hostname to use
 the in-cluster ingress-nginx HTTP Service, for example
 `http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80`, while
 preserving the original Host header. Ingress then uses HTTPS to the workbench
-origin. The application's PingFederate OIDC login remains authoritative;
+origin. Separate ingress resources validate the workbench and PingFederate
+engine upstream certificates using their corresponding Vault-delivered
+`ca.crt` trust anchors and the reviewed `localhost` certificate identity. The
+application's PingFederate OIDC login remains authoritative;
 Cloudflare Access headers are not accepted as user or workload identity.
 
 The TTS adapter, strict gateway, MCP server, API, and audit collector remain private ClusterIP
 services. They are deliberately absent from Ingress because Cloudflare
 termination cannot preserve the caller's SPIFFE TLS session. Forwarded
 certificate or identity headers are not trusted as workload identity.
+
+Only `/as/`, `/pf/`, and `/idp/` are routed to the isolated PingFederate engine
+Service. Kubernetes element-aware `Prefix` matching means `/pf-admin-api` and
+`/pf-admin` do not match `/pf/`; all non-allowlisted paths remain on the
+workbench backend. The PingFederate administrator Service and port 9999 are
+never referenced by either ingress.
+
+After deployment and Cloudflare Tunnel configuration, run
+`make verify-workbench-public-surface`. The live gate requires JWKS to succeed
+on the reviewed hostname, rejects the PingFederate administrator paths and
+internal component paths, and rejects the same engine path with an unapproved
+Host header. Redirects are disabled so a redirect cannot hide an exposed path.
+Before Cloudflare DNS is active, the same live Kubernetes route can be tested
+locally with `-IngressOrigin http://localhost`; no other plaintext override is
+accepted.

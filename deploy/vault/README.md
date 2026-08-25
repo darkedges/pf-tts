@@ -11,14 +11,15 @@ credentials in Git, or enable TLS verification skipping.
 
 ## Required KV v2 records
 
-The default mount is `secret`. Store these exact records using an approved
+The reviewed Kubernetes deployment uses the `kv` mount. Store these exact
+records using an approved
 out-of-band Vault administration workflow:
 
 | Vault path | Required keys | Destination Secret |
 | --- | --- | --- |
-| `wai/pingfederate/ca` | `ca.pem` | `pingfederate-runtime-ca` |
-| `wai/pingfederate/token-exchange-client` | `client-id`, `client-secret` | `pingfederate-token-exchange-client` |
-| `wai/workbench` | `oidc-client-secret`, `token-exchange-client-id`, `token-exchange-client-secret` | `wai-web-app-secrets` |
+| `wai/pingfederate-13-1/runtime-ca` | `ca.pem`, `ca.crt` | `wai-pf13-runtime-ca` |
+| `wai/pingfederate-13-1/oauth/token-exchange` | `client-id`, `client-secret` | `wai-pf13-oauth-token-exchange` |
+| `wai/workbench` | `client-id`, `client-secret`, `tls.crt`, `tls.key`, `ca.crt` | `wai-web-app-secrets` |
 
 Do not put secret values on a command line, in Helm values, Argo CD parameters,
 Terraform state, shell history, or CI output. Load them from protected files or
@@ -45,8 +46,17 @@ pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1 -ValidateOnly
 make vault-import-local
 ```
 
+For the isolated Kubernetes 13.1 deployment, select its separately captured
+public leaf explicitly; do not substitute the Docker-local certificate:
+
+```text
+pwsh -NoProfile -File scripts/import-env-local-to-vault.ps1 -Mount kv -PingFederateCAPath wai/pingfederate-13-1/runtime-ca -TokenExchangeClientPath wai/pingfederate-13-1/oauth/token-exchange -PingFederateCAFile deploy/pingfederate/generated/pf13-kubernetes-admin-ca.pem -AllowOverwrite
+```
+
 The importer copies only the PingFederate runtime CA, token-exchange client,
-and workbench client values. It intentionally excludes PingFederate admin,
+and the browser client plus its short-lived, localhost-bound origin TLS pair.
+The duplicate public `ca.crt` keys let ingress-nginx verify each upstream; they
+do not contain private material. The importer intentionally excludes PingFederate admin,
 PingAuthorize, lab-user, and Ping Identity image-download credentials.
 
 Writes are create-only by default. To rotate records that already exist, first

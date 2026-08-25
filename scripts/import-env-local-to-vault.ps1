@@ -4,6 +4,9 @@ param(
     [string]$PingFederateCAPath = 'wai/pingfederate/ca',
     [string]$TokenExchangeClientPath = 'wai/pingfederate/token-exchange-client',
     [string]$WorkbenchPath = 'wai/workbench',
+    [string]$PingFederateCAFile = '',
+    [string]$WorkbenchCertificateFile = 'deploy/web/generated/server-cert.pem',
+    [string]$WorkbenchPrivateKeyFile = 'deploy/web/generated/server-key.pem',
     [switch]$AllowOverwrite,
     [switch]$ValidateOnly
 )
@@ -43,7 +46,29 @@ if (-not [Security.Cryptography.CryptographicOperations]::FixedTimeEquals([Text.
     throw 'PF_CLIENT_SECRET conflicts with TF_VAR_token_exchange_client_secret.'
 }
 $browserSecret = Required-Value 'TF_VAR_browser_client_secret'
-$caInput = if ($values.ContainsKey('PF_CA_FILE') -and -not [string]::IsNullOrWhiteSpace($values['PF_CA_FILE'])) {
+
+function Read-BoundedRegularFile([string]$InputPath, [string]$Description, [int64]$MaximumBytes) {
+    $resolved = if ([IO.Path]::IsPathRooted($InputPath)) { [IO.Path]::GetFullPath($InputPath) } else { [IO.Path]::GetFullPath((Join-Path $root $InputPath)) }
+    if (-not $resolved.StartsWith($root + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw "$Description must be inside the repository." }
+    if (-not (Test-Path -LiteralPath $resolved -PathType Leaf)) { throw "$Description does not identify a regular file." }
+    $info = Get-Item -LiteralPath $resolved -Force
+    if ($info.LinkType -or $info.Length -le 0 -or $info.Length -gt $MaximumBytes) { throw "$Description must be a non-symlink file no larger than $MaximumBytes bytes." }
+    return [IO.File]::ReadAllText($resolved)
+}
+
+$workbenchCertificatePEM = Read-BoundedRegularFile $WorkbenchCertificateFile 'Workbench certificate' 65536
+$workbenchPrivateKeyPEM = Read-BoundedRegularFile $WorkbenchPrivateKeyFile 'Workbench private key' 65536
+try {
+    $workbenchCertificate = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem($workbenchCertificatePEM, $workbenchPrivateKeyPEM)
+} catch { throw 'Workbench TLS certificate and private key are invalid or do not match.' }
+try {
+    $now = [DateTime]::UtcNow
+    if (-not $workbenchCertificate.HasPrivateKey -or $workbenchCertificate.NotBefore.ToUniversalTime() -gt $now -or $workbenchCertificate.NotAfter.ToUniversalTime() -le $now) { throw 'Workbench TLS certificate is not currently usable.' }
+    if (-not $workbenchCertificate.MatchesHostname('localhost', $true, $true)) { throw 'Workbench TLS certificate must be bound to localhost for the verified nginx upstream.' }
+} finally { $workbenchCertificate.Dispose() }
+$caInput = if (-not [string]::IsNullOrWhiteSpace($PingFederateCAFile)) {
+    $PingFederateCAFile
+} elseif ($values.ContainsKey('PF_CA_FILE') -and -not [string]::IsNullOrWhiteSpace($values['PF_CA_FILE'])) {
     [string]$values['PF_CA_FILE']
 } else {
     'deploy/pingfederate/generated/local-runtime-ca.pem'
@@ -122,9 +147,9 @@ try {
 }
 
 $payloads = @(
-    @{ Path = $PingFederateCAPath; Data = @{ 'ca.pem' = $caPEM } },
+    @{ Path = $PingFederateCAPath; Data = @{ 'ca.pem' = $caPEM; 'ca.crt' = $caPEM } },
     @{ Path = $TokenExchangeClientPath; Data = @{ 'client-id' = $clientID; 'client-secret' = $clientSecret } },
-    @{ Path = $WorkbenchPath; Data = @{ 'oidc-client-secret' = $browserSecret; 'token-exchange-client-id' = $clientID; 'token-exchange-client-secret' = $clientSecret } }
+    @{ Path = $WorkbenchPath; Data = @{ 'client-id' = 'wai-browser'; 'client-secret' = $browserSecret; 'tls.crt' = $workbenchCertificatePEM; 'tls.key' = $workbenchPrivateKeyPEM; 'ca.crt' = $workbenchCertificatePEM } }
 )
 $completedWrites = 0
 try {

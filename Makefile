@@ -1,4 +1,4 @@
-.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app image-push-audit-collector images-inspect pf-profile-artifact pf-profile-artifact-push spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf13-k8s-bootstrap pf13-k8s-export-admin-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate vault-import-pf13-privileged
+.PHONY: test helm-lint registry-login image-source-check images-push image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-server image-push-strict-demo-api image-push-web-app image-push-audit-collector images-inspect verify-workbench-public-surface vault-configure-strict pf-profile-artifact pf-profile-artifact-push spire-up spire-register spire-jwt spire-jwks spire-down pf-profile pf-profile-export pf-clean-bootstrap pf-probe-txn-profile pf-test-txn-inner pf-test-tts-adapter pf-test-strict-call-chain pf-local-up pf-local-down pf-local-logs pf-discover pf-inspect-auth pf-verify-subject pf-probe-jwks pf-live-exchange pf-export-ca pf13-k8s-bootstrap pf13-k8s-export-admin-ca pf-trust-local pf-generate-tfvars pf-ensure-scope pf-init pf-fmt pf-validate pf-plan pf-apply pa-local-up pa-local-down pa-local-logs pa-trust-local pa-export-runtime-ca web-tls app-config app-up lab-up lab-verify app-down platform-validate vault-import-pf13-privileged
 
 REGISTRY_HOST ?= docker.io
 REGISTRY_USER ?= darkedges
@@ -43,6 +43,12 @@ image-push-tts-adapter image-push-strict-mcp-gateway image-push-strict-demo-mcp-
 
 images-inspect:
 	@$(foreach image,$(STRICT_IMAGES),docker buildx imagetools inspect $(IMAGE_REGISTRY)/$(IMAGE_PREFIX)$(image):$(IMAGE_TAG)$(if $(filter $(image),$(lastword $(STRICT_IMAGES))),, &&) )
+
+verify-workbench-public-surface:
+	pwsh -NoProfile -File scripts/verify-workbench-public-surface.ps1
+
+vault-configure-strict:
+	pwsh -NoProfile -File scripts/configure-wai-strict-vault-role.ps1
 
 pf-profile-artifact:
 	pwsh -NoProfile -File scripts/build-pingfederate-profile-artifact.ps1

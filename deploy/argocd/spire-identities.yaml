@@ -5,6 +5,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-tts-adapter
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-tts-adapter" }}spiffe://example.org/tts/adapter{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:
@@ -18,6 +19,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-strict-workbench
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-workbench" }}spiffe://example.org/agent/web-app{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:
@@ -31,6 +33,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-strict-audit
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-audit" }}spiffe://example.org/audit/collector{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:
@@ -44,6 +47,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-strict-gateway
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-gateway" }}spiffe://example.org/gateway/mcp-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:
@@ -57,6 +61,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-strict-mcp
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-mcp" }}spiffe://example.org/mcp/demo-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:
@@ -70,6 +75,7 @@ kind: ClusterSPIFFEID
 metadata:
   name: wai-strict-api
 spec:
+  className: spire-system-spire
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-api" }}spiffe://example.org/api/demo-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
   podSelector:
     matchLabels:

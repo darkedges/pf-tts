@@ -75,6 +75,7 @@ func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 		"method: kubernetes", "skipTLSVerify: false", "hmacSecretData: true",
 		"wai-strict-workbench", "wai-strict-audit", "TTS_ADAPTER_URL", "AUDIT_COLLECTOR_URL",
 		"spiffe://example.org/agent/web-app", "spiffe://example.org/audit/collector",
+		"kubernetes.io/metadata.name: ingress-nginx", "app.kubernetes.io/component: controller", "port: 8446",
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("Helm chart missing security control %q", required)
@@ -101,6 +102,9 @@ func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	identityConfig := string(identities)
+	if strings.Count(identityConfig, "className: spire-system-spire") != 6 {
+		t.Fatal("each strict SPIFFE registration must bind the installed controller class")
+	}
 	for _, serviceAccount := range []string{"wai-tts-adapter", "wai-strict-gateway", "wai-strict-mcp", "wai-strict-api", "wai-strict-workbench", "wai-strict-audit"} {
 		if !strings.Contains(identityConfig, `.PodSpec.ServiceAccountName "`+serviceAccount+`"`) {
 			t.Errorf("SPIRE registration does not bind ServiceAccount %q", serviceAccount)
@@ -129,6 +133,31 @@ func TestHelmStrictPolicyMatchesReviewedSource(t *testing.T) {
 	}
 }
 
+func TestSingleHostnameIngressIsEngineAllowlisted(t *testing.T) {
+	template, err := os.ReadFile("../deploy/helm/wai-strict/templates/ingress.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(template)
+	for _, required := range []string{
+		`list "/as/" "/pf/" "/idp/"`,
+		".Values.ingress.pingFederateEngineExternalName",
+		"targetPort: {{ .Values.ingress.pingFederateEngineServicePort }}",
+		`nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"`,
+		`nginx.ingress.kubernetes.io/proxy-ssl-name: "localhost"`,
+		".Values.ingress.host",
+	} {
+		if !strings.Contains(content, required) {
+			t.Errorf("public ingress missing control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"wai-pingfederate-admin", "port: 9999", `"/pf-admin`, `"/pingfederate`} {
+		if strings.Contains(content, forbidden) {
+			t.Errorf("public ingress exposes forbidden PingFederate surface %q", forbidden)
+		}
+	}
+}
+
 func TestVaultImporterIsNarrowAndFailClosed(t *testing.T) {
 	data, err := os.ReadFile("../scripts/import-env-local-to-vault.ps1")
 	if err != nil {
@@ -140,6 +169,8 @@ func TestVaultImporterIsNarrowAndFailClosed(t *testing.T) {
 		"vault print token", "X-Vault-Token", "HttpClientHandler", "AllowAutoRedirect = $false",
 		"$ValidateOnly", "PF_CA_FILE must be a non-symlink PEM file no larger than 64 KiB",
 		"VAULT_KV_MOUNT", "sys/internal/ui/mounts", "is not a KV v2 secrets engine; refusing to write",
+		"CreateFromPem($workbenchCertificatePEM, $workbenchPrivateKeyPEM)", "MatchesHostname('localhost'", "'ca.crt'",
+		"PingFederateCAFile",
 	} {
 		if !strings.Contains(script, required) {
 			t.Errorf("Vault importer missing security control %q", required)
@@ -148,6 +179,39 @@ func TestVaultImporterIsNarrowAndFailClosed(t *testing.T) {
 	for _, forbidden := range []string{"PF_ADMIN_PASSWORD", "PING_IDENTITY_DEVOPS_KEY", "TF_VAR_lab_user_password", "-tls-skip-verify", "Write-Output $clientSecret", `"@$file"`, "WriteAllText", "vault kv put"} {
 		if strings.Contains(script, forbidden) {
 			t.Errorf("Vault importer includes prohibited credential handling %q", forbidden)
+		}
+	}
+}
+
+func TestStrictVaultPolicyAndRoleAreExactReadOnly(t *testing.T) {
+	policyBytes, err := os.ReadFile("../deploy/vault/wai-strict-policy.hcl")
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := string(policyBytes)
+	for _, path := range []string{
+		"kv/data/wai/pingfederate-13-1/runtime-ca",
+		"kv/data/wai/pingfederate-13-1/oauth/token-exchange",
+		"kv/data/wai/workbench",
+	} {
+		if !strings.Contains(policy, path) {
+			t.Errorf("strict Vault policy is missing %q", path)
+		}
+	}
+	for _, forbidden := range []string{"*", "create", "update", "delete", "sudo", `path "kv/data/wai/*`} {
+		if strings.Contains(policy, forbidden) {
+			t.Errorf("strict Vault policy contains over-broad capability %q", forbidden)
+		}
+	}
+
+	roleBytes, err := os.ReadFile("../scripts/configure-wai-strict-vault-role.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	role := string(roleBytes)
+	for _, required := range []string{"bound_service_account_names=wai-vault-auth", "bound_service_account_namespaces=wai-strict", "audience=vault", "token_policies=wai-strict", "token_max_ttl=30m"} {
+		if !strings.Contains(role, required) {
+			t.Errorf("strict Vault role is missing %q", required)
 		}
 	}
 }

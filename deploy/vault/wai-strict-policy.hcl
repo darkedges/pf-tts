@@ -1,11 +1,11 @@
-path "secret/data/wai/pingfederate/ca" {
+path "kv/data/wai/pingfederate-13-1/runtime-ca" {
   capabilities = ["read"]
 }
 
-path "secret/data/wai/pingfederate/token-exchange-client" {
+path "kv/data/wai/pingfederate-13-1/oauth/token-exchange" {
   capabilities = ["read"]
 }
 
-path "secret/data/wai/workbench" {
+path "kv/data/wai/workbench" {
   capabilities = ["read"]
 }

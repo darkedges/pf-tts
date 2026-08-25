@@ -77,6 +77,9 @@ ingress:
   host: workbench.ping.darkedges.com
   workbenchServiceName: wai-web-app
   workbenchServicePort: 8446
+  pingFederateEngineServiceName: wai-pingfederate-engine-route
+  pingFederateEngineExternalName: wai-pingfederate-engine.wai-pingfederate.svc.cluster.local
+  pingFederateEngineServicePort: 9031
 
 vault:
   enabled: false

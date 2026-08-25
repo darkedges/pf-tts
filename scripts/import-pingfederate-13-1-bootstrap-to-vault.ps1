@@ -80,7 +80,9 @@ $payloads = @(
     @{ Path = "$basePath/oauth/browser"; Data = @{ 'client-id' = 'wai-browser'; 'client-secret' = $values['TF_VAR_browser_client_secret'] } },
     @{ Path = "$basePath/oauth/lab-user"; Data = @{ 'client-id' = 'wai-lab-user'; 'client-secret' = $values['TF_VAR_lab_user_client_secret']; 'user-password' = $values['TF_VAR_lab_user_password'] } },
     @{ Path = "$basePath/oauth/mcp-gateway"; Data = @{ 'client-id' = 'wai-mcp-gateway'; 'client-secret' = $values['TF_VAR_mcp_gateway_client_secret'] } },
-    @{ Path = "$basePath/runtime-ca"; Data = @{ 'ca.pem' = $caPEM } }
+    # ca.pem is consumed by Go clients; ca.crt is the ingress-nginx upstream
+    # verification key. Both contain the same reviewed public certificate.
+    @{ Path = "$basePath/runtime-ca"; Data = @{ 'ca.pem' = $caPEM; 'ca.crt' = $caPEM } }
 )
 if ($ValidateOnly) { Write-Output 'PASS: isolated privileged Vault inputs are complete and consistent; nothing was written.'; exit 0 }
 
