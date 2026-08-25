@@ -17,7 +17,10 @@ func TestStrictCallChainPolicyAllowsOnlyExactSignedProfile(t *testing.T) {
 	agent, _ := identity.NewAgentIdentity("urn:agent:demo", "instance")
 	workload, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/demo")
 	caller, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/demo")
-	txn, _ := identity.NewTransactionIdentity("txn", "system.whoami")
+	// The strict middleware derives the transaction purpose from the signed route
+	// carried in the transaction token, as "<target>:<tool>". Build the same value
+	// here so this test guards the tuple the deployed gateway actually evaluates.
+	txn, _ := identity.NewTransactionIdentity("txn", "demo:system.whoami")
 	auth, _ := identity.NewAuthorizationContext([]string{"mcp.system.whoami"})
 	value, _ := identity.NewRequestIdentityContext(user, agent, workload, caller, txn, auth)
 	if err := policy.Authorize(context.Background(), value, "demo", "system.whoami"); err != nil {
@@ -27,7 +30,8 @@ func TestStrictCallChainPolicyAllowsOnlyExactSignedProfile(t *testing.T) {
 		"scope expansion": func(v *identity.RequestIdentityContext) {
 			v.Authorization.Scope = append(v.Authorization.Scope, "admin")
 		},
-		"wrong purpose": func(v *identity.RequestIdentityContext) { v.Transaction.Purpose = "customer.read" },
+		"wrong purpose":     func(v *identity.RequestIdentityContext) { v.Transaction.Purpose = "demo:customer.read" },
+		"bare tool purpose": func(v *identity.RequestIdentityContext) { v.Transaction.Purpose = "system.whoami" },
 		"wrong workload": func(v *identity.RequestIdentityContext) {
 			v.OriginalWorkload.SPIFFEID = "spiffe://example.org/agent/other"
 		},
@@ -50,7 +54,7 @@ func TestStrictPolicyRejectsDemoWorkbenchIdentitySubstitution(t *testing.T) {
 	}
 	user, _ := identity.NewUserIdentity("user")
 	caller, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/web-app")
-	txn, _ := identity.NewTransactionIdentity("txn", "system.whoami")
+	txn, _ := identity.NewTransactionIdentity("txn", "demo:system.whoami")
 	auth, _ := identity.NewAuthorizationContext([]string{"mcp.system.whoami"})
 	webAgent, _ := identity.NewAgentIdentity("urn:agent:web-app", "instance")
 	webWorkload, _ := identity.NewWorkloadIdentity("spiffe://example.org/agent/web-app")

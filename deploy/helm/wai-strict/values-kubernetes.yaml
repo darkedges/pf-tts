@@ -4,7 +4,7 @@
 # Vault Secrets Operator.
 global:
   pingFederate:
-    issuer: https://localhost:9031
+    issuer: https://workbench.ping.darkedges.com
     jwksURL: https://workbench.ping.darkedges.com/pf/JWKS
     caSecretName: wai-pf13-runtime-ca
 

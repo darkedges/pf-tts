@@ -77,8 +77,20 @@ func Verifier() (*pingfederate.JWTVerifier, error) {
 	})
 }
 
+// StrictWorkloadAgentBindings is the reviewed workload-to-AgentID map for the
+// strict call chain. Every strict hop verifies against the same set, so a
+// transaction the gateway accepts cannot be rejected further down the chain by
+// a hop that was updated separately. Entries are exact: a workload can never
+// assert a different AgentID, and this map is never widened to a wildcard.
+func StrictWorkloadAgentBindings() map[string]string {
+	return map[string]string{
+		"spiffe://example.org/agent/demo":    "urn:agent:demo",
+		"spiffe://example.org/agent/web-app": "urn:agent:web-app",
+	}
+}
+
 func StrictTxnVerifier() (*transaction.TxnTokenVerifier, error) {
-	return StrictTxnVerifierForBindings(map[string]string{"spiffe://example.org/agent/demo": "urn:agent:demo"})
+	return StrictTxnVerifierForBindings(StrictWorkloadAgentBindings())
 }
 
 func StrictTxnVerifierForBindings(bindings map[string]string) (*transaction.TxnTokenVerifier, error) {

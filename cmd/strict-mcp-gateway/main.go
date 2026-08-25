@@ -46,7 +46,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	verifier, err := demoenv.StrictTxnVerifierForBindings(map[string]string{agentID: "urn:agent:demo", webAgentID: "urn:agent:web-app"})
+	verifier, err := demoenv.StrictTxnVerifierForBindings(demoenv.StrictWorkloadAgentBindings())
 	if err != nil {
 		log.Fatal(err)
 	}
