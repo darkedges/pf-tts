@@ -1,4 +1,4 @@
-# Reviewed deployment input for source revision 1ab943d15757.
+# Reviewed deployment input for source revision fc0001176341.
 # Backchannel calls address the isolated engine Service directly. The issuer
 # stays the browser-facing origin because it identifies the token, not a
 # location to fetch from.
@@ -16,7 +16,7 @@ images:
   gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:c27a3f510fd2a81b3ebfa4bee7f0a7a151115ffc640b585c78804b308b692450"}
   mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:1988eff8fdc7f825b0133187b1a0a272e00728076c99812ba2fca8444df8b42e"}
   api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:e3be54c0d05f5d3e9e15433c84c32dd210dbd5f455d70893f707fe470c6bd244"}
-  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:63183f3e53de00a636ef72e2595e553951ab7ff264a49a64a9469bdd2f364e0f"}
+  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:843b11cc034ce119592b0967d4a04e198cc3abc99240fbc2ec47a754affb3e4b"}
   auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:4590f83dc87fa3858c6afa7ca6570b38cecc709e065ecf382f3c49d8c598fb72"}
 
 ttsAdapter:

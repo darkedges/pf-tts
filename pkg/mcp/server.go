@@ -17,9 +17,24 @@ import (
 type CustomerGetInput struct {
 	CustomerID string `json:"customer_id" jsonschema:"customer identifier"`
 }
-type CustomerGetOutput struct{ CustomerID, Name string }
+type CustomerGetOutput struct {
+	CustomerID string `json:"customer_id"`
+	Name       string `json:"name"`
+}
+
+// WhoAmIOutput is the verified identity the protected service recognised for a
+// call. Every field is derived server-side from the signed transaction token and
+// the authenticated mTLS peer; none of it is asserted by the caller. The names
+// are the same snake_case the audit trail uses, so one identity reads the same
+// wherever it is displayed.
 type WhoAmIOutput struct {
-	UserID, AgentID, WorkloadSPIFFEID, ImmediateCallerSPIFFEID, TransactionID, Purpose, APITransactionID string
+	UserID                  string `json:"user_id"`
+	AgentID                 string `json:"agent_id"`
+	WorkloadSPIFFEID        string `json:"workload_spiffe_id"`
+	ImmediateCallerSPIFFEID string `json:"immediate_caller_spiffe_id"`
+	TransactionID           string `json:"transaction_id"`
+	Purpose                 string `json:"purpose"`
+	APITransactionID        string `json:"api_transaction_id,omitempty"`
 }
 
 type DemoServerOptions struct {
