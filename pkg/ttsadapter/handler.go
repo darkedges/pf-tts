@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/pingfederate"
 	"example.com/workload-agent-identity/pkg/transaction"
 )
@@ -39,6 +40,7 @@ type Config struct {
 	Verifier          StrictTokenVerifier
 	Caller            CallerIdentity
 	ReportFailure     FailureReporter
+	Audit             audit.Sink
 }
 
 type Handler struct{ config Config }
@@ -143,6 +145,19 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expiresIn := int64(signedLifetime / time.Second)
+	if h.config.Audit != nil {
+		evidence, evidenceErr := audit.NewVerifiedTxnTokenEvidence(upstream.AccessToken, claims)
+		if evidenceErr != nil || h.config.Audit.Write(audit.Event{
+			Type: audit.TransactionExchangeSucceeded, TransactionID: claims.TransactionID, UserID: claims.Subject,
+			AgentID: claims.TransactionContext.WAI.Agent.ID, TransactionWorkloadID: claims.RequestingWorkloadID,
+			ImmediateCallerSPIFFEID: caller, Target: claims.TransactionContext.WAI.Target, Tool: claims.TransactionContext.WAI.Tool,
+			Purpose: claims.TransactionContext.WAI.Tool, Decision: "allow", ReasonCode: "strict_transaction_token_verified", Token: evidence,
+		}) != nil {
+			h.reportFailure("audit_submission")
+			writeOAuthError(w, http.StatusBadGateway, "temporarily_unavailable")
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(struct {

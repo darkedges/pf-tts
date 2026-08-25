@@ -24,11 +24,11 @@ func main() {
 		log.Fatal(err)
 	}
 	callers := []string{
-		"spiffe://example.org/agent/demo",
 		"spiffe://example.org/agent/web-app",
-		"spiffe://example.org/gateway/mcp",
-		"spiffe://example.org/mcp/demo",
-		"spiffe://example.org/api/demo",
+		"spiffe://example.org/tts/adapter",
+		"spiffe://example.org/gateway/mcp-strict",
+		"spiffe://example.org/mcp/demo-strict",
+		"spiffe://example.org/api/demo-strict",
 	}
 	handler, err := auditcollector.New(auditcollector.Config{
 		Store: store, AllowedSubmitters: callers, QueryCaller: "spiffe://example.org/agent/web-app", MaximumBodyBytes: 64 << 10,

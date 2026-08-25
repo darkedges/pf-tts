@@ -322,6 +322,9 @@ func TestNewRejectsMismatchedRuntimeRoutesAndEndpointQueries(t *testing.T) {
 		"endpoint query": func(config *Config) {
 			config.AuthorizationEndpoint += "?client=attacker"
 		},
+		"token endpoint query":       func(config *Config) { config.TokenEndpoint += "?target=attacker" },
+		"token endpoint credentials": func(config *Config) { config.TokenEndpoint = "https://user:secret@issuer.example/token" },
+		"insecure token endpoint":    func(config *Config) { config.TokenEndpoint = "http://issuer.example/token" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			config := base

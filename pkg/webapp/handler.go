@@ -80,12 +80,11 @@ type Handler struct {
 }
 
 func New(config Config) (*Handler, error) {
-	authURL, authErr := secureURL(config.AuthorizationEndpoint)
-	tokenURL, tokenErr := secureURL(config.TokenEndpoint)
+	_, authErr := secureURL(config.AuthorizationEndpoint)
+	_, tokenErr := secureURL(config.TokenEndpoint)
 	redirectURL, redirectErr := secureURL(config.RedirectURI)
 	publicURL, publicErr := secureURL(config.PublicOrigin)
 	if authErr != nil || tokenErr != nil || redirectErr != nil || publicErr != nil ||
-		authURL.Scheme != tokenURL.Scheme || authURL.Host != tokenURL.Host ||
 		redirectURL.Scheme != publicURL.Scheme || redirectURL.Host != publicURL.Host ||
 		redirectURL.Path != "/oauth/callback" || publicURL.Path != "" && publicURL.Path != "/" ||
 		strings.TrimSpace(config.ClientID) == "" || strings.TrimSpace(config.ClientSecret) == "" ||

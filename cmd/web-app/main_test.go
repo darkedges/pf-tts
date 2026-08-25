@@ -1,23 +1,25 @@
 package main
 
 import (
-	"context"
-	"crypto/tls"
-	"net/http"
+	"os"
+	"strings"
 	"testing"
-	"time"
 )
 
-func TestLocalOIDCBackchannelRequiresBoundedTransportAndRejectsOtherAddresses(t *testing.T) {
-	if _, err := localOIDCBackchannelClient(&http.Client{}); err == nil {
-		t.Fatal("unbounded OIDC backchannel client accepted")
-	}
-	client, err := localOIDCBackchannelClient(&http.Client{Timeout: time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS12}}})
+func TestWorkbenchUsesStrictPeersAndNoOIDCAddressRewrite(t *testing.T) {
+	b, err := os.ReadFile("main.go")
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport := client.Transport.(*http.Transport)
-	if _, err := transport.DialContext(context.Background(), "tcp", "attacker.example:9031"); err == nil {
-		t.Fatal("OIDC backchannel dialed an untrusted address")
+	s := string(b)
+	for _, required := range []string{"spiffe://example.org/tts/adapter", "spiffe://example.org/gateway/mcp-strict", "StrictRunner", "TTS_ADAPTER_URL"} {
+		if !strings.Contains(s, required) {
+			t.Fatalf("strict workbench missing %q", required)
+		}
+	}
+	for _, forbidden := range []string{"host.docker.internal", "DialContext", `NewExactPeerPolicy("spiffe://example.org/gateway/mcp")`} {
+		if strings.Contains(s, forbidden) {
+			t.Fatalf("workbench contains unsafe legacy backchannel behavior %q", forbidden)
+		}
 	}
 }

@@ -13,9 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"example.com/workload-agent-identity/pkg/audit"
 	"example.com/workload-agent-identity/pkg/pingfederate"
 	"example.com/workload-agent-identity/pkg/transaction"
 )
+
+type rejectingAuditSink struct{}
+
+func (rejectingAuditSink) Write(audit.Event) error { return errors.New("collector unavailable") }
 
 type fakeExchanger struct {
 	response pingfederate.ExchangeResponse
@@ -216,6 +221,25 @@ func TestHandlerUsesVerifiedSignedLifetimeWhenUpstreamHintIsShorter(t *testing.T
 	}
 	if response["expires_in"] != float64(20) {
 		t.Fatalf("expires_in=%v, want signed lifetime 20", response["expires_in"])
+	}
+}
+
+func TestHandlerRejectsIssuanceWhenStrictAuditCannotRecordVerifiedToken(t *testing.T) {
+	handler, _, verifier := validHandler(t)
+	verifier.claims.Issuer = "https://issuer.example"
+	verifier.claims.JWTID = "jti-1"
+	verifier.claims.Subject = "user-1"
+	verifier.claims.TransactionID = "txn-1"
+	verifier.claims.TransactionContext.WAI.Agent.ID = "urn:agent:demo"
+	verifier.claims.TransactionContext.WAI.Agent.InstanceID = "instance-1"
+	verifier.claims.TransactionContext.WAI.Agent.WorkloadID = "spiffe://example.org/agent/demo"
+	verifier.claims.TransactionContext.WAI.Target = "demo"
+	verifier.claims.TransactionContext.WAI.Tool = "system.whoami"
+	handler.config.Audit = rejectingAuditSink{}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, requestFor(validForm()))
+	if recorder.Code != http.StatusBadGateway || strings.Contains(recorder.Body.String(), "signed-by-pingfederate") {
+		t.Fatalf("unaudited token issuance was not rejected safely: status=%d", recorder.Code)
 	}
 }
 

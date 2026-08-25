@@ -25,6 +25,14 @@ images:
     repository: ""
     tag: ""
     digest: ""
+  workbench:
+    repository: ""
+    tag: ""
+    digest: ""
+  auditCollector:
+    repository: ""
+    tag: ""
+    digest: ""
 
 ttsAdapter:
   tokenEndpoint: ""
@@ -32,11 +40,25 @@ ttsAdapter:
   clientIDKey: client-id
   clientSecretKey: client-secret
 
+workbench:
+  authorizationEndpoint: https://workbench.ping.darkedges.com/as/authorization.oauth2
+  tokenEndpoint: ""
+  redirectURI: https://workbench.ping.darkedges.com/oauth/callback
+  publicOrigin: https://workbench.ping.darkedges.com
+  oidcSecretName: wai-web-app-secrets
+  clientIDKey: client-id
+  clientSecretKey: client-secret
+  tlsSecretName: ""
+  tlsCertKey: tls.crt
+  tlsPrivateKeyKey: tls.key
+
 serviceAccounts:
   adapter: wai-tts-adapter
   gateway: wai-strict-gateway
   mcpServer: wai-strict-mcp
   api: wai-strict-api
+  workbench: wai-strict-workbench
+  auditCollector: wai-strict-audit
 
 resources:
   requests:

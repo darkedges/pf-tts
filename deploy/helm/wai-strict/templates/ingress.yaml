@@ -18,7 +18,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ .Values.ingress.workbenchServiceName }}
+                name: {{ include "wai-strict.fullname" . }}-workbench
                 port:
                   number: {{ .Values.ingress.workbenchServicePort }}
 {{- end }}

@@ -1,8 +1,9 @@
 # WAI strict Helm chart
 
 This chart deploys only the opt-in strict Transaction Token call chain: the
-non-signing TTS adapter, gateway, MCP server, and API. PingFederate, SPIRE, the
-SPIFFE CSI Driver, user authentication, image publication, and secret delivery
+non-signing TTS adapter, gateway, MCP server, API, authenticated workbench, and
+bounded in-memory audit collector. PingFederate, SPIRE, the SPIFFE CSI Driver,
+image publication, and secret delivery
 are external prerequisites. Kubernetes is not required by the local MVP.
 
 ## Trust boundaries
@@ -16,12 +17,15 @@ the namespace and ServiceAccount and issue exactly these identities:
 | `wai-strict-gateway` | `spiffe://example.org/gateway/mcp-strict` |
 | `wai-strict-mcp` | `spiffe://example.org/mcp/demo-strict` |
 | `wai-strict-api` | `spiffe://example.org/api/demo-strict` |
+| `wai-strict-workbench` | `spiffe://example.org/agent/web-app` |
+| `wai-strict-audit` | `spiffe://example.org/audit/collector` |
 
 Apply the reviewed `ClusterSPIFFEID` examples in `deploy/argocd/spire-identities.yaml`
 only after confirming the SPIRE Controller Manager API version in the target
 cluster. Do not use a namespace-wide wildcard registration.
 
-The chart reads PingFederate TLS trust and OAuth client credentials from
+The chart reads PingFederate TLS trust, OAuth client credentials, and the
+workbench's private in-cluster TLS material from
 pre-existing Secrets. It never creates or stores secret values. For GitOps,
 provide those Secrets through an approved external secret controller or a
 separately managed encrypted-secret workflow.
@@ -50,8 +54,8 @@ and strict Transaction Token verification remain the authorization boundaries.
 ## Cloudflare-terminated workbench ingress
 
 The chart publishes only `workbench.ping.darkedges.com`, routing to the
-existing `wai-web-app` HTTPS Service on port 8446. The Service can be changed
-in values, but the schema fixes the reviewed public hostname.
+chart-owned workbench HTTPS Service on port 8446. The schema fixes the reviewed
+public hostname, callback URI, and authorization endpoint.
 
 Cloudflare terminates browser TLS. Configure the Tunnel public hostname to use
 the in-cluster ingress-nginx HTTP Service, for example
@@ -60,7 +64,7 @@ preserving the original Host header. Ingress then uses HTTPS to the workbench
 origin. The application's PingFederate OIDC login remains authoritative;
 Cloudflare Access headers are not accepted as user or workload identity.
 
-The TTS adapter, strict gateway, MCP server, and API remain private ClusterIP
+The TTS adapter, strict gateway, MCP server, API, and audit collector remain private ClusterIP
 services. They are deliberately absent from Ingress because Cloudflare
 termination cannot preserve the caller's SPIFFE TLS session. Forwarded
 certificate or identity headers are not trusted as workload identity.

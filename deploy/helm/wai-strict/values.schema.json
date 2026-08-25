@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
   "additionalProperties": false,
-  "required": ["global", "images", "ttsAdapter", "serviceAccounts", "resources", "networkPolicy", "ingress", "vault"],
+    "required": ["global", "images", "ttsAdapter", "workbench", "serviceAccounts", "resources", "networkPolicy", "ingress", "vault"],
   "properties": {
     "global": {
       "type": "object",
@@ -28,10 +28,11 @@
     "images": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ttsAdapter", "gateway", "mcpServer", "api"],
+      "required": ["ttsAdapter", "gateway", "mcpServer", "api", "workbench", "auditCollector"],
       "properties": {
         "ttsAdapter": {"$ref": "#/definitions/image"}, "gateway": {"$ref": "#/definitions/image"},
-        "mcpServer": {"$ref": "#/definitions/image"}, "api": {"$ref": "#/definitions/image"}
+        "mcpServer": {"$ref": "#/definitions/image"}, "api": {"$ref": "#/definitions/image"},
+        "workbench": {"$ref": "#/definitions/image"}, "auditCollector": {"$ref": "#/definitions/image"}
       }
     },
     "ttsAdapter": {
@@ -43,7 +44,29 @@
         "clientIDKey": {"type": "string", "minLength": 1}, "clientSecretKey": {"type": "string", "minLength": 1}
       }
     },
-    "serviceAccounts": {"type": "object"},
+    "workbench": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authorizationEndpoint", "tokenEndpoint", "redirectURI", "publicOrigin", "oidcSecretName", "clientIDKey", "clientSecretKey", "tlsSecretName", "tlsCertKey", "tlsPrivateKeyKey"],
+      "properties": {
+        "authorizationEndpoint": {"const": "https://workbench.ping.darkedges.com/as/authorization.oauth2"},
+        "tokenEndpoint": {"type": "string", "pattern": "^https://[^?#]+/as/token\\.oauth2$"},
+        "redirectURI": {"const": "https://workbench.ping.darkedges.com/oauth/callback"},
+        "publicOrigin": {"const": "https://workbench.ping.darkedges.com"},
+        "oidcSecretName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "clientIDKey": {"const": "client-id"}, "clientSecretKey": {"const": "client-secret"},
+        "tlsSecretName": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "tlsCertKey": {"const": "tls.crt"}, "tlsPrivateKeyKey": {"const": "tls.key"}
+      }
+    },
+    "serviceAccounts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["adapter", "gateway", "mcpServer", "api", "workbench", "auditCollector"],
+      "properties": {
+        "adapter": {"const": "wai-tts-adapter"}, "gateway": {"const": "wai-strict-gateway"},
+        "mcpServer": {"const": "wai-strict-mcp"}, "api": {"const": "wai-strict-api"},
+        "workbench": {"const": "wai-strict-workbench"}, "auditCollector": {"const": "wai-strict-audit"}
+      }
+    },
     "resources": {"type": "object"},
     "networkPolicy": {"type": "object", "additionalProperties": false, "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}}},
     "ingress": {

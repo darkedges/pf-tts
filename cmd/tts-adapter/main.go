@@ -19,7 +19,8 @@ import (
 
 const (
 	adapterSPIFFEID = "spiffe://example.org/tts/adapter"
-	requesterID     = "spiffe://example.org/agent/demo"
+	demoRequesterID = "spiffe://example.org/agent/demo"
+	webRequesterID  = "spiffe://example.org/agent/web-app"
 	trustDomain     = "example.org"
 	strictScope     = "mcp.system.whoami"
 )
@@ -70,8 +71,12 @@ func main() {
 		MaximumLifetime: 60 * time.Second, MaximumTokenBytes: 16 << 10, MaximumPayloadBytes: 8 << 10,
 		MaximumIdentifierBytes: 256, MaximumContextBytes: 2 << 10, MaximumScopes: 1,
 		AllowedScopes:         map[string]struct{}{strictScope: {}},
-		WorkloadAgentBindings: map[string]string{requesterID: "urn:agent:demo"}, Keys: keys,
+		WorkloadAgentBindings: map[string]string{demoRequesterID: "urn:agent:demo", webRequesterID: "urn:agent:web-app"}, Keys: keys,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	auditSink, err := demoenv.AuditSink(ctx, source)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,12 +84,13 @@ func main() {
 		TrustDomain: trustDomain, Scope: strictScope, EndpointPath: "/as/token.oauth2", MaximumBodyBytes: 48 << 10,
 		MaximumTokenBytes: 16 << 10, MaximumExpiresIn: 60, Exchanger: exchanger, Verifier: verifier,
 		Caller:        middleware.ImmediateCallerSPIFFEIDFromVerifiedMTLS,
+		Audit:         auditSink,
 		ReportFailure: func(stage string) { log.Printf("transaction token adapter rejected request at stage=%s", stage) },
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	peer, err := corespiffe.NewExactPeerPolicy(requesterID)
+	peer, err := corespiffe.NewExactPeerPolicy(demoRequesterID, webRequesterID)
 	if err != nil {
 		log.Fatal(err)
 	}

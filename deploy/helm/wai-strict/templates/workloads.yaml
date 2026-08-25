@@ -5,6 +5,8 @@
   "mcp" (dict "port" 8544 "image" .Values.images.mcpServer "serviceAccount" .Values.serviceAccounts.mcpServer)
   "gateway" (dict "port" 8543 "image" .Values.images.gateway "serviceAccount" .Values.serviceAccounts.gateway)
   "adapter" (dict "port" 8448 "image" .Values.images.ttsAdapter "serviceAccount" .Values.serviceAccounts.adapter)
+  "audit" (dict "port" 8447 "image" .Values.images.auditCollector "serviceAccount" .Values.serviceAccounts.auditCollector)
+  "workbench" (dict "port" 8446 "image" .Values.images.workbench "serviceAccount" .Values.serviceAccounts.workbench)
 -}}
 {{- range $component, $cfg := $components }}
 ---
@@ -44,6 +46,10 @@ spec:
               containerPort: {{ $cfg.port }}
           env:
             {{- include "wai-strict.commonEnv" $root | nindent 12 }}
+            {{- if ne $component "audit" }}
+            - name: AUDIT_COLLECTOR_URL
+              value: https://{{ $name }}-audit:8447
+            {{- end }}
             {{- if eq $component "adapter" }}
             - name: TTS_ADAPTER_LISTEN
               value: :8448
@@ -65,11 +71,28 @@ spec:
             {{- else if eq $component "mcp" }}
             - name: STRICT_DEMO_API_URL
               value: https://{{ $name }}-api:8545
+            {{- else if eq $component "workbench" }}
+            - {name: WEB_LISTEN, value: ":8446"}
+            - {name: WEB_PUBLIC_URL, value: {{ $root.Values.workbench.publicOrigin | quote }}}
+            - {name: OIDC_AUTHORIZATION_ENDPOINT, value: {{ $root.Values.workbench.authorizationEndpoint | quote }}}
+            - {name: OIDC_TOKEN_ENDPOINT, value: {{ required "workbench.tokenEndpoint is required" $root.Values.workbench.tokenEndpoint | quote }}}
+            - {name: OIDC_REDIRECT_URI, value: {{ $root.Values.workbench.redirectURI | quote }}}
+            - {name: TTS_ADAPTER_URL, value: "https://{{ $name }}-adapter:8448/as/token.oauth2"}
+            - {name: MCP_GATEWAY_URL, value: "https://{{ $name }}-gateway:8543/mcp"}
+            - {name: WEB_TLS_CERT_FILE, value: /run/workbench-tls/tls.crt}
+            - {name: WEB_TLS_KEY_FILE, value: /run/workbench-tls/tls.key}
+            - name: OIDC_CLIENT_ID
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.workbench.oidcSecretName }}, key: {{ $root.Values.workbench.clientIDKey }}}}
+            - name: PF_WEB_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ $root.Values.workbench.oidcSecretName }}, key: {{ $root.Values.workbench.clientSecretKey }}}}
             {{- end }}
           resources:
             {{- toYaml $root.Values.resources | nindent 12 }}
           volumeMounts:
             {{- include "wai-strict.commonMounts" $root | nindent 12 }}
+            {{- if eq $component "workbench" }}
+            - {name: workbench-tls, mountPath: /run/workbench-tls, readOnly: true}
+            {{- end }}
             {{- if eq $component "gateway" }}
             - name: policy
               mountPath: /run/wai/authorization.rego
@@ -78,6 +101,14 @@ spec:
             {{- end }}
       volumes:
         {{- include "wai-strict.commonVolumes" $root | nindent 8 }}
+        {{- if eq $component "workbench" }}
+        - name: workbench-tls
+          secret:
+            secretName: {{ required "workbench.tlsSecretName is required" $root.Values.workbench.tlsSecretName }}
+            items:
+              - {key: {{ $root.Values.workbench.tlsCertKey }}, path: tls.crt}
+              - {key: {{ $root.Values.workbench.tlsPrivateKeyKey }}, path: tls.key}
+        {{- end }}
         {{- if eq $component "gateway" }}
         - name: policy
           configMap:

@@ -16,6 +16,32 @@ spec:
 apiVersion: spire.spiffe.io/v1alpha1
 kind: ClusterSPIFFEID
 metadata:
+  name: wai-strict-workbench
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-workbench" }}spiffe://example.org/agent/web-app{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: workbench
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: wai-strict-audit
+spec:
+  spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-audit" }}spiffe://example.org/audit/collector{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: audit
+  namespaceSelector:
+    matchLabels:
+      kubernetes.io/metadata.name: wai-strict
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
   name: wai-strict-gateway
 spec:
   spiffeIDTemplate: '{{ if eq .PodSpec.ServiceAccountName "wai-strict-gateway" }}spiffe://example.org/gateway/mcp-strict{{ else }}spiffe://example.org/rejected/{{ .PodMeta.UID }}{{ end }}'

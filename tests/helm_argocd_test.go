@@ -36,12 +36,14 @@ func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 		"workbench.ping.darkedges.com", "workbenchServiceName",
 		"kind: VaultConnection", "kind: VaultAuth", "kind: VaultStaticSecret",
 		"method: kubernetes", "skipTLSVerify: false", "hmacSecretData: true",
+		"wai-strict-workbench", "wai-strict-audit", "TTS_ADAPTER_URL", "AUDIT_COLLECTOR_URL",
+		"spiffe://example.org/agent/web-app", "spiffe://example.org/audit/collector",
 	} {
 		if !strings.Contains(content, required) {
 			t.Errorf("Helm chart missing security control %q", required)
 		}
 	}
-	for _, forbidden := range []string{"kind: Secret", "stringData:", "privileged: true", ":latest", "cert-manager.io/", "auth-tls-secret", "ssl-passthrough", "tts.ping.darkedges.com", "mcp.ping.darkedges.com", "method: appRole", "skipTLSVerify: true", "vaultToken"} {
+	for _, forbidden := range []string{"kind: Secret", "stringData:", "privileged: true", ":latest", "cert-manager.io/", "auth-tls-secret", "ssl-passthrough", "tts.ping.darkedges.com", "mcp.ping.darkedges.com", "method: appRole", "skipTLSVerify: true", "vaultToken", "host.docker.internal", "spiffe://example.org/gateway/mcp\""} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("Helm chart contains unsafe material %q", forbidden)
 		}
@@ -62,7 +64,7 @@ func TestHelmAndArgoCDSecurityBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	identityConfig := string(identities)
-	for _, serviceAccount := range []string{"wai-tts-adapter", "wai-strict-gateway", "wai-strict-mcp", "wai-strict-api"} {
+	for _, serviceAccount := range []string{"wai-tts-adapter", "wai-strict-gateway", "wai-strict-mcp", "wai-strict-api", "wai-strict-workbench", "wai-strict-audit"} {
 		if !strings.Contains(identityConfig, `.PodSpec.ServiceAccountName "`+serviceAccount+`"`) {
 			t.Errorf("SPIRE registration does not bind ServiceAccount %q", serviceAccount)
 		}

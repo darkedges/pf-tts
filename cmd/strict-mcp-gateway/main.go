@@ -13,7 +13,7 @@ import (
 	corespiffe "example.com/workload-agent-identity/pkg/spiffe"
 )
 
-const gatewayID, agentID, mcpID = "spiffe://example.org/gateway/mcp-strict", "spiffe://example.org/agent/demo", "spiffe://example.org/mcp/demo-strict"
+const gatewayID, agentID, webAgentID, mcpID = "spiffe://example.org/gateway/mcp-strict", "spiffe://example.org/agent/demo", "spiffe://example.org/agent/web-app", "spiffe://example.org/mcp/demo-strict"
 
 func main() {
 	ctx := context.Background()
@@ -46,16 +46,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	verifier, err := demoenv.StrictTxnVerifier()
+	verifier, err := demoenv.StrictTxnVerifierForBindings(map[string]string{agentID: "urn:agent:demo", webAgentID: "urn:agent:web-app"})
 	if err != nil {
 		log.Fatal(err)
 	}
-	auth, err := middleware.NewStrictTxnMiddleware(middleware.StrictTxnMiddlewareConfig{Verifier: verifier, MaximumTokenBytes: 16 << 10, AllowedCallers: map[string]struct{}{agentID: {}}, SPIFFEMTLSAlreadyVerified: true, Audit: sink, Service: "strict-mcp-gateway"})
+	auth, err := middleware.NewStrictTxnMiddleware(middleware.StrictTxnMiddlewareConfig{Verifier: verifier, MaximumTokenBytes: 16 << 10, AllowedCallers: map[string]struct{}{agentID: {}, webAgentID: {}}, SPIFFEMTLSAlreadyVerified: true, Audit: sink, Service: "strict-mcp-gateway"})
 	if err != nil {
 		log.Fatal(err)
 	}
 	server := &http.Server{Addr: ":8543", Handler: auth.Handler(gateway), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
-	inbound, err := corespiffe.NewExactPeerPolicy(agentID)
+	inbound, err := corespiffe.NewExactPeerPolicy(agentID, webAgentID)
 	if err != nil {
 		log.Fatal(err)
 	}

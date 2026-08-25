@@ -8,6 +8,11 @@ images:
   gateway: {repository: example.invalid/gateway, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
   mcpServer: {repository: example.invalid/mcp, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
   api: {repository: example.invalid/api, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+  workbench: {repository: example.invalid/workbench, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
+  auditCollector: {repository: example.invalid/audit, digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000"}
 ttsAdapter:
   tokenEndpoint: https://pf.example.test/as/token.oauth2
   oauthSecretName: pf-client
+workbench:
+  tokenEndpoint: https://pf.example.test/as/token.oauth2
+  tlsSecretName: workbench-tls

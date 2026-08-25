@@ -10,7 +10,7 @@ func TestStrictCallChainCommandsAreDistinctExactAndUnwired(t *testing.T) {
 	files := map[string][]string{
 		"../cmd/strict-mcp-gateway/main.go": {
 			`spiffe://example.org/gateway/mcp-strict`, `spiffe://example.org/agent/demo`, `spiffe://example.org/mcp/demo-strict`,
-			`NewStrictGatewayWithAuthorizer`, `NewStrictTxnMiddleware`, `NewExactPeerPolicy(agentID)`, `NewExactPeerPolicy(mcpID)`, `Addr: ":8543"`, `STRICT_MCP_SERVER_URL`,
+			`NewStrictGatewayWithAuthorizer`, `NewStrictTxnMiddleware`, `NewExactPeerPolicy(agentID, webAgentID)`, `NewExactPeerPolicy(mcpID)`, `Addr: ":8543"`, `STRICT_MCP_SERVER_URL`,
 		},
 		"../cmd/strict-demo-mcp-server/main.go": {
 			`spiffe://example.org/mcp/demo-strict`, `spiffe://example.org/gateway/mcp-strict`, `spiffe://example.org/api/demo-strict`,
