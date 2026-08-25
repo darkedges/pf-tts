@@ -116,6 +116,17 @@ allocates no address and publishes nothing, so the gate now flags only
 `LoadBalancer` and `NodePort`, and separately asserts that the alias resolves to
 exactly `wai-pingfederate-engine.wai-pingfederate.svc.cluster.local`.
 
+## Superseded by the origin split
+
+The evidence above was recorded while the authorization server shared the
+application's hostname and while backchannel calls travelled out through the
+edge. Both were changed by [Task 58](implementation-notes-task-58.md), so read
+these two together: the gate now runs against two origins and asserts that the
+engine no longer answers on the application hostname, and the issuer recorded in
+transaction evidence is `https://tst.ping.darkedges.com`. The positive and
+negative results themselves are unchanged, and the check count grew from 31 to
+38.
+
 ## Coverage boundary
 
 Four required negative cases cannot be produced from a browser, because they
