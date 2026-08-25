@@ -83,8 +83,10 @@ def call(url: str, data: bytes | None = None, extra: dict | None = None, form: b
     headers = {"User-Agent": "wai-task-57-gate/1.0"}
     if data is not None:
         headers["Content-Type"] = "application/x-www-form-urlencoded" if form else "application/json"
-        headers["Origin"] = PUBLIC
-        headers["Referer"] = PUBLIC + "/"
+        parts = urllib.parse.urlsplit(url)
+        origin = urllib.parse.urlunsplit((parts.scheme, parts.netloc, "", "", ""))
+        headers["Origin"] = origin
+        headers["Referer"] = origin + "/"
     headers.update(extra or {})
     request = urllib.request.Request(url, data=data, headers=headers)
     try:
@@ -127,8 +129,8 @@ page = body.decode("utf-8", "replace")
 record("PingFederate serves the hosted login form", status == 200, f"HTTP {status}")
 base = re.search(r'<base href="([^"]+)"', page)
 record(
-    "hosted login renders against the external HTTPS origin",
-    bool(base) and base.group(1).rstrip("/") == PUBLIC,
+    "hosted login renders against the authorization server origin",
+    bool(base) and base.group(1).rstrip("/") == PF_PUBLIC,
     base.group(1) if base else "no base href",
 )
 form = re.search(r'<form method="POST" action="([^"]+)"', page)
@@ -291,7 +293,8 @@ record("audit evidence carries no credential field", not any(k in serialized for
 evidence_path = os.getenv("EVIDENCE_PATH")
 if evidence_path:
     summary = {
-        "publicOrigin": PUBLIC,
+        "applicationOrigin": PUBLIC,
+        "authorizationServerOrigin": PF_PUBLIC,
         "transactionId": transaction_id,
         "hops": [
             {k: r.get(k) for k in ("event_type", "decision", "reason_code", "immediate_caller_spiffe_id", "submitting_spiffe_id")}
