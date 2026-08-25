@@ -1,4 +1,4 @@
-# Reviewed deployment input for source revision 36d0eb0c2f1b.
+# Reviewed deployment input for source revision 1ab943d15757.
 # Backchannel calls address the isolated engine Service directly. The issuer
 # stays the browser-facing origin because it identifies the token, not a
 # location to fetch from.
@@ -12,12 +12,12 @@ global:
     caSecretName: wai-pf13-runtime-ca
 
 images:
-  ttsAdapter: {repository: docker.io/darkedges/pf-tts-tts-adapter, digest: "sha256:a675c6fb788c1ab061115ef5d2a426477b3ba6c86e75f10f1575de6b96755f2f"}
-  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:23fcd488b0f4742971ede051b5d8c5de8d54df5dab0089cb95108dc5a14c52ac"}
-  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:dc8f8ba4799e981a8704ccaf5a968a58c48b4edc7f4c5cbc74e310be58f49352"}
-  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:3ec871ccece1766f995a328223602264d2b79af736821860e2aa1a2c56715465"}
-  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:35e624c9aa177ed7b85634d215a3c759e9ed7f3e7fcd3193e37da4518b662383"}
-  auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:996958a586b742af397441c09d827f1b7c4d4ba988334220ea977ab89591b229"}
+  ttsAdapter: {repository: docker.io/darkedges/pf-tts-tts-adapter, digest: "sha256:8e6cd7783cb26d2696a6014c2fac051e225b99bcf23699e4bd8c60ed066416e9"}
+  gateway: {repository: docker.io/darkedges/pf-tts-strict-mcp-gateway, digest: "sha256:c27a3f510fd2a81b3ebfa4bee7f0a7a151115ffc640b585c78804b308b692450"}
+  mcpServer: {repository: docker.io/darkedges/pf-tts-strict-demo-mcp-server, digest: "sha256:1988eff8fdc7f825b0133187b1a0a272e00728076c99812ba2fca8444df8b42e"}
+  api: {repository: docker.io/darkedges/pf-tts-strict-demo-api, digest: "sha256:e3be54c0d05f5d3e9e15433c84c32dd210dbd5f455d70893f707fe470c6bd244"}
+  workbench: {repository: docker.io/darkedges/pf-tts-web-app, digest: "sha256:63183f3e53de00a636ef72e2595e553951ab7ff264a49a64a9469bdd2f364e0f"}
+  auditCollector: {repository: docker.io/darkedges/pf-tts-audit-collector, digest: "sha256:4590f83dc87fa3858c6afa7ca6570b38cecc709e065ecf382f3c49d8c598fb72"}
 
 ttsAdapter:
   tokenEndpoint: https://wai-pingfederate-engine.wai-pingfederate.svc.cluster.local:9031/as/token.oauth2

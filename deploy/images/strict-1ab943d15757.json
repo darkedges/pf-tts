@@ -1,0 +1,23 @@
+{
+  "sourceRevision": "1ab943d15757",
+  "requiredPlatforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "note": "Republished every strict workload: PFHTTPClient now pins PF_CA_FILE as the only trust anchor, which changes every image that talks to PingFederate.",
+  "images": {
+    "ttsAdapter": "docker.io/darkedges/pf-tts-tts-adapter@sha256:8e6cd7783cb26d2696a6014c2fac051e225b99bcf23699e4bd8c60ed066416e9",
+    "gateway": "docker.io/darkedges/pf-tts-strict-mcp-gateway@sha256:c27a3f510fd2a81b3ebfa4bee7f0a7a151115ffc640b585c78804b308b692450",
+    "mcpServer": "docker.io/darkedges/pf-tts-strict-demo-mcp-server@sha256:1988eff8fdc7f825b0133187b1a0a272e00728076c99812ba2fca8444df8b42e",
+    "api": "docker.io/darkedges/pf-tts-strict-demo-api@sha256:e3be54c0d05f5d3e9e15433c84c32dd210dbd5f455d70893f707fe470c6bd244",
+    "workbench": "docker.io/darkedges/pf-tts-web-app@sha256:63183f3e53de00a636ef72e2595e553951ab7ff264a49a64a9469bdd2f364e0f",
+    "auditCollector": "docker.io/darkedges/pf-tts-audit-collector@sha256:4590f83dc87fa3858c6afa7ca6570b38cecc709e065ecf382f3c49d8c598fb72"
+  },
+  "pingFederate": {
+    "runtime": "docker.io/darkedges/pf-tts-pingfederate@sha256:ea1729ba09a440fa61f40f05b88e7de84fce739b27a28aade11859f47c189b1a",
+    "pluginJarSHA256": "dac3b52715d74e59c595500a24fa16db6b6b0dca7edf37ac79b0974c26974582",
+    "profileURL": "https://github.com/darkedges/pf-tts.git",
+    "profilePath": "profiles/pingfederate",
+    "profileBranch": "feature/kubernetes-pf13"
+  }
+}
