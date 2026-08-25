@@ -84,6 +84,12 @@ ingress:
   pingFederateHost: tst.ping.darkedges.com
   workbenchServiceName: wai-web-app
   workbenchServicePort: 8446
+  # PingFederate's hosted login and consent pages load their stylesheet and
+  # scripts from /assets/, so routing only the protocol prefixes produced a page
+  # that rendered unstyled with non-functional scripts. These are the product's
+  # own static template resources; they carry no user or configuration data.
+  enginePathPrefixes: ["/as/", "/pf/", "/idp/", "/assets/"]
+  engineExactPaths: ["/favicon.ico"]
   pingFederateEngineServiceName: wai-pingfederate-engine-route
   pingFederateEngineExternalName: wai-pingfederate-engine.wai-pingfederate.svc.cluster.local
   pingFederateEngineServicePort: 9031

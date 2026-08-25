@@ -70,9 +70,18 @@ spec:
     - host: {{ .Values.ingress.pingFederateHost | quote }}
       http:
         paths:
-          {{- range $path := list "/as/" "/pf/" "/idp/" }}
+          {{- range $path := .Values.ingress.enginePathPrefixes }}
           - path: {{ $path }}
             pathType: Prefix
+            backend:
+              service:
+                name: {{ $.Values.ingress.pingFederateEngineServiceName }}
+                port:
+                  number: {{ $.Values.ingress.pingFederateEngineServicePort }}
+          {{- end }}
+          {{- range $path := .Values.ingress.engineExactPaths }}
+          - path: {{ $path }}
+            pathType: Exact
             backend:
               service:
                 name: {{ $.Values.ingress.pingFederateEngineServiceName }}

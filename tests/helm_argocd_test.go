@@ -140,7 +140,8 @@ func TestSingleHostnameIngressIsEngineAllowlisted(t *testing.T) {
 	}
 	content := string(template)
 	for _, required := range []string{
-		`list "/as/" "/pf/" "/idp/"`,
+		".Values.ingress.enginePathPrefixes",
+		".Values.ingress.engineExactPaths",
 		".Values.ingress.pingFederateEngineExternalName",
 		"targetPort: {{ .Values.ingress.pingFederateEngineServicePort }}",
 		`nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"`,
@@ -154,6 +155,29 @@ func TestSingleHostnameIngressIsEngineAllowlisted(t *testing.T) {
 	for _, forbidden := range []string{"wai-pingfederate-admin", "port: 9999", `"/pf-admin`, `"/pingfederate`} {
 		if strings.Contains(content, forbidden) {
 			t.Errorf("public ingress exposes forbidden PingFederate surface %q", forbidden)
+		}
+	}
+
+	// The engine paths are values now, so the schema enum is what actually bounds
+	// them. It must admit exactly the reviewed set and nothing else: /assets/ is
+	// required because the hosted login page loads its stylesheet and scripts from
+	// there, and an unbounded list would let any engine path be published.
+	schema, err := os.ReadFile("../deploy/helm/wai-strict/values.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowlist := string(schema)
+	for _, required := range []string{
+		`"items": {"enum": ["/as/", "/pf/", "/idp/", "/assets/"]}`,
+		`"items": {"enum": ["/favicon.ico"]}`,
+	} {
+		if !strings.Contains(allowlist, required) {
+			t.Errorf("engine path allowlist missing bound %q", required)
+		}
+	}
+	for _, forbidden := range []string{`"/pf-admin/"`, `"/pf-admin-api/"`, `"/"`} {
+		if strings.Contains(allowlist, `"enum": [`) && strings.Contains(allowlist, forbidden+",") {
+			t.Errorf("engine path allowlist admits forbidden path %q", forbidden)
 		}
 	}
 }

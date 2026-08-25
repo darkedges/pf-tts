@@ -137,6 +137,40 @@ form = re.search(r'<form method="POST" action="([^"]+)"', page)
 if not form:
     raise SystemExit("FAIL: the hosted login form is absent.")
 
+# A login page that renders is not the same as a login page that works. Its
+# stylesheet and scripts are loaded relative to the base href, so a path
+# allowlist that covers only the protocol prefixes yields a page that appears
+# fine to a status-code check and is unstyled and non-functional in a browser.
+subresources = sorted({
+    urllib.parse.urljoin(base.group(1), reference)
+    for reference in re.findall(r"""(?:href|src)=["']([^"']+\.(?:css|js))["']""", page)
+    # /cdn-cgi/ is injected by Cloudflare, not served by PingFederate. It is
+    # excluded from the assertions because this gate tests the deployment, but
+    # its presence is reported: an edge that rewrites scripts on the credential
+    # entry page is worth an operator knowing about.
+    if not reference.startswith(("http://", "https://", "//", "/cdn-cgi/"))
+})
+injected = sorted({
+    reference for reference in re.findall(r"""(?:href|src)=["']([^"']+\.js)["']""", page)
+    if reference.startswith("/cdn-cgi/")
+})
+if injected:
+    print(f"NOTE: the edge injects {len(injected)} script(s) into the hosted login page: {', '.join(injected)}")
+record("the hosted login page declares its stylesheet and scripts", len(subresources) > 0, f"{len(subresources)} references")
+for reference in subresources:
+    parts = urllib.parse.urlsplit(reference)
+    if parts.netloc != PF_HOST:
+        record(f"sub-resource {parts.path} stays on the authorization server origin", False, parts.netloc)
+        continue
+    status, sub_headers, _ = call(reference)
+    kind = (sub_headers.get("Content-Type") or "").split(";")[0]
+    expected = "text/css" if parts.path.endswith(".css") else "javascript"
+    record(
+        f"the hosted login page can load {parts.path}",
+        status == 200 and expected in kind,
+        f"HTTP {status} {kind}",
+    )
+
 credentials = urllib.parse.urlencode({"pf.username": user, "pf.pass": password, "pf.ok": "clicked"}).encode()
 status, headers, body = call(absolute(form.group(1), PF_PUBLIC), data=credentials)
 location = headers.get("Location")

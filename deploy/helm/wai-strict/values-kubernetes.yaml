@@ -50,6 +50,8 @@ ingress:
   pingFederateHost: tst.ping.darkedges.com
   workbenchServiceName: wai-web-app
   workbenchServicePort: 8446
+  enginePathPrefixes: ["/as/", "/pf/", "/idp/", "/assets/"]
+  engineExactPaths: ["/favicon.ico"]
   pingFederateEngineServiceName: wai-pingfederate-engine-route
   pingFederateEngineExternalName: wai-pingfederate-engine.wai-pingfederate.svc.cluster.local
   pingFederateEngineServicePort: 9031
