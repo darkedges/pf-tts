@@ -64,7 +64,7 @@ func TestPingFederate13RuntimeRejectsMutableOrWritableSecretInputs(t *testing.T)
 	if strings.Count(chart, "images.runtime") != 2 {
 		t.Fatalf("expected the same baked runtime for init and product containers")
 	}
-	for _, key := range []string{"wai-pf13-bootstrap-system", "provisioner-password", "ssl-file-data", "ssl-password", "current-system-key", "pending-system-key"} {
+	for _, key := range []string{"provisioner-password", "ssl-file-data", "ssl-password", "current-system-key", "pending-system-key"} {
 		if strings.Contains(chart, key) {
 			t.Errorf("pre-attestation runtime must not inject unused product bootstrap secret %q", key)
 		}
@@ -125,7 +125,7 @@ func TestPrivateAdminTrustBootstrapRejectsAmbiguityAndTLSBypass(t *testing.T) {
 	content := string(script)
 	for _, required := range []string{
 		"$Namespace -ne 'wai-pingfederate'", "$Pod -ne 'wai-pingfederate-0'", "$matches.Count -ne 1",
-		"MatchesHostname('localhost'", "CertificateAuthority", "$cert.Subject -ne $cert.Issuer",
+		"2.5.29.17", "must contain a Subject Alternative Name", "MatchesHostname('localhost'", "CertificateAuthority", "$cert.Subject -ne $cert.Issuer",
 		"pf13-kubernetes-admin-ca.pem", "GetCertHashString('SHA256')",
 	} {
 		if !strings.Contains(content, required) {

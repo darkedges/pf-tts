@@ -101,7 +101,7 @@ func TestPingFederate13ChartSyncsExactTerraformSecretsWithoutInjectingThem(t *te
 		t.Fatal(err)
 	}
 	stateful := string(statefulBytes)
-	for _, secret := range []string{"wai-pf13-oauth-token-exchange", "wai-pf13-oauth-browser", "wai-pf13-oauth-lab-user", "wai-pf13-oauth-mcp-gateway"} {
+	for _, secret := range []string{"wai-pf13-bootstrap-system", "wai-pf13-oauth-token-exchange", "wai-pf13-oauth-browser", "wai-pf13-oauth-lab-user", "wai-pf13-oauth-mcp-gateway"} {
 		if strings.Contains(stateful, secret) {
 			t.Fatalf("Terraform-only secret must not be injected into the PingFederate runtime: %q", secret)
 		}

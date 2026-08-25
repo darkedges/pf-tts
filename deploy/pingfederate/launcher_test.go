@@ -39,6 +39,24 @@ func TestPluginDiscoveryDoesNotEchoAdminAPIErrorBodies(t *testing.T) {
 	}
 }
 
+func TestKubernetesAdminTLSBootstrapIsBoundedAndVerified(t *testing.T) {
+	b, err := os.ReadFile("scripts/bootstrap_pf_admin_tls.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := string(b)
+	for _, required := range []string{"wai-local-runtime-tls", "PF_BOOTSTRAP_SSL_FILE_DATA", "PF_BOOTSTRAP_SSL_PASSWORD", "ssl.create_default_context()", "Admin TLS bootstrap refuses disabled certificate validation", "activeAdminConsoleCerts"} {
+		if !strings.Contains(script, required) {
+			t.Fatalf("Admin TLS bootstrap missing security control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"CERT_NONE", "check_hostname = False", "print(PFX)", "error.read()", "--insecure"} {
+		if strings.Contains(script, forbidden) {
+			t.Fatalf("Admin TLS bootstrap weakens or exposes TLS material with %q", forbidden)
+		}
+	}
+}
+
 func TestSpireJWKSExportRejectsAmbiguousOrNonSigningKeys(t *testing.T) {
 	b, err := os.ReadFile("../../scripts/spire-export-jwks.ps1")
 	if err != nil {

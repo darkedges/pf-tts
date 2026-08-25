@@ -20,6 +20,8 @@ $cert = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem
 try {
     $now = [DateTime]::UtcNow
     if ($cert.NotBefore.ToUniversalTime() -gt $now -or $cert.NotAfter.ToUniversalTime() -le $now) { throw 'Administrator certificate is not currently valid.' }
+    $subjectAlternativeName = $cert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.17' }
+    if ($null -eq $subjectAlternativeName) { throw 'Administrator certificate must contain a Subject Alternative Name extension.' }
     if (-not $cert.MatchesHostname('localhost', $true, $true)) { throw 'Administrator certificate is not bound to localhost.' }
     $constraints = $cert.Extensions | Where-Object { $_.Oid.Value -eq '2.5.29.19' }
     if ($constraints -and $constraints.CertificateAuthority) { throw 'Refusing to trust a broad CA certificate.' }
