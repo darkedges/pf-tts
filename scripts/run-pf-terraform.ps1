@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true, Position = 0)]
-    [ValidateSet('init', 'fmt', 'validate', 'plan', 'apply', 'replace-client')]
+    [ValidateSet('init', 'fmt', 'validate', 'plan', 'apply', 'replace-client', 'update-browser')]
     [string]$Command,
     [string]$EnvFile = '.env.local'
 )
@@ -38,6 +38,10 @@ $env:PINGFEDERATE_PROVIDER_INSECURE_TRUST_ALL_TLS = if ($env:PF_ADMIN_INSECURE -
 
 if ($Command -eq 'replace-client') {
     & terraform '-chdir=deploy/pingfederate/terraform' apply '-replace=pingfederate_oauth_client.token_exchange'
+} elseif ($Command -eq 'update-browser') {
+    # Isolate the browser redirect update from unrelated provider/plugin
+    # normalization drift. This target must never include token resources.
+    & terraform '-chdir=deploy/pingfederate/terraform' apply '-target=pingfederate_oauth_client.browser'
 } else {
     & terraform '-chdir=deploy/pingfederate/terraform' $Command
 }

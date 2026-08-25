@@ -77,7 +77,7 @@ $payloads = @(
         'ssl-password' = $bootstrap['keyPairs_sslServer_items_vtcm75en83g6v1r87ytm7lihi_vtcm75en83g6v1r87ytm7lihi_password']; 'current-system-key' = $bootstrap['serverSettings_systemKeys_items_current_keyData']; 'pending-system-key' = $bootstrap['serverSettings_systemKeys_items_pending_keyData']
     } },
     @{ Path = "$basePath/oauth/token-exchange"; Data = @{ 'client-id' = $values['PF_CLIENT_ID']; 'client-secret' = $values['PF_CLIENT_SECRET'] } },
-    @{ Path = "$basePath/oauth/browser"; Data = @{ 'client-id' = 'wai-browser'; 'client-secret' = $values['TF_VAR_browser_client_secret'] } },
+    @{ Path = "$basePath/oauth/browser"; Data = @{ 'client-id' = 'wai-web-app'; 'client-secret' = $values['TF_VAR_browser_client_secret'] } },
     @{ Path = "$basePath/oauth/lab-user"; Data = @{ 'client-id' = 'wai-lab-user'; 'client-secret' = $values['TF_VAR_lab_user_client_secret']; 'user-password' = $values['TF_VAR_lab_user_password'] } },
     @{ Path = "$basePath/oauth/mcp-gateway"; Data = @{ 'client-id' = 'wai-mcp-gateway'; 'client-secret' = $values['TF_VAR_mcp_gateway_client_secret'] } },
     # ca.pem is consumed by Go clients; ca.crt is the ingress-nginx upstream

@@ -171,6 +171,7 @@ func TestVaultImporterIsNarrowAndFailClosed(t *testing.T) {
 		"VAULT_KV_MOUNT", "sys/internal/ui/mounts", "is not a KV v2 secrets engine; refusing to write",
 		"CreateFromPem($workbenchCertificatePEM, $workbenchPrivateKeyPEM)", "MatchesHostname('localhost'", "'ca.crt'",
 		"PingFederateCAFile",
+		"'client-id' = 'wai-web-app'",
 	} {
 		if !strings.Contains(script, required) {
 			t.Errorf("Vault importer missing security control %q", required)

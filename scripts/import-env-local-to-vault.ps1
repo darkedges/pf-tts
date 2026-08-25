@@ -149,7 +149,7 @@ try {
 $payloads = @(
     @{ Path = $PingFederateCAPath; Data = @{ 'ca.pem' = $caPEM; 'ca.crt' = $caPEM } },
     @{ Path = $TokenExchangeClientPath; Data = @{ 'client-id' = $clientID; 'client-secret' = $clientSecret } },
-    @{ Path = $WorkbenchPath; Data = @{ 'client-id' = 'wai-browser'; 'client-secret' = $browserSecret; 'tls.crt' = $workbenchCertificatePEM; 'tls.key' = $workbenchPrivateKeyPEM; 'ca.crt' = $workbenchCertificatePEM } }
+    @{ Path = $WorkbenchPath; Data = @{ 'client-id' = 'wai-web-app'; 'client-secret' = $browserSecret; 'tls.crt' = $workbenchCertificatePEM; 'tls.key' = $workbenchPrivateKeyPEM; 'ca.crt' = $workbenchCertificatePEM } }
 )
 $completedWrites = 0
 try {

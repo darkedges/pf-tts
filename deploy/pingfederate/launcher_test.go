@@ -544,6 +544,12 @@ func TestTerraformLauncherDoesNotEvaluateOrPersistCredentials(t *testing.T) {
 			t.Fatalf("Terraform launcher missing %q", required)
 		}
 	}
+	if !strings.Contains(script, "'-target=pingfederate_oauth_client.browser'") {
+		t.Fatal("Terraform launcher must isolate the browser callback update from token-manager drift")
+	}
+	if strings.Contains(script, "-target=pingfederate_oauth_client.browser,pingfederate_") {
+		t.Fatal("browser callback target must not include another PingFederate resource")
+	}
 }
 
 func TestGatewaySecretGeneratorUsesCSPRNGAndNeverPrintsSecret(t *testing.T) {
