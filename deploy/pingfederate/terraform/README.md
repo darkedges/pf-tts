@@ -95,6 +95,21 @@ secret before running it.
 
 Do not place it in a committed tfvars file.
 
+## Kubernetes 13.1 state boundary
+
+The Kubernetes deployment bootstraps its reviewed Vault-backed Admin TLS key
+before Terraform connects. Set `TF_VAR_manage_local_admin_tls=false` for that
+deployment so the provider cannot replace the active private key; the normal
+isolated Docker harness retains the default Terraform-managed development key.
+
+Keep the Kubernetes state and saved plans under
+`deploy/pingfederate/generated/`, which is ignored by Git and must be readable
+only by the operator running the gate. Terraform state and plan files contain
+sensitive OAuth values even when terminal output redacts them. Do not upload,
+share, or commit those artifacts. Administrator and OAuth credentials are read
+from the exact Vault-synchronized Kubernetes Secrets into process environment
+only; never pass them as command-line arguments.
+
 The browser client is deliberately separate from the password, token-exchange,
 and MCP resource-server clients. It permits only `AUTHORIZATION_CODE`, requires
 PKCE, accepts only the `CODE` response type, has one exact HTTPS redirect URI,

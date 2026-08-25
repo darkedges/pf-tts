@@ -75,7 +75,7 @@ exists = request("GET", f"/keyPairs/sslServer/{KEY_ID}", allowed=(200, 404)) == 
 if not exists:
     request(
         "POST",
-        "/keyPairs/sslServer",
+        "/keyPairs/sslServer/import",
         {"id": KEY_ID, "fileData": PFX, "password": PFX_PASSWORD},
         allowed=(200, 201),
     )

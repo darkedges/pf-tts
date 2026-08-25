@@ -45,7 +45,7 @@ func TestKubernetesAdminTLSBootstrapIsBoundedAndVerified(t *testing.T) {
 		t.Fatal(err)
 	}
 	script := string(b)
-	for _, required := range []string{"wai-local-runtime-tls", "PF_BOOTSTRAP_SSL_FILE_DATA", "PF_BOOTSTRAP_SSL_PASSWORD", "ssl.create_default_context()", "Admin TLS bootstrap refuses disabled certificate validation", "activeAdminConsoleCerts"} {
+	for _, required := range []string{"wai-local-runtime-tls", "PF_BOOTSTRAP_SSL_FILE_DATA", "PF_BOOTSTRAP_SSL_PASSWORD", `"/keyPairs/sslServer/import"`, "ssl.create_default_context()", "Admin TLS bootstrap refuses disabled certificate validation", "activeAdminConsoleCerts"} {
 		if !strings.Contains(script, required) {
 			t.Fatalf("Admin TLS bootstrap missing security control %q", required)
 		}
@@ -354,8 +354,8 @@ func TestCleanBootstrapOwnsOnlyRandomIsolatedResources(t *testing.T) {
 		"PF_CA_FILE",
 		"pf13_1.auto.tfvars.json",
 		"Isolated Terraform TLS phase",
-		"-target=pingfederate_keypairs_ssl_server_key.local_runtime",
-		"-target=pingfederate_keypairs_ssl_server_settings.local_runtime",
+		"-target=pingfederate_keypairs_ssl_server_key.local_runtime[0]",
+		"-target=pingfederate_keypairs_ssl_server_settings.local_runtime[0]",
 		"The Terraform-managed PingFederate certificate did not become valid within 90 seconds.",
 		"verify_live_token_exchange.py",
 		"Isolated live token-exchange verification did not pass within 60 seconds.",
@@ -889,6 +889,7 @@ func TestLocalPingFederateTLSRemainsVerified(t *testing.T) {
 	}
 	config := string(b)
 	for _, required := range []string{
+		`count = var.manage_local_admin_tls ? 1 : 0`,
 		`valid_days                = 365`,
 		`signature_algorithm       = "SHA256withRSA"`,
 		`"host.docker.internal"`,
@@ -898,6 +899,13 @@ func TestLocalPingFederateTLSRemainsVerified(t *testing.T) {
 		if !strings.Contains(config, required) {
 			t.Fatalf("local PingFederate TLS configuration missing %q", required)
 		}
+	}
+	variables, err := os.ReadFile("terraform/variables.tf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(variables), `variable "manage_local_admin_tls"`) {
+		t.Fatal("Kubernetes must be able to exclude Terraform Admin TLS replacement after verified bootstrap")
 	}
 	for _, forbidden := range []string{"insecure_skip_verify", "CERT_NONE", "InsecureSkipVerify"} {
 		if strings.Contains(config, forbidden) {

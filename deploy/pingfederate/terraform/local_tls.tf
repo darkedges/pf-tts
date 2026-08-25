@@ -1,4 +1,6 @@
 resource "pingfederate_keypairs_ssl_server_key" "local_runtime" {
+  count = var.manage_local_admin_tls ? 1 : 0
+
   key_id                    = "wai-local-runtime-tls"
   common_name               = "host.docker.internal"
   organization              = "WAI local development"
@@ -11,16 +13,18 @@ resource "pingfederate_keypairs_ssl_server_key" "local_runtime" {
 }
 
 resource "pingfederate_keypairs_ssl_server_settings" "local_runtime" {
+  count = var.manage_local_admin_tls ? 1 : 0
+
   admin_console_cert_ref = {
-    id = pingfederate_keypairs_ssl_server_key.local_runtime.id
+    id = pingfederate_keypairs_ssl_server_key.local_runtime[0].id
   }
   runtime_server_cert_ref = {
-    id = pingfederate_keypairs_ssl_server_key.local_runtime.id
+    id = pingfederate_keypairs_ssl_server_key.local_runtime[0].id
   }
   active_admin_console_certs = [{
-    id = pingfederate_keypairs_ssl_server_key.local_runtime.id
+    id = pingfederate_keypairs_ssl_server_key.local_runtime[0].id
   }]
   active_runtime_server_certs = [{
-    id = pingfederate_keypairs_ssl_server_key.local_runtime.id
+    id = pingfederate_keypairs_ssl_server_key.local_runtime[0].id
   }]
 }

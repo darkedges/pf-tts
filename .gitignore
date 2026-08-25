@@ -15,6 +15,8 @@ deploy/spire/generated/*
 **/.terraform.lock.hcl
 **/terraform.tfstate
 **/terraform.tfstate.*
+# Guard against an accidentally unexpanded PowerShell Terraform state variable.
+**/$state
 deploy/pingfederate/terraform/terraform.tfvars
 deploy/pingfederate/discovered/*.json
 !deploy/pingfederate/discovered/.gitkeep

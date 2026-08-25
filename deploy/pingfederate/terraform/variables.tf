@@ -4,6 +4,12 @@ variable "pf_base_url" {
   default     = "https://localhost:9031"
 }
 
+variable "manage_local_admin_tls" {
+  description = "Generate local-development Admin TLS in Terraform. Set false when Kubernetes bootstrap has already installed the reviewed Vault-backed key."
+  type        = bool
+  default     = true
+}
+
 variable "trust_domain" {
   description = "SPIFFE trust domain used by the local SPIRE lab."
   type        = string

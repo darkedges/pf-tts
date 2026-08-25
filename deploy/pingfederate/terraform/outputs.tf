@@ -36,7 +36,7 @@ output "transaction_jwks_url" {
 
 output "local_tls_certificate_id" {
   description = "PingFederate-managed local-development TLS certificate identifier."
-  value       = pingfederate_keypairs_ssl_server_key.local_runtime.id
+  value       = var.manage_local_admin_tls ? pingfederate_keypairs_ssl_server_key.local_runtime[0].id : null
 }
 
 output "exchange_target_audience" {

@@ -134,8 +134,8 @@ try {
     Invoke-Checked 'Isolated Terraform initialization' { terraform "-chdir=$terraformWork" init -input=false }
     Invoke-Checked 'Isolated Terraform TLS phase' {
         terraform "-chdir=$terraformWork" apply -auto-approve -input=false `
-            '-target=pingfederate_keypairs_ssl_server_key.local_runtime' `
-            '-target=pingfederate_keypairs_ssl_server_settings.local_runtime'
+            '-target=pingfederate_keypairs_ssl_server_key.local_runtime[0]' `
+            '-target=pingfederate_keypairs_ssl_server_settings.local_runtime[0]'
     }
     $rotatedCertificateReady = $false
     for ($attempt = 1; $attempt -le 18; $attempt++) {
