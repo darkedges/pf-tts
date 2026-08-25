@@ -57,6 +57,25 @@
         <dl id="result-details" hidden>
           <div><dt>Transaction</dt><dd id="result-transaction"></dd></div>
         </dl>
+
+        <div id="result-identity" class="identity-card" hidden>
+          <p class="eyebrow">Recognised by the protected service</p>
+          <dl id="identity-fields"></dl>
+        </div>
+
+        <details id="result-exchange" class="exchange" hidden>
+          <summary>Request and response</summary>
+          <p id="result-withheld" class="withheld" hidden></p>
+          <div class="exchange-pane">
+            <h4>Request sent to the gateway</h4>
+            <pre id="result-request" tabindex="0"></pre>
+          </div>
+          <div class="exchange-pane">
+            <h4>Response from the protected service</h4>
+            <pre id="result-response" tabindex="0"></pre>
+          </div>
+          <p class="exchange-note">The transaction token is sent in a request header and is never displayed. The audit trail records it by fingerprint only.</p>
+        </details>
       </section>
     </section>
 

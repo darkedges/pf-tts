@@ -20,6 +20,7 @@ type fakeVerifier struct {
 
 type fakeInvoker struct {
 	userToken, purpose, tool string
+	request, response        string
 	err                      error
 }
 
@@ -38,12 +39,12 @@ func (r *fakeAuditReader) GetByUser(_ context.Context, user, id string) (audit.R
 	return audit.Record{ID: id, UserID: user, TransactionID: "tx", EventType: audit.MCPToolAllowed}, nil
 }
 
-func (i *fakeInvoker) Invoke(_ context.Context, userToken, purpose, tool string) (string, error) {
+func (i *fakeInvoker) Invoke(_ context.Context, userToken, purpose, tool string) (Invocation, error) {
 	i.userToken, i.purpose, i.tool = userToken, purpose, tool
 	if i.err != nil {
-		return "", i.err
+		return Invocation{}, i.err
 	}
-	return "verified-transaction", nil
+	return Invocation{TransactionID: "verified-transaction", Request: i.request, Response: i.response}, nil
 }
 
 func (v *fakeVerifier) VerifyIDToken(_ context.Context, token, clientID, nonce string) (string, error) {
@@ -88,7 +89,7 @@ func newFlowWithServices(t *testing.T, invoker InteractionInvoker, auditReader A
 	if invoker != nil {
 		allowed = []AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}
 	}
-	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, HTTPClient: tokenServer.Client(), Verifier: verifier, Interactions: invoker, AllowedInteractions: allowed, Audit: auditReader})
+	handler, err := New(Config{AuthorizationEndpoint: tokenServer.URL + "/authorize", TokenEndpoint: tokenServer.URL + "/token", RedirectURI: "https://app.example/oauth/callback", PublicOrigin: "https://app.example", ClientID: "web-client", ClientSecret: "secret", Scopes: []string{"openid"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: time.Minute, MaximumSessions: 10, MaximumDisplayBytes: 8 << 10, HTTPClient: tokenServer.Client(), Verifier: verifier, Interactions: invoker, AllowedInteractions: allowed, Audit: auditReader})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -240,6 +241,59 @@ func TestInteractionUsesOnlyServerSessionAndAllowlistedPair(t *testing.T) {
 	}
 	if strings.Contains(response.Body.String(), "subject-access-token") {
 		t.Fatal("subject token leaked in interaction response")
+	}
+}
+
+// The workbench renders the exchange straight into a browser, so it must show
+// the verified identity the protected service reported and nothing that could
+// carry credentials.
+func TestInteractionShowsVerifiedIdentityAndWithholdsTokenMaterial(t *testing.T) {
+	whoami := `{"jsonrpc":"2.0","id":1,"result":{"structuredContent":{"user_id":"demo-user","agent_id":"urn:agent:web-app"}}}`
+	t.Run("verified identity reaches the browser", func(t *testing.T) {
+		invoker := &fakeInvoker{request: `{"method":"tools/call"}`, response: whoami}
+		flow := newFlowWithInteractions(t, invoker)
+		_, _, request := authenticatedInteractionRequest(t, flow, `{"tool":"system.whoami","purpose":"system.whoami"}`)
+		response := httptest.NewRecorder()
+		flow.handler.ServeHTTP(response, request)
+		body := response.Body.String()
+		if response.Code != http.StatusCreated || !strings.Contains(body, "demo-user") || !strings.Contains(body, "tools/call") {
+			t.Fatalf("verified identity was not surfaced: status=%d body=%s", response.Code, body)
+		}
+		if strings.Contains(body, `"withheld"`) {
+			t.Fatalf("a safe exchange was withheld: %s", body)
+		}
+	})
+
+	for name, invoker := range map[string]*fakeInvoker{
+		"token material in the response": {
+			request:  `{"method":"tools/call"}`,
+			response: `{"result":{"token":"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.c2lnbmF0dXJlLXZhbHVl"}}`,
+		},
+		"token material in the request": {
+			request:  `{"method":"tools/call","token":"eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.c2lnbmF0dXJlLXZhbHVl"}`,
+			response: whoami,
+		},
+		"a body beyond the display bound": {
+			request:  `{"method":"tools/call"}`,
+			response: strings.Repeat("a", (8<<10)+1),
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			flow := newFlowWithInteractions(t, invoker)
+			_, _, request := authenticatedInteractionRequest(t, flow, `{"tool":"system.whoami","purpose":"system.whoami"}`)
+			response := httptest.NewRecorder()
+			flow.handler.ServeHTTP(response, request)
+			body := response.Body.String()
+			if response.Code != http.StatusCreated {
+				t.Fatalf("the call itself should still succeed: %d", response.Code)
+			}
+			if strings.Contains(body, "eyJhbGciOiJSUzI1NiJ9") {
+				t.Fatalf("token material reached the browser: %s", body)
+			}
+			if !strings.Contains(body, `"withheld"`) {
+				t.Fatalf("withholding was not reported: %s", body)
+			}
+		})
 	}
 }
 

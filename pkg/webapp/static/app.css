@@ -81,3 +81,14 @@ dd { margin: 0; overflow-wrap: anywhere; font-family: ui-monospace, SFMono-Regul
   .button, .audit-event { transition: transform .15s ease, border-color .15s ease; }
   .button:hover, .audit-event:hover { transform: translateY(-1px); border-color: var(--accent); }
 }
+
+.identity-card { margin-top: 1rem; padding: .85rem 1rem; border: 1px solid var(--accent); border-radius: .7rem; background: #0b1a17; }
+.identity-card .eyebrow { margin: 0 0 .35rem; }
+.exchange { margin-top: 1rem; border: 1px solid var(--line); border-radius: .7rem; background: #0c1418; }
+.exchange > summary { padding: .7rem .9rem; color: var(--ink); font-size: .85rem; cursor: pointer; }
+.exchange[open] > summary { border-bottom: 1px solid var(--line); }
+.exchange-pane { padding: .85rem .9rem 0; }
+.exchange-pane h4 { margin: 0 0 .4rem; color: var(--muted); font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; }
+.exchange pre { margin: 0; padding: .7rem; overflow-x: auto; border-radius: .5rem; background: #081014; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .78rem; line-height: 1.5; white-space: pre; }
+.exchange-note, .withheld { margin: .85rem .9rem; color: var(--muted); font-size: .76rem; }
+.withheld { color: var(--ink); font-weight: 600; }

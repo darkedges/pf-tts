@@ -63,8 +63,8 @@ func main() {
 	handler, err := webapp.New(webapp.Config{
 		AuthorizationEndpoint: must("OIDC_AUTHORIZATION_ENDPOINT"), TokenEndpoint: must("OIDC_TOKEN_ENDPOINT"),
 		RedirectURI: must("OIDC_REDIRECT_URI"), PublicOrigin: must("WEB_PUBLIC_URL"), ClientID: must("OIDC_CLIENT_ID"), ClientSecret: must("PF_WEB_CLIENT_SECRET"),
-		Scopes: []string{"openid", "mcp:invoke"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: 5 * time.Minute, MaximumSessions: 1000,
-		HTTPClient: pfHTTP, Verifier: mustOIDCVerifier(), Interactions: runner, AllowedInteractions: []webapp.AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}, Audit: remoteAudit,
+		Scopes: []string{"openid", "mcp:invoke"}, CookieName: "__Host-wai_session", SessionTTL: time.Hour, PreAuthTTL: 5 * time.Minute, MaximumSessions: 1000, MaximumDisplayBytes: 8 << 10,
+		HTTPClient: pfHTTP, Verifier: mustOIDCVerifier(), Interactions: strictInvoker{runner}, AllowedInteractions: []webapp.AllowedInteraction{{Tool: "system.whoami", Purpose: "system.whoami"}}, Audit: remoteAudit,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -87,4 +87,17 @@ func must(name string) string {
 		log.Fatal(err)
 	}
 	return value
+}
+
+// strictInvoker adapts the strict call chain runner to the workbench's invoker
+// contract. The adaptation lives here, in the composition root, so neither the
+// agent package nor the web application has to import the other.
+type strictInvoker struct{ runner agent.StrictRunner }
+
+func (s strictInvoker) Invoke(ctx context.Context, userToken, purpose, tool string) (webapp.Invocation, error) {
+	result, err := s.runner.Invoke(ctx, userToken, purpose, tool)
+	if err != nil {
+		return webapp.Invocation{}, err
+	}
+	return webapp.Invocation{TransactionID: result.TransactionID, Request: result.Request, Response: result.Response}, nil
 }

@@ -43,6 +43,9 @@
     byId("result-message").textContent = "Run an approved interaction to see its verified transaction identifier.";
     byId("result-transaction").textContent = "";
     byId("result-details").hidden = true;
+    byId("result-identity").hidden = true;
+    byId("result-exchange").hidden = true;
+    byId("identity-fields").replaceChildren();
     if (state.timer) window.clearInterval(state.timer);
   };
 
@@ -127,6 +130,80 @@
     });
   };
 
+  // The protected service answers with the identity it verified for this call.
+  // Surfacing it is the point of the interaction: it shows that the signed-in
+  // user, the logical agent, and the attested workload all arrived intact.
+  const identityLabels = {
+    user_id: "Signed-in user",
+    agent_id: "Logical agent",
+    workload_spiffe_id: "Attested workload",
+    immediate_caller_spiffe_id: "Immediate caller",
+    transaction_id: "Transaction",
+    purpose: "Purpose",
+    api_transaction_id: "Transaction at the API"
+  };
+
+  const pretty = (text) => {
+    try {
+      return JSON.stringify(JSON.parse(text), null, 2);
+    } catch (_) {
+      return text;
+    }
+  };
+
+  // The MCP result carries the tool output as structured content, and older
+  // servers embed it as JSON text instead. Read either shape rather than
+  // assuming one.
+  const toolOutput = (text) => {
+    let envelope;
+    try {
+      envelope = JSON.parse(text);
+    } catch (_) {
+      return null;
+    }
+    const result = envelope && envelope.result;
+    if (!result) return null;
+    if (result.structuredContent && typeof result.structuredContent === "object") return result.structuredContent;
+    const first = Array.isArray(result.content) ? result.content.find((part) => part && part.type === "text") : null;
+    if (!first) return null;
+    try {
+      return JSON.parse(first.text);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const renderExchange = (result) => {
+    const exchange = byId("result-exchange");
+    const withheld = byId("result-withheld");
+    byId("result-request").textContent = pretty(result.request || "");
+    byId("result-response").textContent = pretty(result.response || "");
+    withheld.hidden = !result.withheld;
+    withheld.textContent = result.withheld || "";
+    exchange.hidden = !(result.request || result.response || result.withheld);
+
+    const fields = byId("identity-fields");
+    fields.replaceChildren();
+    const output = result.response ? toolOutput(result.response) : null;
+    const card = byId("result-identity");
+    if (!output) {
+      card.hidden = true;
+      return;
+    }
+    Object.keys(identityLabels).forEach((key) => {
+      const value = output[key];
+      if (value === undefined || value === null || value === "") return;
+      const row = document.createElement("div");
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = identityLabels[key];
+      detail.textContent = String(value);
+      row.append(term, detail);
+      fields.append(row);
+    });
+    card.hidden = fields.childElementCount === 0;
+  };
+
   const showDetail = async (id) => {
     try {
       state.selected = id;
@@ -189,6 +266,7 @@
       byId("result-message").textContent = "The delegated call completed with a verified transaction context.";
       byId("result-transaction").textContent = result.transaction_id;
       byId("result-details").hidden = false;
+      renderExchange(result);
       await loadAudit();
     } catch (error) {
       const denied = error.message === "400" || error.message === "401" || error.message === "403";

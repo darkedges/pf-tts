@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -25,8 +26,18 @@ type IDTokenVerifier interface {
 	VerifyIDToken(context.Context, string, string, string) (string, error)
 }
 
+// Invocation is what an invoker reports back about one completed call. The
+// request and response are shown to the signed-in user, so neither may contain
+// token material; the transaction token travels in a header and never appears
+// in either.
+type Invocation struct {
+	TransactionID string
+	Request       string
+	Response      string
+}
+
 type InteractionInvoker interface {
-	Invoke(context.Context, string, string, string) (string, error)
+	Invoke(context.Context, string, string, string) (Invocation, error)
 }
 
 type AllowedInteraction struct {
@@ -51,13 +62,15 @@ type Config struct {
 	SessionTTL            time.Duration
 	PreAuthTTL            time.Duration
 	MaximumSessions       int
-	HTTPClient            *http.Client
-	Verifier              IDTokenVerifier
-	Interactions          InteractionInvoker
-	AllowedInteractions   []AllowedInteraction
-	Audit                 AuditReader
-	Now                   func() time.Time
-	Random                io.Reader
+	// MaximumDisplayBytes bounds what an invocation may render into a browser.
+	MaximumDisplayBytes int
+	HTTPClient          *http.Client
+	Verifier            IDTokenVerifier
+	Interactions        InteractionInvoker
+	AllowedInteractions []AllowedInteraction
+	Audit               AuditReader
+	Now                 func() time.Time
+	Random              io.Reader
 }
 
 type preAuth struct {
@@ -90,7 +103,7 @@ func New(config Config) (*Handler, error) {
 		strings.TrimSpace(config.ClientID) == "" || strings.TrimSpace(config.ClientSecret) == "" ||
 		len(config.Scopes) == 0 || !contains(config.Scopes, "openid") ||
 		!strings.HasPrefix(config.CookieName, "__Host-") || config.SessionTTL <= 0 ||
-		config.PreAuthTTL <= 0 || config.MaximumSessions <= 0 || config.HTTPClient == nil ||
+		config.PreAuthTTL <= 0 || config.MaximumSessions <= 0 || config.MaximumDisplayBytes <= 0 || config.HTTPClient == nil ||
 		config.HTTPClient.Timeout <= 0 || config.Verifier == nil {
 		return nil, ErrInvalidConfiguration
 	}
@@ -339,8 +352,8 @@ func (h *Handler) invokeInteraction(w http.ResponseWriter, r *http.Request) {
 		h.badRequest(w)
 		return
 	}
-	transactionID, err := h.config.Interactions.Invoke(r.Context(), current.accessToken, interaction.Purpose, interaction.Tool)
-	if err != nil || strings.TrimSpace(transactionID) == "" {
+	invocation, err := h.config.Interactions.Invoke(r.Context(), current.accessToken, interaction.Purpose, interaction.Tool)
+	if err != nil || strings.TrimSpace(invocation.TransactionID) == "" {
 		h.unavailable(w)
 		return
 	}
@@ -349,7 +362,15 @@ func (h *Handler) invokeInteraction(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(struct {
 		TransactionID string `json:"transaction_id"`
 		Status        string `json:"status"`
-	}{TransactionID: transactionID, Status: "completed"})
+		Request       string `json:"request,omitempty"`
+		Response      string `json:"response,omitempty"`
+		Withheld      string `json:"withheld,omitempty"`
+	}{
+		TransactionID: invocation.TransactionID, Status: "completed",
+		Request:  displayable(invocation.Request, h.config.MaximumDisplayBytes),
+		Response: displayable(invocation.Response, h.config.MaximumDisplayBytes),
+		Withheld: withheldReason(invocation, h.config.MaximumDisplayBytes),
+	})
 }
 
 func (h *Handler) listInteractions(w http.ResponseWriter, r *http.Request) {
@@ -384,6 +405,34 @@ func (h *Handler) getInteraction(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(record)
+}
+
+// compactJWS matches a three-segment compact serialization. The strict call
+// chain returns verified identity metadata rather than tokens, so a match here
+// means something upstream changed. The body is withheld rather than shown,
+// because the workbench renders it straight into a browser.
+var compactJWS = regexp.MustCompile(`eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}`)
+
+func displayable(body string, maximum int) string {
+	if body == "" || len(body) > maximum || compactJWS.MatchString(body) {
+		return ""
+	}
+	return body
+}
+
+func withheldReason(invocation Invocation, maximum int) string {
+	for _, body := range []string{invocation.Request, invocation.Response} {
+		if body == "" {
+			continue
+		}
+		if compactJWS.MatchString(body) {
+			return "withheld: the exchange contained token material"
+		}
+		if len(body) > maximum {
+			return "withheld: the exchange exceeded the display bound"
+		}
+	}
+	return ""
 }
 
 func (h *Handler) validCSRF(r *http.Request, current session) bool {
