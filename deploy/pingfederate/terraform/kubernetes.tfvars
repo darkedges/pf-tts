@@ -54,3 +54,17 @@ runtime_server_dns_names = [
 # Activated only after the trust bundle carrying this leaf has reached every
 # client. See docs/implementation-notes-task-58.md.
 activate_runtime_server_certificate = true
+
+# The administrator console is reached by a bounded port-forward and, once the
+# refresher runs in-cluster, by the administrator Service name. Naming both means
+# neither caller has to skip hostname validation.
+admin_console_dns_names = [
+  "wai-pingfederate-admin.wai-pingfederate.svc.cluster.local",
+  "wai-pingfederate-admin.wai-pingfederate.svc",
+  "wai-pingfederate-admin",
+  "localhost",
+]
+
+# Activated only after the exported administrator CA has been refreshed, because
+# every gate validates the private channel against it.
+activate_admin_console_certificate = true

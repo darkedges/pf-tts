@@ -44,6 +44,32 @@ resource "pingfederate_keypairs_ssl_server_settings" "runtime" {
   runtime_server_cert_ref     = { id = pingfederate_keypairs_ssl_server_key.runtime[0].id }
   active_runtime_server_certs = [{ id = pingfederate_keypairs_ssl_server_key.runtime[0].id }]
 
-  admin_console_cert_ref     = { id = var.admin_console_key_id }
-  active_admin_console_certs = [{ id = var.admin_console_key_id }]
+  admin_console_cert_ref = {
+    id = var.activate_admin_console_certificate ? pingfederate_keypairs_ssl_server_key.admin[0].id : var.admin_console_key_id
+  }
+  active_admin_console_certs = [{
+    id = var.activate_admin_console_certificate ? pingfederate_keypairs_ssl_server_key.admin[0].id : var.admin_console_key_id
+  }]
+}
+
+# The administrator console still served the Docker-era bootstrap leaf:
+# CN=localhost with a host.docker.internal SAN. That is fine for a port-forward
+# and unusable for anything reaching the administrator Service by its name, so
+# the only in-cluster options were to skip hostname validation or to stay out.
+#
+# This key names the administrator Service as Kubernetes resolves it, and keeps
+# localhost so the bounded port-forward that Terraform itself is connected over
+# continues to validate across the switch.
+resource "pingfederate_keypairs_ssl_server_key" "admin" {
+  count = length(var.admin_console_dns_names) > 0 ? 1 : 0
+
+  key_id                    = "wai-admin-console-tls"
+  common_name               = var.admin_console_dns_names[0]
+  subject_alternative_names = var.admin_console_dns_names
+  organization              = "WAI"
+  country                   = "AU"
+  key_algorithm             = "RSA"
+  key_size                  = 2048
+  signature_algorithm       = "SHA256withRSA"
+  valid_days                = 365
 }

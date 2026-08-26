@@ -1,0 +1,137 @@
+{{- if .Values.jwksRefresher.enabled }}
+# SPIRE rotates the JWT authorities that sign the agent's JWT-SVID, publishing a
+# prepared key hours before it signs with it. The actor token processor holds a
+# configured set, so without a refresh it works until the moment SPIRE activates
+# a key it does not contain, and then every token exchange fails.
+#
+# This runs well inside the publication window, so the processor already trusts
+# each key before SPIRE uses it. It reads the bundle SPIRE itself publishes and
+# rewrites the key set only when it differs.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.jwksRefresher.serviceAccount }}
+  namespace: {{ .Values.namespace }}
+automountServiceAccountToken: true
+---
+# The only Kubernetes read this needs is the one ConfigMap SPIRE publishes its
+# bundle to. It is named explicitly, so this cannot read any other ConfigMap in
+# the SPIRE namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ .Values.jwksRefresher.serviceAccount }}-bundle-reader
+  namespace: {{ .Values.jwksRefresher.spireNamespace }}
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: [{{ .Values.jwksRefresher.spireBundleConfigMap | quote }}]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ .Values.jwksRefresher.serviceAccount }}-bundle-reader
+  namespace: {{ .Values.jwksRefresher.spireNamespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ .Values.jwksRefresher.serviceAccount }}-bundle-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.jwksRefresher.serviceAccount }}
+    namespace: {{ .Values.namespace }}
+---
+# This workload holds the administrator credential, so it is given its own egress
+# rule rather than inheriting the product's. It reaches exactly two places: the
+# Kubernetes API, and the administrator port inside this namespace.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Values.jwksRefresher.serviceAccount }}-egress
+  namespace: {{ .Values.namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .Values.jwksRefresher.serviceAccount }}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.namespace }}
+      ports:
+        - {protocol: TCP, port: 9999}
+    - ports:
+        - {protocol: TCP, port: 443}
+        - {protocol: TCP, port: 6443}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Values.jwksRefresher.serviceAccount }}
+  namespace: {{ .Values.namespace }}
+spec:
+  schedule: {{ .Values.jwksRefresher.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 300
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ .Values.jwksRefresher.serviceAccount }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: {{ .Values.jwksRefresher.serviceAccount }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: refresher
+              image: {{ required "jwksRefresher.image is required" .Values.jwksRefresher.image }}
+              imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities: {drop: ["ALL"]}
+                readOnlyRootFilesystem: true
+              env:
+                - name: PF_ADMIN_URL
+                  value: {{ .Values.jwksRefresher.adminURL | quote }}
+                - name: PF_ADMIN_CA_FILE
+                  value: /run/pingfederate/admin-ca.pem
+                - name: SPIRE_BUNDLE_NAMESPACE
+                  value: {{ .Values.jwksRefresher.spireNamespace | quote }}
+                - name: SPIRE_BUNDLE_CONFIGMAP
+                  value: {{ .Values.jwksRefresher.spireBundleConfigMap | quote }}
+                - name: PF_ADMIN_USERNAME
+                  valueFrom: {secretKeyRef: {name: wai-pf13-administrator, key: username}}
+                - name: PF_ADMIN_PASSWORD
+                  valueFrom: {secretKeyRef: {name: wai-pf13-administrator, key: password}}
+              resources:
+                requests: {cpu: 10m, memory: 32Mi}
+                limits: {cpu: 200m, memory: 128Mi}
+              volumeMounts:
+                - {name: admin-ca, mountPath: /run/pingfederate, readOnly: true}
+          volumes:
+            - name: admin-ca
+              secret:
+                secretName: {{ .Values.jwksRefresher.adminCASecretName }}
+                defaultMode: 256
+                items:
+                  - {key: {{ .Values.jwksRefresher.adminCASecretKey | quote }}, path: admin-ca.pem}
+{{- end }}

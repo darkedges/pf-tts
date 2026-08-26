@@ -12,6 +12,20 @@ engineIngressNamespaces:
   - wai-strict
   - ingress-nginx
 
+# Keeps the actor token processor in step with SPIRE's rotating JWT authorities.
+# SPIRE publishes a prepared key hours before signing with it, so a schedule well
+# inside that window means the processor always trusts a key before it is used.
+jwksRefresher:
+  enabled: true
+  image: ""
+  schedule: "17 */4 * * *"
+  serviceAccount: wai-pf13-jwks-refresher
+  adminURL: https://wai-pingfederate-admin.wai-pingfederate.svc.cluster.local:9999/pf-admin-api/v1
+  adminCASecretName: wai-pf13-admin-ca
+  adminCASecretKey: ca.pem
+  spireNamespace: spire-system
+  spireBundleConfigMap: spire-bundle
+
 storage:
   size: 8Gi
   storageClassName: hostpath

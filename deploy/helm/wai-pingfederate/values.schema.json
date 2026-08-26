@@ -15,6 +15,21 @@
       "type": "array", "minItems": 1, "uniqueItems": true,
       "items": {"enum": ["wai-strict", "ingress-nginx"]}
     },
+    "jwksRefresher": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "image", "schedule", "serviceAccount", "adminURL", "adminCASecretName", "adminCASecretKey", "spireNamespace", "spireBundleConfigMap"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "image": {"type": "string", "pattern": "^$|^docker.io/darkedges/pf-tts-spire-jwks-refresher@sha256:[a-f0-9]{64}$"},
+        "schedule": {"type": "string", "minLength": 9},
+        "serviceAccount": {"const": "wai-pf13-jwks-refresher"},
+        "adminURL": {"const": "https://wai-pingfederate-admin.wai-pingfederate.svc.cluster.local:9999/pf-admin-api/v1"},
+        "adminCASecretName": {"const": "wai-pf13-admin-ca"},
+        "adminCASecretKey": {"const": "ca.pem"},
+        "spireNamespace": {"const": "spire-system"},
+        "spireBundleConfigMap": {"const": "spire-bundle"}
+      }
+    },
     "profile": {
       "type": "object", "required": ["branch"],
       "properties": {"branch": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$"}}

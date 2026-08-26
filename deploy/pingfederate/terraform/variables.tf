@@ -29,6 +29,18 @@ variable "runtime_server_dns_names" {
   }
 }
 
+variable "admin_console_dns_names" {
+  description = "Exact DNS names the administrator console is reached by. The first entry becomes the common name. Keep localhost in the list so a bounded port-forward continues to validate."
+  type        = list(string)
+  default     = []
+}
+
+variable "activate_admin_console_certificate" {
+  description = "Serve the generated administrator certificate. Flip this only once the exported administrator CA has been refreshed, because every gate validates the private channel against it."
+  type        = bool
+  default     = false
+}
+
 variable "activate_runtime_server_certificate" {
   description = "Serve the generated runtime certificate. Flip this only after every client trusts the new leaf, because activation swaps the engine's TLS identity immediately."
   type        = bool
