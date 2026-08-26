@@ -13,11 +13,19 @@ file and a rule can be reviewed by reading the tuple rather than the UUIDs.
 
 It only ever adds a rule guarded by an AND over exact equality comparisons. It
 cannot widen an existing rule, and it never removes one.
+
+The package is integrity-protected: its final element is a DataStreamFooter
+carrying a SHA-256 digest, and PingAuthorize refuses to start if the content does
+not match it. Editing the graph therefore means recomputing that digest, which is
+taken over the concatenated compact serialisation of every element before the
+footer -- element bodies only, without the array's commas or brackets.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
 import json
 import pathlib
 import sys
@@ -79,11 +87,35 @@ def identifier(*parts: str) -> str:
     return str(uuid.uuid5(NAMESPACE, "|".join(parts)))
 
 
-def load(path: pathlib.Path) -> list:
+FOOTER_CLASS = "DataStreamFooter"
+
+
+def load(path: pathlib.Path) -> tuple[list, dict]:
+    """Return the graph nodes and the integrity footer, separately."""
     nodes = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(nodes, list):
-        raise SystemExit("the deployment package must be a JSON array of nodes")
-    return nodes
+    if not isinstance(nodes, list) or not nodes:
+        raise SystemExit("the deployment package must be a non-empty JSON array")
+    footer = nodes[-1]
+    if not isinstance(footer, dict) or footer.get("@class") != FOOTER_CLASS:
+        raise SystemExit("the deployment package does not end with an integrity footer")
+    return nodes[:-1], footer
+
+
+def digest(nodes: list) -> str:
+    """The digest PingAuthorize verifies on startup.
+
+    Taken over each element's compact serialisation concatenated together, with
+    no separators and no enclosing array. Verified against the shipped package
+    before this script was allowed to change it.
+    """
+    body = "".join(json.dumps(node, separators=(",", ":")) for node in nodes)
+    return base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode()
+
+
+def render(nodes: list, footer: dict) -> str:
+    footer = dict(footer)
+    footer["digest"] = digest(nodes)
+    return json.dumps(nodes + [footer], separators=(",", ":"))
 
 
 def index(nodes: list, cls: str) -> list:
@@ -180,7 +212,9 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="fail if the package would change instead of writing it")
     arguments = parser.parse_args()
 
-    nodes = load(PACKAGE)
+    nodes, footer = load(PACKAGE)
+    if digest(nodes) != footer.get("digest"):
+        raise SystemExit("the committed package's digest does not match its content; refusing to edit it")
     guards = index(nodes, "AlwaysTrueNode")
     if len(guards) != 1:
         raise SystemExit("expected exactly one always-true guard node")
@@ -195,7 +229,7 @@ def main() -> int:
     if unreviewed:
         raise SystemExit(f"the package contains unreviewed rules: {unreviewed}")
 
-    rendered = json.dumps(nodes, separators=(",", ":"))
+    rendered = render(nodes, footer)
     if rendered == PACKAGE.read_text(encoding="utf-8"):
         print(f"PASS: the package already contains exactly the {len(RULES)} reviewed rules.")
         return 0
