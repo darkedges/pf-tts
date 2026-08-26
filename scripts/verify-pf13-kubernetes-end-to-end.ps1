@@ -14,7 +14,9 @@ and never printed.
 param(
     [string]$Namespace = 'wai-strict',
     [string]$PingFederateNamespace = 'wai-pingfederate',
-    [string]$PublicOrigin = 'https://workbench.ping.darkedges.com'
+    [string]$PublicOrigin = 'https://workbench.ping.darkedges.com',
+    [string]$SpireNamespace = 'spire-system',
+    [string]$SpireServerPod = 'spire-server-0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,6 +50,33 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($pfReady) -or [int]$pfR
     Write-Output 'FAIL: the isolated PingFederate runtime is not ready.'
 } else {
     Write-Output 'PASS: the isolated PingFederate runtime is ready.'
+}
+
+Write-Output ''
+Write-Output '== SPIRE authority freshness =='
+# SPIRE prepares its next JWT authority hours before it signs with it, and the
+# actor token processor holds a snapshot. If PingFederate is missing a prepared
+# key, every exchange will start failing the moment SPIRE activates it. Catch
+# that here, while there is still a window to act, rather than as an outage.
+$bundle = kubectl -n $SpireNamespace exec $SpireServerPod -c spire-server -- spire-server bundle show -format spiffe
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bundle)) {
+    $failures += 'could not read the SPIRE trust bundle'
+    Write-Output 'FAIL: could not read the SPIRE trust bundle.'
+} else {
+    $current = @(($bundle | ConvertFrom-Json).keys | Where-Object { $_.use -eq 'jwt-svid' } | ForEach-Object { $_.kid })
+    $configured = & (Join-Path $PSScriptRoot 'read-pf13-actor-jwks-kids.ps1') -Namespace $PingFederateNamespace
+    if ($LASTEXITCODE -ne 0) {
+        $failures += 'could not read the configured actor JWKS'
+        Write-Output 'FAIL: could not read the configured actor JWKS.'
+    } else {
+        $missing = @($current | Where-Object { $configured -notcontains $_ })
+        if ($missing.Count -gt 0) {
+            $failures += "the actor processor is missing SPIRE key(s): $($missing -join ', ')"
+            Write-Output "FAIL: the actor processor is missing SPIRE JWT authority: $($missing -join ', '). Run make pf13-k8s-terraform-apply before SPIRE activates it."
+        } else {
+            Write-Output "PASS: the actor processor trusts all $($current.Count) current SPIRE JWT authorities."
+        }
+    }
 }
 
 Write-Output ''
