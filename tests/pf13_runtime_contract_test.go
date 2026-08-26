@@ -49,13 +49,54 @@ func TestPingFederate13RuntimeIsIsolatedPinnedAndFailClosed(t *testing.T) {
 	for _, forbidden := range []string{
 		"kind: Ingress", "type: LoadBalancer", "type: NodePort", ":latest", ":edge", "namespace: pingfed",
 		"id.ping.darkedges.com", "skipTLSVerify: true", "kind: Secret", "stringData:", "vaultToken",
-		"method: appRole", "automountServiceAccountToken: true", "privileged: true", "hostPath:",
+		"method: appRole", "privileged: true", "hostPath:",
 		"forgerock-vault-tls", "tls.key", "fetch-profile", "assemble-profile", "crane@sha256", "mountPath: /opt/in",
 		`PF_ADMIN_API_AUTHENTICATION, value: ""`, `PF_ADMIN_API_AUTHENTICATION, value: "NONE"`,
 		`PF_ADMIN_API_AUTHENTICATION, value: "BASIC"`,
 	} {
 		if strings.Contains(chart, forbidden) {
 			t.Errorf("isolated runtime crosses a security boundary with %q", forbidden)
+		}
+	}
+
+	// The product must never receive a Kubernetes API token. The JWKS refresher
+	// legitimately needs one to read the bundle SPIRE publishes, so the control
+	// is that the token is granted to that workload and to nothing else, and
+	// that its Role reaches exactly one named ConfigMap.
+	statefulSet, err := os.ReadFile("../deploy/helm/wai-pingfederate/templates/statefulset.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(statefulSet), "automountServiceAccountToken: false") {
+		t.Error("the product pod must not mount a Kubernetes API token")
+	}
+	if strings.Contains(string(statefulSet), "automountServiceAccountToken: true") {
+		t.Error("the product pod mounts a Kubernetes API token")
+	}
+	if strings.Count(chart, "automountServiceAccountToken: true") != 1 {
+		t.Error("exactly one workload may mount a Kubernetes API token")
+	}
+	refresher, err := os.ReadFile("../deploy/helm/wai-pingfederate/templates/jwks-refresher.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{
+		"resourceNames: [{{ .Values.jwksRefresher.spireBundleConfigMap | quote }}]",
+		`verbs: ["get"]`,
+		"kind: Role",
+		"readOnlyRootFilesystem: true",
+		"runAsNonRoot: true",
+		`capabilities: {drop: ["ALL"]}`,
+		"concurrencyPolicy: Forbid",
+		"PF_ADMIN_CA_FILE",
+	} {
+		if !strings.Contains(string(refresher), required) {
+			t.Errorf("the JWKS refresher is missing control %q", required)
+		}
+	}
+	for _, forbidden := range []string{"kind: ClusterRole", `verbs: ["*"]`, "resources: [\"secrets\"]", "port: 9031"} {
+		if strings.Contains(string(refresher), forbidden) {
+			t.Errorf("the JWKS refresher grants more than it needs: %q", forbidden)
 		}
 	}
 }

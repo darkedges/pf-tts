@@ -17,7 +17,7 @@ engineIngressNamespaces:
 # inside that window means the processor always trusts a key before it is used.
 jwksRefresher:
   enabled: true
-  image: ""
+  image: docker.io/darkedges/pf-tts-spire-jwks-refresher@sha256:c6be1eb03d6c049129982a05e6787b7c56629b713257b4f35175e17b416d2943
   schedule: "17 */4 * * *"
   serviceAccount: wai-pf13-jwks-refresher
   adminURL: https://wai-pingfederate-admin.wai-pingfederate.svc.cluster.local:9999/pf-admin-api/v1

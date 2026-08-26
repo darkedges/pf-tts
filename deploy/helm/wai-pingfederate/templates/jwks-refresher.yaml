@@ -130,8 +130,12 @@ spec:
           volumes:
             - name: admin-ca
               secret:
+                # 0444: this is the administrator's public certificate, used to
+                # verify the channel rather than to authenticate on it. Owner-only
+                # would need an fsGroup to be readable by a non-root user, which
+                # is machinery this does not need for public material.
                 secretName: {{ .Values.jwksRefresher.adminCASecretName }}
-                defaultMode: 256
+                defaultMode: 292
                 items:
                   - {key: {{ .Values.jwksRefresher.adminCASecretKey | quote }}, path: admin-ca.pem}
 {{- end }}

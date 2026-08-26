@@ -50,8 +50,20 @@ func TestPingFederate13VaultPolicyAndRoleAreExact(t *testing.T) {
 	if strings.Contains(policy, "*") || strings.Contains(policy, `capabilities = ["create"`) || strings.Contains(policy, `capabilities = ["list"`) {
 		t.Fatal("isolated PingFederate runtime policy must be exact and read-only")
 	}
-	if strings.Count(policy, `capabilities = ["read"]`) != 8 {
-		t.Fatal("isolated PingFederate runtime policy must expose exactly eight reviewed records")
+	// Naming the records, rather than counting them, means a policy cannot grow
+	// by swapping one path for another and still pass.
+	reviewed := []string{
+		"administrator", "devops", "bootstrap-system",
+		"oauth/token-exchange", "oauth/browser", "oauth/lab-user", "oauth/mcp-gateway",
+		"runtime-ca", "admin-ca",
+	}
+	if strings.Count(policy, `capabilities = ["read"]`) != len(reviewed) {
+		t.Fatalf("isolated PingFederate runtime policy must expose exactly %d reviewed records", len(reviewed))
+	}
+	for _, record := range reviewed {
+		if !strings.Contains(policy, `path "kv/data/wai/pingfederate-13-1/`+record+`" { capabilities = ["read"] }`) {
+			t.Errorf("isolated policy is missing the reviewed read-only record %q", record)
+		}
 	}
 	for _, forbidden := range []string{"wai/pingfederate/ca", "wai/workbench", `path "sys/`, `path "auth/`} {
 		if strings.Contains(policy, forbidden) {
