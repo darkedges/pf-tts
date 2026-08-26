@@ -144,3 +144,37 @@ func signedLeaf(t *testing.T, authority *x509.Certificate, key *ecdsa.PrivateKey
 	}
 	return leaf
 }
+
+// A configured CA file must be the only trust anchor. When it was merely
+// appended to the system pool, any public certificate authority also satisfied
+// the decision-point channel, so a workload pointed at a public address would
+// have sent its authorization request -- user, agent, workload, and transaction
+// identifiers -- to whatever terminated that TLS.
+func TestCAHTTPClientPinsTheConfiguredAnchorAndExcludesPublicRoots(t *testing.T) {
+	authority, key := selfSignedAuthority(t)
+	caFile := filepath.Join(t.TempDir(), "ca.pem")
+	if err := os.WriteFile(caFile, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: authority.Raw}), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TEST_PDP_CA_FILE", caFile)
+	client, err := CAHTTPClient("TEST_PDP_CA_FILE", time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := client.Transport.(*http.Transport).TLSClientConfig.RootCAs
+	if pool == nil {
+		t.Fatal("a configured CA file produced no explicit trust anchor")
+	}
+	leaf := signedLeaf(t, authority, key, "wai-pingauthorize.wai-pingauthorize.svc.cluster.local")
+	if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, DNSName: "wai-pingauthorize.wai-pingauthorize.svc.cluster.local"}); err != nil {
+		t.Fatalf("the pinned anchor did not validate its own leaf: %v", err)
+	}
+
+	system, err := x509.SystemCertPool()
+	if err != nil {
+		t.Skip("no system certificate pool on this platform")
+	}
+	if len(system.Subjects()) > 0 && len(pool.Subjects()) >= len(system.Subjects()) {
+		t.Fatal("the pinned pool still carries the public certificate authorities")
+	}
+}

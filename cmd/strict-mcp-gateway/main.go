@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"example.com/workload-agent-identity/internal/demoenv"
@@ -34,7 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	policy, err := authorization.NewOPA(ctx, "/run/wai/authorization.rego", 100*time.Millisecond)
+	policy, err := configuredAuthorizer(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,4 +66,33 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Fatal(server.ListenAndServeTLS("", ""))
+}
+
+// configuredAuthorizer selects the decision point for the strict call chain.
+//
+// Whichever provider is chosen, it is still wrapped by the signed-route
+// authorizer inside NewStrictGatewayWithAuthorizer, so the target and tool are
+// re-checked against the signed route before any policy is consulted. The
+// provider decides; it does not get to widen the route.
+//
+// An unrecognised value is a hard failure rather than a fall back to the
+// default, because silently enforcing a different policy than the one an
+// operator asked for is worse than refusing to start.
+func configuredAuthorizer(ctx context.Context) (mcp.Authorizer, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("AUTHORIZATION_PROVIDER"))) {
+	case "", "opa":
+		return authorization.NewOPA(ctx, "/run/wai/authorization.rego", 100*time.Millisecond)
+	case "pingauthorize":
+		endpoint, err := demoenv.Required("PINGAUTHORIZE_URL")
+		if err != nil {
+			return nil, err
+		}
+		client, err := demoenv.CAHTTPClient("PINGAUTHORIZE_CA_FILE", 2*time.Second)
+		if err != nil {
+			return nil, err
+		}
+		return authorization.NewPingAuthorize(client, endpoint, 500*time.Millisecond)
+	default:
+		return nil, fmt.Errorf("unsupported AUTHORIZATION_PROVIDER")
+	}
 }

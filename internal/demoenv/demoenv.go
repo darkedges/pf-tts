@@ -164,9 +164,18 @@ func PFHTTPClient() (*http.Client, error) {
 	}, nil
 }
 
-// CAHTTPClient creates a bounded HTTPS client using an explicitly configured
-// PEM trust anchor. It is intended for external product adapters whose local
-// development certificates are not in the system trust store.
+// CAHTTPClient creates a bounded HTTPS client whose ONLY trust anchor is the
+// configured PEM. It is used to reach external product adapters, such as the
+// PingAuthorize decision point, over their own certificates.
+//
+// The configured anchor replaces the system pool rather than being added to it.
+// Appending would mean any public certificate authority could also satisfy this
+// client, so a workload pointed at a public address would happily send its
+// authorization request -- carrying the user, agent, workload, and transaction
+// identifiers -- to whatever terminated that TLS. Pinning makes that a
+// connection failure instead of a silent disclosure.
+//
+// This mirrors PFHTTPClient, which was corrected for the same reason.
 func CAHTTPClient(caEnvironmentVariable string, timeout time.Duration) (*http.Client, error) {
 	if strings.TrimSpace(caEnvironmentVariable) == "" || timeout <= 0 {
 		return nil, errors.New("CA environment variable and positive timeout are required")
@@ -175,14 +184,11 @@ func CAHTTPClient(caEnvironmentVariable string, timeout time.Duration) (*http.Cl
 	if err != nil {
 		return nil, err
 	}
-	pool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("load system certificate pool: %w", err)
-	}
 	pem, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", caEnvironmentVariable, err)
 	}
+	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(pem) {
 		return nil, fmt.Errorf("%s contains no valid PEM certificates", caEnvironmentVariable)
 	}
