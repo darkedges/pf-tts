@@ -1,0 +1,8 @@
+{
+  "bound_service_account_names": ["wai-pingauthorize-vault-auth"],
+  "bound_service_account_namespaces": ["wai-pingauthorize"],
+  "token_policies": ["wai-pingauthorize-11-1"],
+  "audience": "vault",
+  "token_ttl": "15m",
+  "token_max_ttl": "30m"
+}
