@@ -16,7 +16,9 @@ param(
     [string]$PingFederateNamespace = 'wai-pingfederate',
     [string]$PublicOrigin = 'https://workbench.ping.darkedges.com',
     [string]$SpireNamespace = 'spire-system',
-    [string]$SpireServerPod = 'spire-server-0'
+    [string]$SpireServerPod = 'spire-server-0',
+    [string]$PingAuthorizeNamespace = 'wai-pingauthorize',
+    [string]$PingAuthorizePod = 'wai-pingauthorize-0'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +34,8 @@ $generated = Join-Path $repoRoot 'deploy/pingfederate/generated'
 $evidence = Join-Path $generated 'pf13-kubernetes-end-to-end-evidence.json'
 
 $components = @('adapter', 'gateway', 'mcp', 'api', 'audit', 'workbench')
+# The reviewed policy graph. Any other package means the overlay did not apply.
+$ReviewedPackageId = '1ca3f398-1ba9-4169-a576-7fac52b286db'
 $failures = @()
 
 Write-Output '== workload readiness =='
@@ -80,6 +84,34 @@ if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($bundle)) {
 }
 
 Write-Output ''
+Write-Output '== decision point =='
+# A healthy decision point proves nothing about which policy it loaded. When the
+# reviewed overlay fails to apply, the product still starts, still serves the
+# right certificate, and permits everything from the vendor's sample policy. The
+# only reliable signal is which package decided, and whether it decided at all.
+# -a returns the computed values, so a provider left at its chart default is
+# reported rather than appearing absent.
+$provider = helm get values wai-strict --namespace $Namespace -a -o json 2>$null | ConvertFrom-Json
+$selected = 'opa'
+if ($provider -and $provider.PSObject.Properties.Name -contains 'authorization') {
+    $authorization = $provider.authorization
+    if ($authorization -and $authorization.PSObject.Properties.Name -contains 'provider' -and -not [string]::IsNullOrWhiteSpace($authorization.provider)) {
+        $selected = $authorization.provider
+    }
+}
+Write-Output "The strict gateway is configured for: $selected"
+if ($selected -eq 'pingauthorize') {
+    $decisionsBefore = kubectl -n $PingAuthorizeNamespace exec $PingAuthorizePod -- sh -c 'grep -c "\"decision\"" /opt/out/instance/logs/policy-decision 2>/dev/null || echo 0'
+    if ($LASTEXITCODE -ne 0) {
+        $failures += 'could not read the decision point log'
+        Write-Output 'FAIL: could not read the decision point log.'
+    }
+    $env:DECISION_COUNT_BEFORE = ($decisionsBefore | Select-Object -Last 1).Trim()
+} else {
+    Write-Output 'PASS: the reviewed rego policy is mounted beside the gateway.'
+}
+
+Write-Output ''
 Write-Output '== public surface =='
 & (Join-Path $PSScriptRoot 'verify-workbench-public-surface.ps1') -PublicOrigin $PublicOrigin
 if ($LASTEXITCODE -ne 0) { $failures += 'the public surface gate failed' }
@@ -97,6 +129,32 @@ try {
     if ($LASTEXITCODE -ne 0) { $failures += 'the end-to-end browser and negative gate failed' }
 } finally {
     Remove-Item Env:LAB_USER, Env:LAB_PASSWORD, Env:EVIDENCE_PATH -ErrorAction SilentlyContinue
+}
+
+if ($selected -eq 'pingauthorize') {
+    Write-Output ''
+    Write-Output '== decision point evidence =='
+    $decisionsAfter = kubectl -n $PingAuthorizeNamespace exec $PingAuthorizePod -- sh -c 'grep -c "\"decision\"" /opt/out/instance/logs/policy-decision 2>/dev/null || echo 0'
+    $after = ($decisionsAfter | Select-Object -Last 1).Trim()
+    if ([int]$after -le [int]$env:DECISION_COUNT_BEFORE) {
+        $failures += 'the decision point was never consulted'
+        Write-Output "FAIL: the call chain completed without consulting the decision point ($env:DECISION_COUNT_BEFORE -> $after). The gateway is enforcing something else."
+    } else {
+        Write-Output "PASS: the decision point was consulted ($env:DECISION_COUNT_BEFORE -> $after decisions)."
+    }
+    $lastDecision = kubectl -n $PingAuthorizeNamespace exec $PingAuthorizePod -- sh -c 'grep "\"decision\"" /opt/out/instance/logs/policy-decision | tail -1'
+    if ($lastDecision -match '"deploymentPackageId":"([0-9a-f-]+)"') {
+        if ($Matches[1] -ne $ReviewedPackageId) {
+            $failures += "the decision point is enforcing package $($Matches[1])"
+            Write-Output "FAIL: decisions come from package $($Matches[1]), not the reviewed $ReviewedPackageId. The vendor sample policy is in force."
+        } else {
+            Write-Output "PASS: decisions come from the reviewed package $ReviewedPackageId."
+        }
+    } else {
+        $failures += 'no decision package could be identified'
+        Write-Output 'FAIL: no decision package could be identified.'
+    }
+    Remove-Item Env:DECISION_COUNT_BEFORE -ErrorAction SilentlyContinue
 }
 
 Write-Output ''

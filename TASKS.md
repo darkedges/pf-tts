@@ -1485,3 +1485,35 @@ Acceptance criteria:
 - Do not change PingFederate's base URL until the new hostname resolves, or the
   hosted login page renders a base href the browser cannot reach.
 
+## Task 59 — Isolated Kubernetes PingAuthorize decision point
+
+Goal: run PingAuthorize as the strict call chain's policy decision point in
+Kubernetes, selectable per deployment, enforcing the decision the strict rego
+enforces today.
+
+Acceptance criteria:
+
+- Record the decision in ADR 0013, including the vendor-profile fetch and the
+  absence of client authentication on the decision call.
+- Make the strict gateway honour `AUTHORIZATION_PROVIDER` as the non-strict
+  gateway does, with OPA the default and an unrecognised value a hard failure.
+  Keep the signed-route authorizer wrapping whichever provider is chosen.
+- Treat `PF_CA_FILE` and the decision-point CA as the only trust anchors for
+  their channels; neither may be satisfied by a public certificate authority.
+- Carry the strict tuples in the reviewed deployment package alongside the
+  non-strict one, generated from a declared rule set rather than hand-wired, and
+  keep its integrity footer valid.
+- Deploy in namespace `wai-pingauthorize` with a digest-pinned image and no tag,
+  ClusterIP on the decision port only, no Ingress, no published LDAP port,
+  default-deny networking, and no Kubernetes API token.
+- Supply the serving certificate from Vault, named for the Service, with the key
+  pair and the public certificate as separate records.
+- Materialise the `/opt/in` overlay as real files; a ConfigMap symlink farm
+  silently loses it and leaves the vendor's permissive sample policy in force.
+- Add failure tests for a widened rule set, a broken integrity footer, an
+  unreviewed policy package, a public certificate authority satisfying either
+  channel, a published LDAP port, and an unrecognised provider falling back.
+- Verify by decision, not by health: an invocation must advance the decision
+  point's own log, and the recorded `deploymentPackageId` must be the reviewed
+  package.
+
