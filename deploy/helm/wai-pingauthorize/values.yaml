@@ -1,0 +1,30 @@
+namespace: wai-pingauthorize
+images:
+  # Referenced by digest with no tag. The product publishes on the moving `edge`
+  # tag, which cannot be pinned to a reviewed build; the digest can.
+  runtime: docker.io/pingidentity/pingauthorize@sha256:7360ae0b5a869173322e1ce2e03e641da7f8525b9be41ad9bc3129d7ac4158f4
+# Namespaces permitted to reach the decision point on 1443. The LDAP port is
+# never published to any of them.
+decisionIngressNamespaces:
+  - wai-strict
+storage:
+  size: 4Gi
+  storageClassName: hostpath
+vault:
+  address: https://vault.internal.darkedges.com
+  connectionName: wai-pingauthorize-vault
+  caCertSecretRef: wai-vault-server-ca
+  authName: wai-pingauthorize-vault-auth
+  authServiceAccount: wai-pingauthorize-vault-auth
+  role: wai-pingauthorize-11-1
+  audience: vault
+  kubernetesMount: kubernetes
+  kvMount: kv
+  refreshAfter: 5m
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi

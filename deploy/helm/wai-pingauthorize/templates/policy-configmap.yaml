@@ -1,0 +1,22 @@
+# The reviewed policy graph, delivered exactly as committed. It is
+# integrity-protected: the product verifies a digest over its contents and
+# refuses to start if they disagree, so this must be a byte-for-byte copy.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wai-pingauthorize-policy
+  namespace: {{ .Values.namespace }}
+data:
+  wai-mcp-authorization.deploymentpackage: |
+{{ .Files.Get "files/wai-mcp-authorization.deploymentpackage" | indent 4 }}
+---
+# Selects the embedded decision point and the reviewed package. It cannot fall
+# back to the vendor sample policy or load a package over the network.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wai-pingauthorize-profile
+  namespace: {{ .Values.namespace }}
+data:
+  30-wai-mcp-policy.dsconfig: |
+{{ .Files.Get "files/30-wai-mcp-policy.dsconfig" | indent 4 }}

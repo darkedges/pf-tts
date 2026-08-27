@@ -1,0 +1,44 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultConnection
+metadata:
+  name: {{ .Values.vault.connectionName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  address: {{ .Values.vault.address }}
+  skipTLSVerify: false
+  caCertSecretRef: {{ .Values.vault.caCertSecretRef }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ .Values.vault.authName }}
+  namespace: {{ .Values.namespace }}
+spec:
+  vaultConnectionRef: {{ .Values.vault.connectionName }}
+  method: kubernetes
+  mount: {{ .Values.vault.kubernetesMount }}
+  kubernetes:
+    role: {{ .Values.vault.role }}
+    serviceAccount: {{ .Values.vault.authServiceAccount }}
+    audiences: ["{{ .Values.vault.audience }}"]
+---
+{{- $records := dict "administrator" "wai-pa11-administrator" "devops" "wai-pa11-devops" "runtime-tls" "wai-pa11-runtime-tls" "runtime-ca" "wai-pa11-runtime-ca" }}
+{{- range $path, $destination := $records }}
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ $destination }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  vaultAuthRef: {{ $.Values.vault.authName }}
+  mount: {{ $.Values.vault.kvMount }}
+  type: kv-v2
+  path: wai/pingauthorize-11-1/{{ $path }}
+  refreshAfter: {{ $.Values.vault.refreshAfter }}
+  hmacSecretData: true
+  destination:
+    create: true
+    name: {{ $destination }}
+    overwrite: false
+---
+{{- end }}

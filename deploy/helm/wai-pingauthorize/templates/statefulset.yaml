@@ -1,0 +1,138 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wai-pingauthorize
+  namespace: {{ .Values.namespace }}
+  labels: &labels
+    app.kubernetes.io/name: wai-pingauthorize
+    app.kubernetes.io/instance: isolated-11-1
+    app.kubernetes.io/version: "11.1"
+spec:
+  serviceName: wai-pingauthorize
+  replicas: 1
+  updateStrategy: {type: RollingUpdate}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wai-pingauthorize
+      app.kubernetes.io/instance: isolated-11-1
+  template:
+    metadata:
+      labels: *labels
+    spec:
+      serviceAccountName: wai-pingauthorize
+      # The product never talks to the Kubernetes API.
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 120
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 9031
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        # The product's entrypoint copies its shipped profile into /opt/staging
+        # before setup, which a read-only root filesystem forbids. Copy it into a
+        # bounded ephemeral volume first, using the same digest-pinned image so
+        # nothing else can be introduced along the way.
+        - name: prepare-product-writable-paths
+          image: {{ required "images.runtime is required" .Values.images.runtime }}
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ceu"]
+          args:
+            - |
+              cp -R /opt/staging/. /writable-staging/
+              # A ConfigMap volume is a farm of symlinks into a timestamped
+              # directory. The product's entrypoint copies /opt/in into staging
+              # without following them, so mounting the ConfigMap there directly
+              # loses the overlay silently and the vendor's permissive sample
+              # policy stays in force. Materialise real files instead, and fail
+              # if the reviewed dsconfig is not one of them.
+              mkdir -p /writable-profile/pd.profile/dsconfig
+              cp -L /run/profile-source/30-wai-mcp-policy.dsconfig /writable-profile/pd.profile/dsconfig/30-wai-mcp-policy.dsconfig
+              test -s /writable-profile/pd.profile/dsconfig/30-wai-mcp-policy.dsconfig
+              grep -q 'deployment-package</run/wai/wai-mcp-authorization.deploymentpackage' /writable-profile/pd.profile/dsconfig/30-wai-mcp-policy.dsconfig
+          securityContext: &restricted
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - {name: writable-staging, mountPath: /writable-staging}
+            - {name: writable-profile, mountPath: /writable-profile}
+            - {name: profile-source, mountPath: /run/profile-source, readOnly: true}
+      containers:
+        - name: pingauthorize
+          image: {{ required "images.runtime is required" .Values.images.runtime }}
+          imagePullPolicy: IfNotPresent
+          securityContext: *restricted
+          env:
+            - {name: PING_IDENTITY_ACCEPT_EULA, value: "YES"}
+            - {name: ORCHESTRATION_TYPE, value: kubernetes}
+            - {name: SERVER_PROFILE_URL, value: "https://github.com/pingidentity/pingidentity-server-profiles.git"}
+            - {name: SERVER_PROFILE_PATH, value: "getting-started/pingauthorize"}
+            - {name: SERVER_PROFILE_URL_REDACT, value: "true"}
+            # The serving identity is supplied rather than self-signed. The
+            # product's own setup certificate names the container hostname,
+            # which here is the pod name and not the Service the gateway
+            # addresses, and the adapter has no ServerName override.
+            - {name: KEYSTORE_FILE, value: /run/pingauthorize/tls/tls.key}
+            - {name: KEYSTORE_TYPE, value: pem}
+            - {name: TRUSTSTORE_FILE, value: /run/pingauthorize/tls/tls.crt}
+            - {name: TRUSTSTORE_TYPE, value: pem}
+            # Credentials arrive as individual keys. A missing key fails Pod
+            # creation; envFrom would let one appear silently empty.
+            - name: PING_IDENTITY_DEVOPS_USER
+              valueFrom: {secretKeyRef: {name: wai-pa11-devops, key: username}}
+            - name: PING_IDENTITY_DEVOPS_KEY
+              valueFrom: {secretKeyRef: {name: wai-pa11-devops, key: key}}
+            - name: PING_IDENTITY_PASSWORD
+              valueFrom: {secretKeyRef: {name: wai-pa11-administrator, key: password}}
+          ports:
+            - {name: decision-https, containerPort: 1443}
+          startupProbe:
+            exec: {command: ["/opt/liveness.sh"]}
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            exec: {command: ["/opt/readiness.sh"]}
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe:
+            exec: {command: ["/opt/liveness.sh"]}
+            initialDelaySeconds: 180
+            periodSeconds: 30
+            failureThreshold: 4
+          resources: {{ .Values.resources | toYaml | nindent 12 }}
+          volumeMounts:
+            - {name: out, mountPath: /opt/out}
+            - {name: writable-staging, mountPath: /opt/staging}
+            - {name: writable-profile, mountPath: /opt/in, readOnly: true}
+            - {name: policy, mountPath: /run/wai/wai-mcp-authorization.deploymentpackage, subPath: wai-mcp-authorization.deploymentpackage, readOnly: true}
+            - {name: runtime-tls, mountPath: /run/pingauthorize/tls, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: run-secrets, mountPath: /run/secrets}
+      volumes:
+        - name: profile-source
+          configMap:
+            name: wai-pingauthorize-profile
+        - {name: writable-profile, emptyDir: {sizeLimit: 1Mi}}
+        # The reviewed policy graph. Mounted read-only at exactly the path the
+        # dsconfig names, so the product cannot be pointed at another package.
+        - name: policy
+          configMap:
+            name: wai-pingauthorize-policy
+        - name: runtime-tls
+          secret:
+            secretName: wai-pa11-runtime-tls
+            defaultMode: 256
+            items:
+              - {key: tls.key, path: tls.key}
+              - {key: tls.crt, path: tls.crt}
+        - {name: writable-staging, emptyDir: {sizeLimit: 1Gi}}
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        - {name: run-secrets, emptyDir: {medium: Memory, sizeLimit: 16Mi}}
+  volumeClaimTemplates:
+    - metadata: {name: out}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ .Values.storage.storageClassName }}
+        resources: {requests: {storage: {{ .Values.storage.size }}}}

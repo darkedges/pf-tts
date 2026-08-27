@@ -1,0 +1,6 @@
+apiVersion: v2
+name: wai-pingauthorize
+description: Isolated private PingAuthorize 11.1 decision point for the WAI strict call chain
+type: application
+version: 0.1.0
+appVersion: "11.1.0"

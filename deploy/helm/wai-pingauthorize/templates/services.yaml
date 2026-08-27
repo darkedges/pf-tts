@@ -1,0 +1,15 @@
+# ClusterIP only, and only the decision port. There is no Ingress: the decision
+# point is never reachable from a browser, and the LDAP port is not published at
+# all.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wai-pingauthorize
+  namespace: {{ .Values.namespace }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wai-pingauthorize
+    app.kubernetes.io/instance: isolated-11-1
+  ports:
+    - {name: decision-https, port: 1443, targetPort: decision-https}
