@@ -54,6 +54,18 @@ workbench:
 
 # The isolated PingFederate engine that strict workloads call directly for the
 # token exchange, the authorization code exchange, and JWKS.
+# Which decision point the strict gateway consults. OPA is the default: the
+# reviewed rego is mounted beside the gateway and needs no external service.
+# "pingauthorize" sends the same tuple to the isolated decision point instead.
+authorization:
+  provider: opa
+  pingAuthorize:
+    url: https://wai-pingauthorize.wai-pingauthorize.svc.cluster.local:1443/governance-engine
+    namespace: wai-pingauthorize
+    port: 1443
+    caSecretName: wai-pa11-runtime-ca
+    caSecretKey: ca.pem
+
 pingFederateEngine:
   namespace: wai-pingfederate
   port: 9031
@@ -108,6 +120,7 @@ vault:
   refreshAfter: 5m
   paths:
     pingFederateCA: wai/pingfederate/ca
+    pingAuthorizeCA: wai/pingauthorize-11-1/runtime-ca
     tokenExchangeClient: wai/pingfederate/token-exchange-client
     workbench: wai/workbench
   workbenchDestinationSecret: wai-web-app-secrets

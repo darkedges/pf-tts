@@ -68,6 +68,14 @@ spec:
             {{- else if eq $component "gateway" }}
             - name: STRICT_MCP_SERVER_URL
               value: https://{{ $name }}-mcp:8544
+            # The decision point. Unset or "opa" keeps the gateway on the
+            # reviewed rego mounted beside it; an unrecognised value makes the
+            # gateway refuse to start rather than quietly enforce something else.
+            - {name: AUTHORIZATION_PROVIDER, value: {{ $root.Values.authorization.provider | quote }}}
+            {{- if eq $root.Values.authorization.provider "pingauthorize" }}
+            - {name: PINGAUTHORIZE_URL, value: {{ $root.Values.authorization.pingAuthorize.url | quote }}}
+            - {name: PINGAUTHORIZE_CA_FILE, value: /run/pingauthorize/ca.pem}
+            {{- end }}
             {{- else if eq $component "mcp" }}
             - name: STRICT_DEMO_API_URL
               value: https://{{ $name }}-api:8545
@@ -98,6 +106,9 @@ spec:
               mountPath: /run/wai/authorization.rego
               subPath: authorization.rego
               readOnly: true
+            {{- if eq $root.Values.authorization.provider "pingauthorize" }}
+            - {name: pingauthorize-ca, mountPath: /run/pingauthorize, readOnly: true}
+            {{- end }}
             {{- end }}
       volumes:
         {{- include "wai-strict.commonVolumes" $root | nindent 8 }}
@@ -113,6 +124,13 @@ spec:
         - name: policy
           configMap:
             name: {{ $name }}-policy
+        {{- if eq $root.Values.authorization.provider "pingauthorize" }}
+        - name: pingauthorize-ca
+          secret:
+            secretName: {{ $root.Values.authorization.pingAuthorize.caSecretName }}
+            items:
+              - {key: {{ $root.Values.authorization.pingAuthorize.caSecretKey | quote }}, path: ca.pem}
+        {{- end }}
         {{- end }}
 ---
 apiVersion: v1

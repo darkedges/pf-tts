@@ -51,6 +51,17 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.pingFederateEngine.port }}
+{{- if eq .Values.authorization.provider "pingauthorize" }}
+    # The decision point authenticates no caller of its own, so reachability is
+    # the access boundary. This rule names one namespace and one port.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.authorization.pingAuthorize.namespace }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.authorization.pingAuthorize.port }}
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
